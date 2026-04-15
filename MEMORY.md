@@ -16,7 +16,8 @@ The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPaint
 |--------|------|
 | **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. |
 | **`MainTabView.swift`** | **Tab-based UI** with 4 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `SignalDetailView` (Signal tab). |
-| **`DashboardView.swift`** | **Speed tab**: WiFiman-inspired dashboard with **network topology** visualization (ISP → Router → Device), **latency test** (10-ping burst with sparkline chart), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), and a **survey quick-action card**. |
+| **`DashboardView.swift`** | **Speed tab**: WiFiman/Speedtest-inspired dashboard with **network topology** visualization (ISP → Router → Device), **speed test** (download + upload via Cloudflare with live sparkline, ping/jitter), **latency test** (10-ping burst with sparkline chart), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), and a **survey quick-action card**. |
+| **`SpeedTestManager.swift`** | Multi-phase speed test engine: **latency** (10 HTTP pings, trimmed mean + jitter), **download** (4 concurrent 100 MB streams from `speed.cloudflare.com/__down`), **upload** (4 concurrent 25 MB POSTs to `speed.cloudflare.com/__up`). Uses `URLSession` delegate-based byte tracking (`TransferTracker`) for real-time Mbps sampling every 250 ms. Each phase runs up to 12 s. Final speed is trimmed mean of samples. |
 | **`PaywallView.swift`** | NetSpot-inspired Pro upsell screen: Canvas hero, pricing cards (**Monthly $1.99**, **Lifetime ~~$19.99~~ $9.99** with "Best Deal" badge), Buy Now CTA, Restore / Not Now links, X close. Now accepts optional `onPurchase` closure for tab-mode integration. StoreKit not yet wired. |
 | **`ARTrackingManager.swift`** | Runs `ARWorldTrackingConfiguration`, publishes **world-space camera displacement** from a session anchor, floor-projected **heading**, and tracking status/reliability. |
 | **`SignalMapViewModel.swift`** | Combines AR position → **map coordinates**, **latency** sampling, **trail** of `TrailPoint`s, **calibration stages**, **landmark re-anchor**, **map rotation** (slider + optional first landmark segment). |
@@ -116,6 +117,16 @@ The repo **`README.md`** may still describe older **pedometer-only** behavior; t
 - **Tab behavior:** "Buy Now" triggers `onPurchase` callback + sets `isPresented = false` (switches to Speed tab). "Not now" and X also switch away.
 - **StoreKit 2 integration not yet implemented** — `onPurchase` currently just sets `@AppStorage("isProUser") = true`; no real purchase flow, receipt validation, or entitlement gating yet.
 - **Restore purchase** button present but not wired to StoreKit.
+
+## Speed Test (download / upload)
+
+- **`SpeedTestManager`** drives a three-phase test: Ping → Download → Upload.
+- **Latency phase:** 10 HTTP round-trips to `speed.cloudflare.com/__down?bytes=0`; trimmed mean for ping, consecutive-difference mean for jitter.
+- **Download phase:** 4 concurrent `URLSession` data tasks fetching 100 MB each from `speed.cloudflare.com/__down?bytes=100000000`. A `TransferTracker` (`URLSessionDataDelegate`) accumulates bytes thread-safely via `NSLock`. The manager samples total bytes every ~250 ms, computes instantaneous Mbps, and publishes live `currentSpeed` + `speedSamples` for the sparkline.
+- **Upload phase:** Same pattern; 4 concurrent upload tasks POST 25 MB each to `speed.cloudflare.com/__up` (`application/octet-stream`). Byte tracking via `didSendBodyData` delegate, per-task totals summed.
+- **Duration cap:** Each phase runs up to **12 seconds** then cancels remaining tasks.
+- **Final speed:** Trimmed mean (drop top/bottom 10% of samples).
+- **UI integration in `DashboardView`:** "Speed Test" section appears between the topology card and the existing Latency Test. Three states: empty (no results yet), active (phase indicator with live Mbps gauge + sparkline + progress bar), complete (side-by-side Download/Upload tiles + Ping/Jitter badges). Start/Stop/Test Again button.
 
 ## Possible follow-ups (not done here)
 

@@ -3,6 +3,8 @@ import SwiftUI
 struct DashboardView: View {
     var onStartSurvey: (() -> Void)?
 
+    @StateObject private var speedTest = SpeedTestManager()
+
     @State private var latestLatencyMs: Double?
     @State private var latencyHistory: [Double] = []
     @State private var isTesting = false
@@ -19,6 +21,18 @@ struct DashboardView: View {
                     .padding(.top, 8)
 
                 topologyCard
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
+
+                sectionHeader("Speed Test")
+                    .padding(.top, 28)
+                    .padding(.horizontal, 20)
+
+                speedTestCard
+                    .padding(.top, 12)
+                    .padding(.horizontal, 20)
+
+                speedTestButton
                     .padding(.top, 16)
                     .padding(.horizontal, 20)
 
@@ -475,6 +489,389 @@ struct DashboardView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Speed Test Card
+
+    private var speedTestCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if speedTest.isTesting {
+                activeSpeedTestContent
+            } else if speedTest.phase == .complete {
+                completedSpeedTestContent
+            } else {
+                emptySpeedTestContent
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
+    private var emptySpeedTestContent: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "arrow.up.arrow.down.circle")
+                .font(.system(size: 36))
+                .foregroundStyle(.white.opacity(0.15))
+            Text("No speed test results yet")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white.opacity(0.35))
+            Text("Tap the button below to measure\nyour download and upload speeds")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.2))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+
+    private var activeSpeedTestContent: some View {
+        VStack(spacing: 16) {
+            HStack {
+                speedTestPhaseIcon
+                Text(speedTestPhaseLabel)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(speedTestPhaseColor)
+                Spacer()
+            }
+
+            if speedTest.phase == .latency {
+                VStack(spacing: 8) {
+                    if speedTest.pingMs > 0 {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(Int(speedTest.pingMs))")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("ms")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                    } else {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.2)
+                            .padding(.vertical, 12)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                VStack(spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(formatSpeed(speedTest.currentSpeed))
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: formatSpeed(speedTest.currentSpeed))
+                        Text("Mbps")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    if speedTest.speedSamples.count > 1 {
+                        speedSparkline
+                            .frame(height: 60)
+                    }
+                }
+            }
+
+            speedTestPhaseIndicator
+
+            ProgressView(value: speedTest.progress)
+                .tint(speedTestPhaseColor)
+        }
+    }
+
+    private var completedSpeedTestContent: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Internet \u{2192} Your iPhone")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.6))
+                Spacer()
+                if let date = speedTest.testDate {
+                    Text(formattedTime(date))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+            }
+
+            HStack(spacing: 12) {
+                speedResultTile(
+                    direction: "Download",
+                    icon: "arrow.down",
+                    speed: speedTest.downloadSpeed,
+                    color: .cyan
+                )
+                speedResultTile(
+                    direction: "Upload",
+                    icon: "arrow.up",
+                    speed: speedTest.uploadSpeed,
+                    color: Color(red: 0.25, green: 0.86, blue: 0.43)
+                )
+            }
+
+            HStack(spacing: 24) {
+                speedStatBadge(label: "Ping", value: "\(Int(speedTest.pingMs)) ms")
+                speedStatBadge(label: "Jitter", value: "\(Int(speedTest.jitterMs)) ms")
+                Spacer()
+            }
+        }
+    }
+
+    private func speedResultTile(direction: String, icon: String, speed: Double, color: Color) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(color)
+                Text(direction)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(formatSpeed(speed))
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Mbps")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(color.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(color.opacity(0.12), lineWidth: 1)
+                )
+        )
+    }
+
+    private func speedStatBadge(label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.45))
+            Text(value)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+    }
+
+    // MARK: - Speed Test Sparkline
+
+    private var speedSparkline: some View {
+        Canvas { context, size in
+            let samples = speedTest.speedSamples
+            guard samples.count > 1 else { return }
+
+            let maxVal = (samples.max() ?? 1) * 1.1
+            guard maxVal > 0 else { return }
+            let stepX = size.width / CGFloat(samples.count - 1)
+
+            var linePath = Path()
+            var fillPath = Path()
+
+            for (i, val) in samples.enumerated() {
+                let x = CGFloat(i) * stepX
+                let y = size.height - (val / maxVal) * size.height
+
+                if i == 0 {
+                    linePath.move(to: CGPoint(x: x, y: y))
+                    fillPath.move(to: CGPoint(x: 0, y: size.height))
+                    fillPath.addLine(to: CGPoint(x: x, y: y))
+                } else {
+                    let prevX = CGFloat(i - 1) * stepX
+                    let prevVal = samples[i - 1]
+                    let prevY = size.height - (prevVal / maxVal) * size.height
+                    let midX = (prevX + x) / 2
+                    linePath.addCurve(
+                        to: CGPoint(x: x, y: y),
+                        control1: CGPoint(x: midX, y: prevY),
+                        control2: CGPoint(x: midX, y: y)
+                    )
+                    fillPath.addCurve(
+                        to: CGPoint(x: x, y: y),
+                        control1: CGPoint(x: midX, y: prevY),
+                        control2: CGPoint(x: midX, y: y)
+                    )
+                }
+            }
+
+            let lastX = CGFloat(samples.count - 1) * stepX
+            fillPath.addLine(to: CGPoint(x: lastX, y: size.height))
+            fillPath.closeSubpath()
+
+            let isDownload = speedTest.phase == .download
+            let baseColor: Color = isDownload ? .cyan : Color(red: 0.25, green: 0.86, blue: 0.43)
+
+            context.fill(
+                fillPath,
+                with: .linearGradient(
+                    Gradient(colors: [
+                        baseColor.opacity(0.3),
+                        baseColor.opacity(0.08),
+                        .clear,
+                    ]),
+                    startPoint: CGPoint(x: 0, y: 0),
+                    endPoint: CGPoint(x: 0, y: size.height)
+                )
+            )
+
+            context.stroke(
+                linePath,
+                with: .linearGradient(
+                    Gradient(colors: [baseColor, baseColor.opacity(0.6)]),
+                    startPoint: CGPoint(x: 0, y: 0),
+                    endPoint: CGPoint(x: size.width, y: 0)
+                ),
+                lineWidth: 2.5
+            )
+
+            if let lastVal = samples.last {
+                let lastY = size.height - (lastVal / maxVal) * size.height
+                let center = CGPoint(x: lastX, y: lastY)
+                let outer = Path(ellipseIn: CGRect(x: center.x - 5, y: center.y - 5, width: 10, height: 10))
+                let inner = Path(ellipseIn: CGRect(x: center.x - 3, y: center.y - 3, width: 6, height: 6))
+                context.fill(outer, with: .color(baseColor.opacity(0.4)))
+                context.fill(inner, with: .color(.white))
+            }
+        }
+    }
+
+    // MARK: - Speed Test Phase UI
+
+    private var speedTestPhaseIndicator: some View {
+        HStack(spacing: 20) {
+            speedTestPhaseStep(
+                "Ping",
+                isActive: speedTest.phase == .latency,
+                isDone: speedTest.phase == .download || speedTest.phase == .upload || speedTest.phase == .complete
+            )
+            speedTestPhaseStep(
+                "Download",
+                isActive: speedTest.phase == .download,
+                isDone: speedTest.phase == .upload || speedTest.phase == .complete
+            )
+            speedTestPhaseStep(
+                "Upload",
+                isActive: speedTest.phase == .upload,
+                isDone: speedTest.phase == .complete
+            )
+        }
+    }
+
+    private func speedTestPhaseStep(_ label: String, isActive: Bool, isDone: Bool) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isActive ? speedTestPhaseColor : isDone ? Color(red: 0.25, green: 0.86, blue: 0.43) : .white.opacity(0.2))
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                .foregroundStyle(isActive ? .white : .white.opacity(0.4))
+        }
+    }
+
+    @ViewBuilder
+    private var speedTestPhaseIcon: some View {
+        switch speedTest.phase {
+        case .latency:
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: 14))
+                .foregroundStyle(speedTestPhaseColor)
+        case .download:
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(speedTestPhaseColor)
+        case .upload:
+            Image(systemName: "arrow.up.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(speedTestPhaseColor)
+        default:
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(speedTestPhaseColor)
+        }
+    }
+
+    private var speedTestPhaseLabel: String {
+        switch speedTest.phase {
+        case .idle: return ""
+        case .latency: return "Measuring Ping..."
+        case .download: return "Downloading..."
+        case .upload: return "Uploading..."
+        case .complete: return "Complete"
+        }
+    }
+
+    private var speedTestPhaseColor: Color {
+        switch speedTest.phase {
+        case .latency: return .yellow
+        case .download: return .cyan
+        case .upload: return Color(red: 0.25, green: 0.86, blue: 0.43)
+        case .complete: return Color(red: 0.25, green: 0.86, blue: 0.43)
+        default: return .blue
+        }
+    }
+
+    // MARK: - Speed Test Button
+
+    private var speedTestButton: some View {
+        Button {
+            if speedTest.isTesting {
+                speedTest.cancelTest()
+            } else {
+                speedTest.startTest()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if speedTest.isTesting {
+                    Image(systemName: "stop.fill")
+                    Text("Stop Test")
+                } else if speedTest.phase == .complete {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Test Again")
+                } else {
+                    Image(systemName: "bolt.fill")
+                    Text("Start Speed Test")
+                }
+            }
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: speedTest.isTesting
+                                ? [.red.opacity(0.7), .red.opacity(0.5)]
+                                : [.blue, .blue.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            )
+        }
+    }
+
+    // MARK: - Speed Formatting
+
+    private func formatSpeed(_ mbps: Double) -> String {
+        if mbps >= 100 { return "\(Int(mbps))" }
+        if mbps >= 10 { return String(format: "%.1f", mbps) }
+        if mbps > 0 { return String(format: "%.2f", mbps) }
+        return "0"
     }
 
     // MARK: - Helpers
