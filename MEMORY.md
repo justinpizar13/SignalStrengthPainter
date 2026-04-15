@@ -6,10 +6,16 @@ This document summarizes what was built and changed across the conversation so y
 
 An iOS SwiftUI app that feels closer to tools like **NetSpot**: walk a space, see a **person/marker** on a **floor plan**, and **paint signal quality** (here: **TCP connect latency** to `8.8.8.8:53`) onto the map as a **heatmap-style** overlay plus a **breadcrumb path**.
 
+## Branding
+
+The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPainter`). The premium tier is **Wifi Buddy Pro**.
+
 ## Current architecture (high level)
 
 | Layer | Role |
 |--------|------|
+| **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`PaywallView`** as a `fullScreenCover` on launch; dismissing reveals `ContentView`. |
+| **`PaywallView.swift`** | NetSpot-inspired Pro upsell screen: Canvas hero (mini floor plan + heatmap blobs + signal nodes), "Unlock Wifi Buddy **Pro**" title, Wi-Fi icon, pricing cards (**Monthly $1.99**, **Lifetime ~~$19.99~~ $9.99** with "Best Deal" badge), Buy Now CTA, Restore / Not Now links, X close button. StoreKit not yet wired — buttons dismiss the paywall for now. |
 | **`ARTrackingManager.swift`** | Runs `ARWorldTrackingConfiguration`, publishes **world-space camera displacement** from a session anchor, floor-projected **heading**, and tracking status/reliability. |
 | **`SignalMapViewModel.swift`** | Combines AR position → **map coordinates**, **latency** sampling, **trail** of `TrailPoint`s, **calibration stages**, **landmark re-anchor**, **map rotation** (slider + optional first landmark segment). |
 | **`SignalCanvasView.swift`** | Draws placeholder floor plan, heat blobs, blue path, surveyor symbol; optional **content scale**; map taps in map space. |
@@ -92,8 +98,17 @@ Tunable: `mapContentScale` in `SignalMapViewModel`.
 
 The repo **`README.md`** may still describe older **pedometer-only** behavior; the **running app** matches this **MEMORY** / current code, not necessarily the README line-for-line.
 
+## Paywall / monetization
+
+- **`PaywallView`** is presented via `.fullScreenCover(isPresented: $showPaywall)` in `SignalStrengthPainterApp`.
+- **Pricing:** Monthly **$1.99**, Lifetime **$9.99** (shown with ~~$19.99~~ strikethrough + red "Best Deal" badge).
+- **Dismissal:** "Buy Now", "Not now", and X close button all set `showPaywall = false`.
+- **StoreKit 2 integration not yet implemented** — buttons only dismiss; no real purchase flow, receipt validation, or entitlement gating yet.
+- **Restore purchase** button present but not wired to StoreKit.
+
 ## Possible follow-ups (not done here)
 
+- **Wire StoreKit 2** to PaywallView: product loading, purchase flow, receipt validation, entitlement gating of Pro features.
 - Replace placeholder floor plan with **user-provided image** + proper **scale/rotation** calibration.
 - **Pan/zoom** or **follow camera** so the user never leaves the visible region without relying only on global scale.
 - **README refresh** to match AR + survey flow.
