@@ -1,0 +1,79 @@
+{
+  "" : {
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainter-primary.dia",
+    "emit-module-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainter-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainter-primary-emit-module.dia",
+    "pch" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainter-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainter-primary.swiftdeps"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/ARTrackingManager.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ARTrackingManager~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/ContentView.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/LatencyProbe.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/LatencyProbe~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/SignalCanvasView.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalCanvasView~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/SignalMapViewModel.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalMapViewModel~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/SignalStrengthPainterApp.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalStrengthPainterApp~partial.swiftmodule"
+  },
+  "/Users/justin.dev/SignalStrengthPainter/SignalStrengthPainter/SignalTrailModels.swift" : {
+    "const-values" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.swiftconstvalues",
+    "dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.d",
+    "diagnostics" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.dia",
+    "index-unit-output-path" : "/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.o",
+    "llvm-bc" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.bc",
+    "object" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.o",
+    "swift-dependencies" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels.swiftdeps",
+    "swiftmodule" : "/Users/justin.dev/SignalStrengthPainter/.derivedData/Build/Intermediates.noindex/SignalStrengthPainter.build/Debug-iphoneos/SignalStrengthPainter.build/Objects-normal/arm64/SignalTrailModels~partial.swiftmodule"
+  }
+}
