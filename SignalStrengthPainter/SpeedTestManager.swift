@@ -153,6 +153,96 @@ final class SpeedTestManager: ObservableObject {
             }
         }
 
+        let samples = await sampleTransferPhase(
+            counter: counter,
+            phaseStart: phaseStart,
+            progressBase: 1.0 / 3.0,
+            progressSpan: 1.0 / 3.0
+        )
+
+        streams.cancel()
+        session.invalidateAndCancel()
+
+        let totalTime = CFAbsoluteTimeGetCurrent() - phaseStart
+        if totalTime > 0 && counter.total > 0 {
+            downloadSpeed = Double(counter.total) * 8.0 / (totalTime * 1_000_000.0)
+        } else if !samples.isEmpty {
+            downloadSpeed = samples.reduce(0, +) / Double(samples.count)
+        }
+    }
+
+    // MARK: - Upload Phase
+
+    private func runUploadPhase() async {
+        phase = .upload
+        speedSamples = []
+        currentSpeed = 0
+
+        let counter = TransferCounter()
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForResource = 15
+        config.httpMaximumConnectionsPerHost = 16
+        let session = URLSession(configuration: config)
+
+        let chunkSize = 4_000_000
+        let payload = Data(count: chunkSize)
+        let phaseStart = CFAbsoluteTimeGetCurrent()
+        let duration = phaseDuration
+
+        let streams = Task.detached {
+            await withTaskGroup(of: Void.self) { group in
+                for _ in 0..<8 {
+                    group.addTask {
+                        while !Task.isCancelled {
+                            if CFAbsoluteTimeGetCurrent() - phaseStart >= duration { break }
+
+                            guard let url = URL(string: "https://speed.cloudflare.com/__up") else { break }
+                            var req = URLRequest(url: url)
+                            req.httpMethod = "POST"
+                            req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+                            req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+
+                            do {
+                                let (_, response) = try await session.upload(for: req, from: payload)
+                                if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                                    counter.add(Int64(chunkSize))
+                                }
+                            } catch {
+                                if Task.isCancelled { break }
+                                try? await Task.sleep(nanoseconds: 200_000_000)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let samples = await sampleTransferPhase(
+            counter: counter,
+            phaseStart: phaseStart,
+            progressBase: 2.0 / 3.0,
+            progressSpan: 1.0 / 3.0
+        )
+
+        streams.cancel()
+        session.invalidateAndCancel()
+
+        let totalTime = CFAbsoluteTimeGetCurrent() - phaseStart
+        if totalTime > 0 && counter.total > 0 {
+            uploadSpeed = Double(counter.total) * 8.0 / (totalTime * 1_000_000.0)
+        } else if !samples.isEmpty {
+            uploadSpeed = samples.reduce(0, +) / Double(samples.count)
+        }
+    }
+
+    // MARK: - Shared Sampling Loop
+
+    private func sampleTransferPhase(
+        counter: TransferCounter,
+        phaseStart: CFAbsoluteTime,
+        progressBase: Double,
+        progressSpan: Double
+    ) async -> [Double] {
         var lastSampleTime = phaseStart
         var lastSampleBytes: Int64 = 0
         var samples: [Double] = []
@@ -166,98 +256,26 @@ final class SpeedTestManager: ObservableObject {
             let sampleBytes = totalBytes - lastSampleBytes
 
             if elapsed > 1.0 && sampleDuration > 0.05 {
-                let mbps = Double(sampleBytes) * 8.0 / (sampleDuration * 1_000_000.0)
-                samples.append(mbps)
+                let instantMbps = Double(sampleBytes) * 8.0 / (sampleDuration * 1_000_000.0)
+                samples.append(instantMbps)
                 speedSamples = samples
-                currentSpeed = mbps
+
+                let window = samples.suffix(4)
+                currentSpeed = window.reduce(0, +) / Double(window.count)
             }
 
             lastSampleTime = now
             lastSampleBytes = totalBytes
-            progress = 1.0 / 3.0 + min(elapsed / phaseDuration, 1.0) / 3.0
+            progress = progressBase + min(elapsed / phaseDuration, 1.0) * progressSpan
 
             if elapsed >= phaseDuration { break }
         }
 
-        streams.cancel()
-        session.invalidateAndCancel()
-        downloadSpeed = trimmedMean(samples)
-    }
-
-    // MARK: - Upload Phase
-
-    private func runUploadPhase() async {
-        phase = .upload
-        speedSamples = []
-        currentSpeed = 0
-
-        let tracker = UploadTracker()
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForResource = phaseDuration + 5
-        config.httpMaximumConnectionsPerHost = 8
-        let session = URLSession(configuration: config, delegate: tracker, delegateQueue: nil)
-
-        let chunkSize = 25_000_000
-        let payload = Data(count: chunkSize)
-
-        for _ in 0..<4 {
-            guard let url = URL(string: "https://speed.cloudflare.com/__up") else { continue }
-            var req = URLRequest(url: url)
-            req.httpMethod = "POST"
-            req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-            req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-            session.uploadTask(with: req, from: payload).resume()
-        }
-
-        let phaseStart = CFAbsoluteTimeGetCurrent()
-        var lastSampleTime = phaseStart
-        var lastSampleBytes: Int64 = 0
-        var samples: [Double] = []
-
-        while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: sampleIntervalNs)
-            let now = CFAbsoluteTimeGetCurrent()
-            let elapsed = now - phaseStart
-            let totalBytes = tracker.totalBytesSent
-            let sampleDuration = now - lastSampleTime
-            let sampleBytes = totalBytes - lastSampleBytes
-
-            if elapsed > 0.75 && sampleDuration > 0.05 {
-                let mbps = Double(sampleBytes) * 8.0 / (sampleDuration * 1_000_000.0)
-                samples.append(mbps)
-                speedSamples = samples
-                currentSpeed = mbps
-            }
-
-            lastSampleTime = now
-            lastSampleBytes = totalBytes
-            progress = 2.0 / 3.0 + min(elapsed / phaseDuration, 1.0) / 3.0
-
-            let allDone = tracker.completedCount >= 4
-            if elapsed >= phaseDuration || (allDone && elapsed > 2.0) { break }
-        }
-
-        session.invalidateAndCancel()
-        uploadSpeed = trimmedMean(samples)
-    }
-
-    // MARK: - Helpers
-
-    private func trimmedMean(_ values: [Double]) -> Double {
-        guard !values.isEmpty else { return 0 }
-        let sorted = values.sorted()
-        let dropCount = max(sorted.count / 10, 0)
-        let trimmed = sorted.count > 2
-            ? Array(sorted.dropFirst(dropCount).dropLast(dropCount))
-            : sorted
-        guard !trimmed.isEmpty else {
-            return sorted.reduce(0, +) / Double(sorted.count)
-        }
-        return trimmed.reduce(0, +) / Double(trimmed.count)
+        return samples
     }
 }
 
-// MARK: - TransferCounter (thread-safe byte counter for download streams)
+// MARK: - TransferCounter (thread-safe byte counter)
 
 final class TransferCounter: @unchecked Sendable {
     private let lock = NSLock()
@@ -272,44 +290,6 @@ final class TransferCounter: @unchecked Sendable {
     func add(_ bytes: Int64) {
         lock.lock()
         _total += bytes
-        lock.unlock()
-    }
-}
-
-// MARK: - UploadTracker (URLSession delegate for upload byte tracking)
-
-final class UploadTracker: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _taskBytesSent: [Int: Int64] = [:]
-    private var _completed: Int = 0
-
-    var totalBytesSent: Int64 {
-        lock.lock()
-        defer { lock.unlock() }
-        return _taskBytesSent.values.reduce(0, +)
-    }
-
-    var completedCount: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return _completed
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        didSendBodyData bytesSent: Int64,
-        totalBytesSent: Int64,
-        totalBytesExpectedToSend: Int64
-    ) {
-        lock.lock()
-        _taskBytesSent[task.taskIdentifier] = totalBytesSent
-        lock.unlock()
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        lock.lock()
-        _completed += 1
         lock.unlock()
     }
 }
