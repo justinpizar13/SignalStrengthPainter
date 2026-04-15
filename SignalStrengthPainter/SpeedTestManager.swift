@@ -119,12 +119,13 @@ final class SpeedTestManager: ObservableObject {
         config.httpMaximumConnectionsPerHost = 8
         let session = URLSession(configuration: config, delegate: tracker, delegateQueue: nil)
 
-        let perConnection = 100_000_000
-        for _ in 0..<4 {
-            guard let url = URL(string: "https://speed.cloudflare.com/__down?bytes=\(perConnection)") else { continue }
+        let perConnection = 25_000_000
+        for i in 0..<4 {
+            guard let url = URL(string: "https://speed.cloudflare.com/__down?bytes=\(perConnection)&cachebust=\(i)-\(Int.random(in: 0...999999))") else { continue }
             var req = URLRequest(url: url)
             req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-            session.dataTask(with: req).resume()
+            req.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+            session.downloadTask(with: req).resume()
         }
 
         let phaseStart = CFAbsoluteTimeGetCurrent()
@@ -136,7 +137,7 @@ final class SpeedTestManager: ObservableObject {
             try? await Task.sleep(nanoseconds: sampleIntervalNs)
             let now = CFAbsoluteTimeGetCurrent()
             let elapsed = now - phaseStart
-            let totalBytes = tracker.totalBytesReceived
+            let totalBytes = tracker.totalBytesDownloaded
             let sampleDuration = now - lastSampleTime
             let sampleBytes = totalBytes - lastSampleBytes
 
@@ -151,7 +152,8 @@ final class SpeedTestManager: ObservableObject {
             lastSampleBytes = totalBytes
             progress = 1.0 / 3.0 + min(elapsed / phaseDuration, 1.0) / 3.0
 
-            if elapsed >= phaseDuration || tracker.completedCount >= 4 { break }
+            let allDone = tracker.completedCount >= 4
+            if elapsed >= phaseDuration || (allDone && elapsed > 1.5) { break }
         }
 
         session.invalidateAndCancel()
@@ -232,16 +234,16 @@ final class SpeedTestManager: ObservableObject {
 
 // MARK: - Transfer Tracker (URLSession Delegate)
 
-final class TransferTracker: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+final class TransferTracker: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, @unchecked Sendable {
     private let lock = NSLock()
-    private var _bytesReceived: Int64 = 0
+    private var _bytesDownloaded: Int64 = 0
     private var _taskBytesSent: [Int: Int64] = [:]
     private var _completed: Int = 0
 
-    var totalBytesReceived: Int64 {
+    var totalBytesDownloaded: Int64 {
         lock.lock()
         defer { lock.unlock() }
-        return _bytesReceived
+        return _bytesDownloaded
     }
 
     var totalBytesSent: Int64 {
@@ -256,11 +258,25 @@ final class TransferTracker: NSObject, URLSessionDataDelegate, URLSessionTaskDel
         return _completed
     }
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    // MARK: Download tracking (URLSessionDownloadDelegate)
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
         lock.lock()
-        _bytesReceived += Int64(data.count)
+        _bytesDownloaded += bytesWritten
         lock.unlock()
     }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        try? FileManager.default.removeItem(at: location)
+    }
+
+    // MARK: Upload tracking (URLSessionTaskDelegate)
 
     func urlSession(
         _ session: URLSession,
