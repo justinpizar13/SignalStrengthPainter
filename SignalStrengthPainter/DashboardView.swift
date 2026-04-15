@@ -5,11 +5,6 @@ struct DashboardView: View {
 
     @StateObject private var speedTest = SpeedTestManager()
 
-    @State private var latestLatencyMs: Double?
-    @State private var latencyHistory: [Double] = []
-    @State private var isTesting = false
-    @State private var testDate: Date?
-    @State private var pingCount = 0
     @State private var serviceLatencies: [String: Double] = [:]
 
     private let probe = LatencyProbe()
@@ -36,17 +31,11 @@ struct DashboardView: View {
                     .padding(.top, 16)
                     .padding(.horizontal, 20)
 
-                sectionHeader("Latency Test", trailing: latencyHistory.isEmpty ? nil : "All Results")
-                    .padding(.top, 28)
-                    .padding(.horizontal, 20)
-
-                latencyResultCard
-                    .padding(.top, 12)
-                    .padding(.horizontal, 20)
-
-                testButton
-                    .padding(.top, 16)
-                    .padding(.horizontal, 20)
+                if speedTest.phase == .complete {
+                    speedReport
+                        .padding(.top, 20)
+                        .padding(.horizontal, 20)
+                }
 
                 sectionHeader("Network Latency")
                     .padding(.top, 28)
@@ -63,6 +52,11 @@ struct DashboardView: View {
             }
         }
         .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .onChange(of: speedTest.phase) { newPhase in
+            if newPhase == .complete {
+                testServiceLatencies()
+            }
+        }
     }
 
     // MARK: - WiFi Header
@@ -199,202 +193,168 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Latency Result Card
+    // MARK: - Speed Report
 
-    private var latencyResultCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let latestLatencyMs {
-                HStack {
-                    Text("Internet \u{2192} Your iPhone")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.6))
-                    Spacer()
-                    if let testDate {
-                        Text(formattedTime(testDate))
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(Int(latestLatencyMs))")
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                        Text("ms")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-
-                    Text(qualityLabel)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(qualityColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule().fill(qualityColor.opacity(0.15))
-                        )
-
-                    Spacer()
-                }
-
-                if latencyHistory.count > 1 {
-                    sparklineChart
-                        .frame(height: 56)
-                        .padding(.top, 4)
-                }
-            } else {
-                emptyLatencyState
+    private var speedReport: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.doc.horizontal")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(overallGradeColor)
+                Text("Your Wi-Fi Report")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Text(overallGradeLabel)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(overallGradeColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(overallGradeColor.opacity(0.15)))
             }
+
+            Text(overallSummary)
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.6))
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 8) {
+                ForEach(activityRatings, id: \.name) { activity in
+                    reportActivityRow(activity)
+                }
+            }
+            .padding(.top, 2)
         }
-        .padding(18)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.white.opacity(0.04))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(overallGradeColor.opacity(0.2), lineWidth: 1)
                 )
         )
     }
 
-    private var emptyLatencyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "network")
-                .font(.system(size: 36))
-                .foregroundStyle(.white.opacity(0.15))
-            Text("No test results yet")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white.opacity(0.35))
-            Text("Tap the button below to measure\nyour network latency")
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.2))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-    }
-
-    // MARK: - Sparkline
-
-    private var sparklineChart: some View {
-        Canvas { context, size in
-            guard latencyHistory.count > 1 else { return }
-
-            let minVal = max(0, (latencyHistory.min() ?? 0) - 5)
-            let maxVal = (latencyHistory.max() ?? 100) + 5
-            let range = max(maxVal - minVal, 1)
-            let stepX = size.width / CGFloat(latencyHistory.count - 1)
-
-            var linePath = Path()
-            var fillPath = Path()
-
-            for (index, value) in latencyHistory.enumerated() {
-                let x = CGFloat(index) * stepX
-                let normalized = (value - minVal) / range
-                let y = size.height - CGFloat(normalized) * size.height
-
-                if index == 0 {
-                    linePath.move(to: CGPoint(x: x, y: y))
-                    fillPath.move(to: CGPoint(x: 0, y: size.height))
-                    fillPath.addLine(to: CGPoint(x: x, y: y))
-                } else {
-                    let prevX = CGFloat(index - 1) * stepX
-                    let midX = (prevX + x) / 2
-                    let prevVal = latencyHistory[index - 1]
-                    let prevNorm = (prevVal - minVal) / range
-                    let prevY = size.height - CGFloat(prevNorm) * size.height
-                    linePath.addCurve(
-                        to: CGPoint(x: x, y: y),
-                        control1: CGPoint(x: midX, y: prevY),
-                        control2: CGPoint(x: midX, y: y)
-                    )
-                    fillPath.addCurve(
-                        to: CGPoint(x: x, y: y),
-                        control1: CGPoint(x: midX, y: prevY),
-                        control2: CGPoint(x: midX, y: y)
-                    )
-                }
+    private func reportActivityRow(_ activity: ActivityRating) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(activity.color.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: activity.icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(activity.color)
             }
 
-            let lastX = CGFloat(latencyHistory.count - 1) * stepX
-            fillPath.addLine(to: CGPoint(x: lastX, y: size.height))
-            fillPath.closeSubpath()
-
-            context.fill(
-                fillPath,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color.cyan.opacity(0.25),
-                        Color.blue.opacity(0.08),
-                        Color.clear,
-                    ]),
-                    startPoint: CGPoint(x: 0, y: 0),
-                    endPoint: CGPoint(x: 0, y: size.height)
-                )
-            )
-
-            context.stroke(
-                linePath,
-                with: .linearGradient(
-                    Gradient(colors: [.cyan, .blue]),
-                    startPoint: CGPoint(x: 0, y: 0),
-                    endPoint: CGPoint(x: size.width, y: 0)
-                ),
-                lineWidth: 2.5
-            )
-
-            if let lastValue = latencyHistory.last {
-                let lastNorm = (lastValue - minVal) / range
-                let lastY = size.height - CGFloat(lastNorm) * size.height
-                let dotCenter = CGPoint(x: lastX, y: lastY)
-                let outerDot = Path(ellipseIn: CGRect(
-                    x: dotCenter.x - 5, y: dotCenter.y - 5, width: 10, height: 10
-                ))
-                let innerDot = Path(ellipseIn: CGRect(
-                    x: dotCenter.x - 3, y: dotCenter.y - 3, width: 6, height: 6
-                ))
-                context.fill(outerDot, with: .color(.blue.opacity(0.4)))
-                context.fill(innerDot, with: .color(.white))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(activity.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(activity.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
             }
+
+            Spacer()
+
+            Text(activity.verdict)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(activity.color)
         }
     }
 
-    // MARK: - Test Button
+    // MARK: - Report Data Model
 
-    private var testButton: some View {
-        Button {
-            startLatencyTest()
-        } label: {
-            HStack(spacing: 8) {
-                if isTesting {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(0.85)
-                    Text("Testing... \(pingCount)/10")
-                } else {
-                    Image(systemName: "bolt.fill")
-                    Text("Start Latency Test")
-                }
-            }
-            .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: isTesting
-                                ? [Color.blue.opacity(0.5), Color.blue.opacity(0.4)]
-                                : [Color.blue, Color.blue.opacity(0.85)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            )
+    private struct ActivityRating: Identifiable {
+        var id: String { name }
+        let name: String
+        let icon: String
+        let detail: String
+        let verdict: String
+        let color: Color
+    }
+
+    private var overallGradeLabel: String {
+        let dl = speedTest.downloadSpeed
+        if dl >= 100 { return "Excellent" }
+        if dl >= 50 { return "Great" }
+        if dl >= 25 { return "Good" }
+        if dl >= 10 { return "Fair" }
+        return "Poor"
+    }
+
+    private var overallGradeColor: Color {
+        let dl = speedTest.downloadSpeed
+        if dl >= 100 { return Color(red: 0.25, green: 0.86, blue: 0.43) }
+        if dl >= 50 { return Color(red: 0.25, green: 0.86, blue: 0.43) }
+        if dl >= 25 { return .cyan }
+        if dl >= 10 { return Color(red: 0.98, green: 0.78, blue: 0.28) }
+        return Color(red: 0.98, green: 0.39, blue: 0.34)
+    }
+
+    private var overallSummary: String {
+        let dl = speedTest.downloadSpeed
+        let ul = speedTest.uploadSpeed
+        let ping = speedTest.pingMs
+
+        if dl >= 100 && ping < 30 {
+            return "Your connection is blazing fast. You can do virtually anything — stream 4K on multiple devices, game competitively, and run video calls without a hiccup."
+        } else if dl >= 50 {
+            return "Solid speeds for most households. 4K streaming, online gaming, and working from home should all run smoothly."
+        } else if dl >= 25 {
+            return "Decent for everyday use. HD streaming and video calls will work fine, but 4K on multiple devices may buffer."
+        } else if dl >= 10 {
+            return "Enough for basics like browsing, email, and SD streaming, but you may notice slowdowns with video calls or larger downloads."
+        } else if dl >= 3 {
+            return "Your connection is on the slower side. Web browsing works, but streaming and video calls may struggle."
+        } else {
+            return "Very slow connection. You may have trouble with basic tasks. Consider restarting your router or moving closer to it."
         }
-        .disabled(isTesting)
+    }
+
+    private var activityRatings: [ActivityRating] {
+        let dl = speedTest.downloadSpeed
+        let ul = speedTest.uploadSpeed
+        let ping = speedTest.pingMs
+
+        return [
+            ActivityRating(
+                name: "Netflix / Streaming",
+                icon: "play.tv",
+                detail: dl >= 25 ? "4K Ultra HD ready" : dl >= 5 ? "HD streaming OK" : "May buffer often",
+                verdict: dl >= 25 ? "Great" : dl >= 5 ? "OK" : "Poor",
+                color: dl >= 25 ? Color(red: 0.25, green: 0.86, blue: 0.43) : dl >= 5 ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color(red: 0.98, green: 0.39, blue: 0.34)
+            ),
+            ActivityRating(
+                name: "Online Gaming",
+                icon: "gamecontroller.fill",
+                detail: ping < 30 ? "Low latency, competitive ready" : ping < 80 ? "Playable, some lag possible" : "High lag, expect delays",
+                verdict: ping < 30 ? "Great" : ping < 80 ? "OK" : "Poor",
+                color: ping < 30 ? Color(red: 0.25, green: 0.86, blue: 0.43) : ping < 80 ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color(red: 0.98, green: 0.39, blue: 0.34)
+            ),
+            ActivityRating(
+                name: "Video Calls (Zoom/Teams)",
+                icon: "video.fill",
+                detail: dl >= 10 && ul >= 3 ? "HD calls, no issues" : dl >= 3 && ul >= 1.5 ? "Standard quality" : "Choppy or drops likely",
+                verdict: dl >= 10 && ul >= 3 ? "Great" : dl >= 3 && ul >= 1.5 ? "OK" : "Poor",
+                color: dl >= 10 && ul >= 3 ? Color(red: 0.25, green: 0.86, blue: 0.43) : dl >= 3 && ul >= 1.5 ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color(red: 0.98, green: 0.39, blue: 0.34)
+            ),
+            ActivityRating(
+                name: "Home Office",
+                icon: "laptopcomputer",
+                detail: dl >= 25 && ul >= 5 ? "Cloud apps & big files, no sweat" : dl >= 10 ? "Fine for email & docs" : "Slow uploads and syncs",
+                verdict: dl >= 25 && ul >= 5 ? "Great" : dl >= 10 ? "OK" : "Poor",
+                color: dl >= 25 && ul >= 5 ? Color(red: 0.25, green: 0.86, blue: 0.43) : dl >= 10 ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color(red: 0.98, green: 0.39, blue: 0.34)
+            ),
+            ActivityRating(
+                name: "Social Media & Browsing",
+                icon: "safari",
+                detail: dl >= 5 ? "Fast page loads & smooth scrolling" : dl >= 1 ? "Usable but images load slowly" : "Frustratingly slow",
+                verdict: dl >= 5 ? "Great" : dl >= 1 ? "OK" : "Poor",
+                color: dl >= 5 ? Color(red: 0.25, green: 0.86, blue: 0.43) : dl >= 1 ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color(red: 0.98, green: 0.39, blue: 0.34)
+            ),
+        ]
     }
 
     // MARK: - Service Latency Grid
@@ -876,20 +836,6 @@ struct DashboardView: View {
 
     // MARK: - Helpers
 
-    private var qualityLabel: String {
-        guard let ms = latestLatencyMs else { return "Unknown" }
-        if ms < 50 { return "Excellent" }
-        if ms <= 150 { return "Good" }
-        return "Poor"
-    }
-
-    private var qualityColor: Color {
-        guard let ms = latestLatencyMs else { return .gray }
-        if ms < 50 { return Color(red: 0.25, green: 0.86, blue: 0.43) }
-        if ms <= 150 { return Color(red: 0.98, green: 0.78, blue: 0.28) }
-        return Color(red: 0.98, green: 0.39, blue: 0.34)
-    }
-
     private func formattedTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "M/d/yy, h:mm a"
@@ -897,38 +843,6 @@ struct DashboardView: View {
     }
 
     // MARK: - Test Logic
-
-    private func startLatencyTest() {
-        guard !isTesting else { return }
-        isTesting = true
-        pingCount = 0
-        latencyHistory = []
-        testDate = Date()
-        serviceLatencies = [:]
-        runNextPing()
-    }
-
-    private func runNextPing() {
-        guard pingCount < 10 else {
-            isTesting = false
-            if !latencyHistory.isEmpty {
-                latestLatencyMs = latencyHistory.reduce(0, +) / Double(latencyHistory.count)
-            }
-            testServiceLatencies()
-            return
-        }
-
-        probe.measureLatency { value in
-            pingCount += 1
-            if let value {
-                latencyHistory.append(value)
-                latestLatencyMs = value
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                runNextPing()
-            }
-        }
-    }
 
     private func testServiceLatencies() {
         let targets: [(String, UInt16)] = [

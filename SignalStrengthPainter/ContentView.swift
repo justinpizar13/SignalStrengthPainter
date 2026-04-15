@@ -12,56 +12,90 @@ struct ContentView: View {
                 calibrationLayout
             }
         }
-        .background(Color(red: 0.08, green: 0.08, blue: 0.09).ignoresSafeArea())
+        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
         .foregroundStyle(.white)
         .onDisappear {
             viewModel.stopTracking()
         }
     }
 
+    // MARK: - Calibration Layout
+
     private var calibrationLayout: some View {
-        VStack(spacing: 18) {
-            header
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                header
+                    .padding(.top, 8)
+                    .padding(.horizontal, 20)
 
-            mapCanvas(contentScale: viewModel.mapContentScale)
-                .frame(maxHeight: .infinity)
+                mapCanvas(contentScale: viewModel.mapContentScale)
+                    .frame(height: 320)
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
 
-            instructionCard
-            scaleLegend
+                instructionCard
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
 
-            controlButtons
-            if viewModel.showsRotationControl {
-                rotationCalibration
+                scaleLegend
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
+
+                controlButtons
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+
+                if viewModel.showsRotationControl {
+                    rotationCalibration
+                        .padding(.top, 16)
+                        .padding(.horizontal, 20)
+                }
+
+                footer
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 32)
             }
-            footer
         }
-        .padding()
     }
 
-    /// Map uses most of the screen; controls stay in a thin strip at the bottom.
+    // MARK: - Expanded Survey Layout
+
     private var expandedSurveyLayout: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             compactSurveyHeader
+                .padding(.top, 8)
+                .padding(.horizontal, 16)
 
             mapCanvas(contentScale: viewModel.mapContentScale)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
+                .padding(.top, 10)
+                .padding(.horizontal, 12)
 
             compactInstructionStrip
+                .padding(.top, 10)
+                .padding(.horizontal, 16)
 
             compactScaleLegend
+                .padding(.top, 8)
+                .padding(.horizontal, 16)
 
             controlButtons
+                .padding(.top, 12)
+                .padding(.horizontal, 16)
 
             if viewModel.showsRotationControl {
                 rotationCalibration
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
             }
 
             compactFooter
+                .padding(.top, 10)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
     }
 
     private func mapCanvas(contentScale: CGFloat) -> some View {
@@ -79,33 +113,279 @@ struct ContentView: View {
         )
     }
 
-    private var controlButtons: some View {
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "map.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.blue)
+                Text("Walk The Space")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            Text("Use AR anchoring to track movement on the floor plan, then paint signal quality directly onto the map.")
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
+
+            trackingStatusBadge
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var compactSurveyHeader: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "map.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.blue)
+            Text("Walk The Space")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+
+            Spacer(minLength: 0)
+
+            trackingStatusPill
+        }
+    }
+
+    private var trackingStatusBadge: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(viewModel.trackingIsReliable ? Color(red: 0.25, green: 0.86, blue: 0.43) : Color(red: 0.98, green: 0.78, blue: 0.28))
+                .frame(width: 8, height: 8)
+            Text(viewModel.trackingStatus)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule().fill(Color.white.opacity(0.06))
+        )
+    }
+
+    private var trackingStatusPill: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(viewModel.trackingIsReliable ? Color(red: 0.25, green: 0.86, blue: 0.43) : Color(red: 0.98, green: 0.78, blue: 0.28))
+                .frame(width: 6, height: 6)
+            Text(viewModel.trackingStatus)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.white.opacity(0.06)))
+    }
+
+    // MARK: - Instruction Card
+
+    private var instructionCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(viewModel.instructionTitle)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Text(viewModel.instructionDetail)
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.5))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
+    private var compactInstructionStrip: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(viewModel.instructionTitle)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(viewModel.instructionDetail)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.45))
+                .lineLimit(3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Scale Legend
+
+    private var scaleLegend: some View {
+        VStack(spacing: 8) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.39, blue: 0.34),
+                    Color(red: 0.98, green: 0.78, blue: 0.28),
+                    Color(red: 0.25, green: 0.86, blue: 0.43),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 8)
+            .clipShape(Capsule())
+
+            HStack {
+                Text("Weaker / higher latency")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+                Spacer()
+                Text("Stronger / lower latency")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+        )
+    }
+
+    private var compactScaleLegend: some View {
         HStack(spacing: 10) {
-            Button(viewModel.primaryActionTitle) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.39, blue: 0.34),
+                    Color(red: 0.98, green: 0.78, blue: 0.28),
+                    Color(red: 0.25, green: 0.86, blue: 0.43),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 6)
+            .clipShape(Capsule())
+
+            Text("Weak → Strong")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.4))
+                .fixedSize()
+        }
+    }
+
+    // MARK: - Control Buttons
+
+    private var controlButtons: some View {
+        VStack(spacing: 10) {
+            Button {
                 viewModel.performPrimaryAction()
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
-            .disabled(!viewModel.canRunPrimaryAction)
-
-            if viewModel.isTracking {
-                Button("Stop Survey") {
-                    viewModel.stopSurvey()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: primaryActionIcon)
+                    Text(viewModel.primaryActionTitle)
                 }
-                .buttonStyle(.bordered)
-                .tint(.orange)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .blue.opacity(0.85)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
             }
+            .disabled(!viewModel.canRunPrimaryAction)
+            .opacity(viewModel.canRunPrimaryAction ? 1 : 0.45)
 
-            Button("Reset") {
-                showResetConfirmation = true
-            }
-            .buttonStyle(.bordered)
+            HStack(spacing: 10) {
+                if viewModel.isTracking {
+                    Button {
+                        viewModel.stopSurvey()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 12))
+                            Text("Stop")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(red: 0.98, green: 0.55, blue: 0.22).opacity(0.2))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(red: 0.98, green: 0.55, blue: 0.22).opacity(0.4), lineWidth: 1)
+                                )
+                        )
+                    }
+                }
 
-            Button("Re-anchor Here") {
-                viewModel.reanchorCurrentLocation()
+                Button {
+                    showResetConfirmation = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 12))
+                        Text("Reset")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                }
+
+                Button {
+                    viewModel.reanchorCurrentLocation()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "scope")
+                            .font(.system(size: 12))
+                        Text("Re-anchor")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(viewModel.isTracking ? .white.opacity(0.7) : .white.opacity(0.25))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                }
+                .disabled(!viewModel.isTracking)
             }
-            .buttonStyle(.bordered)
-            .disabled(!viewModel.isTracking)
         }
         .confirmationDialog(
             "Reset survey?",
@@ -121,155 +401,31 @@ struct ContentView: View {
         }
     }
 
-    private var compactSurveyHeader: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Text("Walk The Space")
-                .font(.headline.weight(.semibold))
-
-            Spacer(minLength: 0)
-
-            Circle()
-                .fill(viewModel.trackingIsReliable ? Color.green : Color.orange)
-                .frame(width: 8, height: 8)
-
-            Text(viewModel.trackingStatus)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
+    private var primaryActionIcon: String {
+        switch viewModel.calibrationStage {
+        case .idle: return "play.fill"
+        case .readyToStart: return "figure.walk"
+        default: return "location.fill"
         }
     }
 
-    private var compactInstructionStrip: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(viewModel.instructionTitle)
-                .font(.subheadline.weight(.semibold))
-            Text(viewModel.instructionDetail)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var compactScaleLegend: some View {
-        HStack(spacing: 8) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.39, blue: 0.34),
-                    Color(red: 0.98, green: 0.78, blue: 0.28),
-                    Color(red: 0.25, green: 0.86, blue: 0.43)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(height: 14)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            Text("Weaker → Stronger")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.65))
-        }
-    }
-
-    private var compactFooter: some View {
-        HStack {
-            if let ms = viewModel.latestLatencyMs {
-                Text("\(Int(ms)) ms")
-                    .font(.subheadline.weight(.medium))
-            } else {
-                Text("— ms")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-            Spacer()
-            Text("\(viewModel.trail.count) pts")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Walk The Space")
-                .font(.title2.bold())
-
-            Text("Use AR anchoring to track movement on the floor plan, then paint signal quality directly onto the map as new samples arrive.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.72))
-
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(viewModel.trackingIsReliable ? Color.green : Color.orange)
-                    .frame(width: 10, height: 10)
-
-                Text(viewModel.trackingStatus)
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var instructionCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(viewModel.instructionTitle)
-                .font(.headline)
-
-            Text(viewModel.instructionDetail)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.72))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-    }
-
-    private var scaleLegend: some View {
-        VStack(spacing: 10) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.39, blue: 0.34),
-                    Color(red: 0.98, green: 0.78, blue: 0.28),
-                    Color(red: 0.25, green: 0.86, blue: 0.43)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(height: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
-            )
-
-            HStack {
-                Text("Weaker / higher latency")
-                Spacer()
-                Text("Stronger / lower latency")
-            }
-            .font(.footnote)
-            .foregroundStyle(.white.opacity(0.72))
-        }
-    }
+    // MARK: - Rotation Calibration
 
     private var rotationCalibration: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Map rotation")
-                    .font(.subheadline.weight(.medium))
+                HStack(spacing: 6) {
+                    Image(systemName: "rotate.right")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.blue)
+                    Text("Map Rotation")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
                 Spacer()
                 Text("\(Int(viewModel.mapRotationDegrees))°")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
             }
 
             Slider(
@@ -280,42 +436,99 @@ struct ContentView: View {
                 in: -180...180,
                 step: 1
             )
-                .tint(.blue)
+            .tint(.blue)
 
-            Text("Rotate the movement alignment without shifting the current marker if the AR path direction does not match the map orientation.")
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.62))
+            Text("Adjust if the AR path direction doesn't match your floor plan orientation.")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.35))
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            footerMetric(
+                icon: "bolt.fill",
+                label: "Latency",
+                value: viewModel.latestLatencyMs.map { "\(Int($0)) ms" } ?? "—"
+            )
+            footerMetric(
+                icon: "mappin.and.ellipse",
+                label: "Points",
+                value: "\(viewModel.trail.count)"
+            )
         }
     }
 
-    private var footer: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Latest sample")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
-
+    private var compactFooter: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 5) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.blue)
                 if let ms = viewModel.latestLatencyMs {
                     Text("\(Int(ms)) ms")
-                        .font(.headline)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
                 } else {
-                    Text("Timeout")
-                        .font(.headline)
+                    Text("— ms")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.3))
                 }
             }
-
             Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("Points collected")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
-
-                Text("\(viewModel.trail.count)")
-                    .font(.headline)
+            HStack(spacing: 5) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.blue)
+                Text("\(viewModel.trail.count) pts")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .padding(.horizontal, 2)
+    }
+
+    private func footerMetric(icon: String, label: String, value: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+        )
     }
 }
 
