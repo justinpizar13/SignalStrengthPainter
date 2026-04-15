@@ -15,6 +15,8 @@
 		A1B2C3D40123456789012356 /* SignalTrailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4012345678901234F /* SignalTrailModels.swift */; };
 		A1B2C3D40123456789012361 /* ARTrackingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012362 /* ARTrackingManager.swift */; };
 		A1B2C3D40123456789012371 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012372 /* PaywallView.swift */; };
+		A1B2C3D40123456789012381 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012382 /* MainTabView.swift */; };
+		A1B2C3D40123456789012391 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012392 /* DashboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +30,8 @@
 		A1B2C3D40123456789012350 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D40123456789012362 /* ARTrackingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARTrackingManager.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012372 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012382 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012392 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +64,8 @@
 				A1B2C3D4012345678901234E /* LatencyProbe.swift */,
 				A1B2C3D4012345678901234F /* SignalTrailModels.swift */,
 				A1B2C3D40123456789012372 /* PaywallView.swift */,
+				A1B2C3D40123456789012382 /* MainTabView.swift */,
+				A1B2C3D40123456789012392 /* DashboardView.swift */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 			);
 			path = SignalStrengthPainter;
@@ -149,6 +155,8 @@
 				A1B2C3D40123456789012355 /* LatencyProbe.swift in Sources */,
 				A1B2C3D40123456789012356 /* SignalTrailModels.swift in Sources */,
 				A1B2C3D40123456789012371 /* PaywallView.swift in Sources */,
+				A1B2C3D40123456789012381 /* MainTabView.swift in Sources */,
+				A1B2C3D40123456789012391 /* DashboardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

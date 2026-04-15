@@ -14,14 +14,16 @@ The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPaint
 
 | Layer | Role |
 |--------|------|
-| **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`PaywallView`** as a `fullScreenCover` on launch; dismissing reveals `ContentView`. |
-| **`PaywallView.swift`** | NetSpot-inspired Pro upsell screen: Canvas hero (mini floor plan + heatmap blobs + signal nodes), "Unlock Wifi Buddy **Pro**" title, Wi-Fi icon, pricing cards (**Monthly $1.99**, **Lifetime ~~$19.99~~ $9.99** with "Best Deal" badge), Buy Now CTA, Restore / Not Now links, X close button. StoreKit not yet wired — buttons dismiss the paywall for now. |
+| **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. |
+| **`MainTabView.swift`** | **Tab-based UI** with 4 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `SignalDetailView` (Signal tab). |
+| **`DashboardView.swift`** | **Speed tab**: WiFiman-inspired dashboard with **network topology** visualization (ISP → Router → Device), **latency test** (10-ping burst with sparkline chart), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), and a **survey quick-action card**. |
+| **`PaywallView.swift`** | NetSpot-inspired Pro upsell screen: Canvas hero, pricing cards (**Monthly $1.99**, **Lifetime ~~$19.99~~ $9.99** with "Best Deal" badge), Buy Now CTA, Restore / Not Now links, X close. Now accepts optional `onPurchase` closure for tab-mode integration. StoreKit not yet wired. |
 | **`ARTrackingManager.swift`** | Runs `ARWorldTrackingConfiguration`, publishes **world-space camera displacement** from a session anchor, floor-projected **heading**, and tracking status/reliability. |
 | **`SignalMapViewModel.swift`** | Combines AR position → **map coordinates**, **latency** sampling, **trail** of `TrailPoint`s, **calibration stages**, **landmark re-anchor**, **map rotation** (slider + optional first landmark segment). |
 | **`SignalCanvasView.swift`** | Draws placeholder floor plan, heat blobs, blue path, surveyor symbol; optional **content scale**; map taps in map space. |
 | **`LatencyProbe.swift`** | Measures RTT-ish time via `NWConnection` TCP to `8.8.8.8:53`. |
 | **`SignalTrailModels.swift`** | `TrailPoint`, `LatencyQuality`, **heat color** derived from latency bands. |
-| **`ContentView.swift`** | Two layouts: **calibration** (full chrome) vs **expanded survey/review** (map-first). **Reset** uses **confirmation dialog**. |
+| **`ContentView.swift`** | **Survey tab**: Two layouts: **calibration** (full chrome) vs **expanded survey/review** (map-first). **Reset** uses **confirmation dialog**. |
 | **`Info.plist`** | `NSMotionUsageDescription`, `NSLocalNetworkUsageDescription`, **`NSCameraUsageDescription`** (AR). |
 
 ## Tracking & positioning (important details)
@@ -98,12 +100,21 @@ Tunable: `mapContentScale` in `SignalMapViewModel`.
 
 The repo **`README.md`** may still describe older **pedometer-only** behavior; the **running app** matches this **MEMORY** / current code, not necessarily the README line-for-line.
 
+## Tab-based UI
+
+- **`MainTabView`** is the root view, replacing the old fullscreen-cover flow.
+- **Tabs:** Speed (dashboard), Survey (AR walk), Signal (connection quality), Pro (paywall).
+- **Pro tab** is **conditionally shown** based on `@AppStorage("isProUser")`. When `isProUser == true`, the Pro tab is hidden.
+- **DashboardView (Speed tab):** Network topology visualization, 10-ping latency test with smooth sparkline chart, service latency grid (Google, Cloudflare, OpenDNS, Gateway), and a survey quick-action card.
+- **SignalDetailView (Signal tab):** Animated WiFi signal rings, latency-based quality indicator, metrics grid, and improvement tips.
+- **PaywallView** now accepts an optional `onPurchase` closure. In tab mode, "Buy Now" calls `onPurchase` (sets `isProUser = true`) and switches back to the Speed tab.
+
 ## Paywall / monetization
 
-- **`PaywallView`** is presented via `.fullScreenCover(isPresented: $showPaywall)` in `SignalStrengthPainterApp`.
+- **`PaywallView`** is now shown as the **Pro tab** for free users (no longer a fullscreen cover on launch).
 - **Pricing:** Monthly **$1.99**, Lifetime **$9.99** (shown with ~~$19.99~~ strikethrough + red "Best Deal" badge).
-- **Dismissal:** "Buy Now", "Not now", and X close button all set `showPaywall = false`.
-- **StoreKit 2 integration not yet implemented** — buttons only dismiss; no real purchase flow, receipt validation, or entitlement gating yet.
+- **Tab behavior:** "Buy Now" triggers `onPurchase` callback + sets `isPresented = false` (switches to Speed tab). "Not now" and X also switch away.
+- **StoreKit 2 integration not yet implemented** — `onPurchase` currently just sets `@AppStorage("isProUser") = true`; no real purchase flow, receipt validation, or entitlement gating yet.
 - **Restore purchase** button present but not wired to StoreKit.
 
 ## Possible follow-ups (not done here)

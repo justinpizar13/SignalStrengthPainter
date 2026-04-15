@@ -1,0 +1,18 @@
+# Xcode build artifacts
+.derivedData/
+build/
+DerivedData/
+*.xcuserdata
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Xcode user-specific
+*.xcworkspace/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3

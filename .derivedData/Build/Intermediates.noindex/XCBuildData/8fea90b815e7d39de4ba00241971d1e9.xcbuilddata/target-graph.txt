@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'SignalStrengthPainter' in project 'SignalStrengthPainter' (no dependencies)

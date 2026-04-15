@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PaywallView: View {
     @Binding var isPresented: Bool
+    var onPurchase: (() -> Void)?
     @State private var selectedPlan: Plan = .monthly
     @State private var currentPage = 0
 
@@ -349,6 +350,7 @@ struct PaywallView: View {
 
     private var buyButton: some View {
         Button {
+            onPurchase?()
             isPresented = false
         } label: {
             Text("Buy Now")
