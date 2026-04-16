@@ -63,15 +63,23 @@ struct DashboardView: View {
     // MARK: - WiFi Header
 
     private var wifiHeader: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "wifi")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.blue)
-            Text("Wi-Fi")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(theme.primaryText)
+        ZStack {
+            VStack(spacing: 4) {
+                Image(systemName: "wifi")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.blue)
+                Text("Wi-Fi")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+            .frame(maxWidth: .infinity)
+
+            HStack {
+                Spacer()
+                AppearanceToggle()
+            }
         }
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
     }
 
     // MARK: - Network Topology

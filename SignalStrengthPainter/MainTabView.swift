@@ -3,7 +3,6 @@ import SwiftUI
 struct MainTabView: View {
     @AppStorage("isProUser") private var isProUser = false
     @State private var selectedTab: Tab = .speed
-    @State private var showAppearancePicker = false
 
     enum Tab: Int {
         case speed, survey, signal, devices, pro
@@ -60,11 +59,6 @@ struct MainTabView: View {
             }
         }
         .tint(.blue)
-        .overlay(alignment: .topTrailing) {
-            appearanceButton
-                .padding(.top, 2)
-                .padding(.trailing, 16)
-        }
         .onChange(of: isProUser) { _, newValue in
             if newValue && selectedTab == .pro {
                 selectedTab = .speed
@@ -72,11 +66,6 @@ struct MainTabView: View {
         }
     }
 
-    // MARK: - Appearance Toggle
-
-    private var appearanceButton: some View {
-        AppearanceToggle()
-    }
 }
 
 // MARK: - Appearance Toggle
@@ -118,6 +107,7 @@ struct SignalDetailView: View {
     @Environment(\.theme) private var theme
     @State private var latestLatencyMs: Double?
     @State private var animateRings = false
+    @State private var isMeasuring = false
 
     private let probe = LatencyProbe()
 
@@ -132,6 +122,10 @@ struct SignalDetailView: View {
 
                 qualityCard
                     .padding(.top, 28)
+                    .padding(.horizontal, 20)
+
+                refreshButton
+                    .padding(.top, 16)
                     .padding(.horizontal, 20)
 
                 metricsGrid
@@ -294,7 +288,81 @@ struct SignalDetailView: View {
         )
     }
 
+    private var refreshButton: some View {
+        Button {
+            measureSignal()
+        } label: {
+            HStack(spacing: 8) {
+                if isMeasuring {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.8)
+                    Text("Measuring...")
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Refresh Signal")
+                }
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(theme.buttonText)
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .blue.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            )
+        }
+        .disabled(isMeasuring)
+        .opacity(isMeasuring ? 0.7 : 1)
+    }
+
+    private var isExcellent: Bool {
+        guard let ms = latestLatencyMs else { return false }
+        return ms < 50
+    }
+
+    @ViewBuilder
     private var tipsSection: some View {
+        if isExcellent {
+            excellentSignalCard
+        } else {
+            improveSignalCard
+        }
+    }
+
+    private var excellentSignalCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color(red: 0.25, green: 0.86, blue: 0.43))
+                Text("Signal is Great")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+            }
+
+            tipRow(icon: "wifi", text: "Your connection latency is excellent — no action needed")
+            tipRow(icon: "play.tv", text: "You're good for 4K streaming, gaming, and video calls")
+            tipRow(icon: "map.fill", text: "Use the Survey tab to verify coverage across your whole space")
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color(red: 0.25, green: 0.86, blue: 0.43).opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private var improveSignalCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Improve Your Signal")
                 .font(.system(size: 18, weight: .bold))
@@ -345,8 +413,10 @@ struct SignalDetailView: View {
     }
 
     private func measureSignal() {
+        isMeasuring = true
         probe.measureLatency { value in
             latestLatencyMs = value
+            isMeasuring = false
         }
     }
 }
