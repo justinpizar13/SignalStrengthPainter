@@ -457,7 +457,9 @@ struct DeviceDiscoveryView: View {
         if device.isCurrentDevice { return "This iPhone" }
         if device.deviceType == .router { return "Router / Gateway" }
         if let name = device.bonjourName, !name.isEmpty { return name }
-        if let hostname = device.hostname, !hostname.isEmpty, hostname != device.ipAddress { return hostname }
+        if let hostname = device.hostname, !hostname.isEmpty, hostname != device.ipAddress {
+            return DiscoveredDevice.cleanHostname(hostname)
+        }
         return device.deviceType.rawValue
     }
 
@@ -662,7 +664,9 @@ struct DeviceDetailSheet: View {
         if device.isCurrentDevice { return "This iPhone" }
         if device.deviceType == .router { return "Router / Gateway" }
         if let name = device.bonjourName, !name.isEmpty { return name }
-        if let hostname = device.hostname, !hostname.isEmpty { return hostname }
+        if let hostname = device.hostname, !hostname.isEmpty {
+            return DiscoveredDevice.cleanHostname(hostname)
+        }
         return device.deviceType.rawValue
     }
 

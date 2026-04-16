@@ -254,12 +254,31 @@ The Survey tab was restyled to match this language (previously used system butto
 ### Additional Bonjour service type
 - Added `_amzn-wplay._tcp` (Amazon Whole-Home Audio) to the 15 browsed service types, with friendly name "Amazon Audio".
 
-### Updated `NetworkScanner` identification layers (now five)
-1. **Bonjour** (15 service types including `_amzn-wplay._tcp`)
-2. **SSDP / UPnP** (UDP multicast M-SEARCH, parallel with Bonjour)
-3. **TCP port fingerprinting** (21 ports)
-4. **TCP liveness** (fast RST detection for firewalled hosts)
-5. **Reverse DNS** (with improved reclassification logic)
+### UPnP device description fetching (sixth identification layer)
+- **Purpose:** After SSDP discovery, fetches the UPnP device description XML from each device's LOCATION URL to extract `<friendlyName>`, `<manufacturer>`, and `<modelName>`. This is critical for devices like Amazon Echo whose SSDP M-SEARCH responses use generic SERVER headers (e.g., "Linux/4.4, UPnP/1.0, Portable SDK...") that contain no brand-identifying keywords.
+- **Mechanism:** Parallel async fetches using `URLSession` with 3-second timeout per device. Simple tag extraction (not full XML parsing) pulls friendlyName, manufacturer, and modelName.
+- **Impact on classification:** `classifyBySSDP` now uses manufacturer/model/friendlyName in addition to SERVER/ST/USN headers. Amazon Echo → speaker (via manufacturer "Amazon.com"), Fire TV → smartTV, Ring → IoT, Google Home → speaker, Apple devices → correct type, printers by manufacturer (Epson, Brother, HP, Canon), TP-Link/Belkin/Wemo → IoT.
+- **Impact on naming:** UPnP friendlyName is used as the device display name when no Bonjour name is available. E.g., "Justin's Echo Dot" instead of "Unknown Device", "Living Room Roku" instead of "Smart TV / Media".
+
+### Improved SSDP reliability
+- M-SEARCH now sends three packets with different ST values (`ssdp:all`, `upnp:rootdevice`, `urn:dial-multiscreen-org:service:dial:1`) with 100ms spacing between them. Catches devices that only respond to specific search targets.
+
+### Additional Bonjour service types for phones
+- Added `_apple-mobdev2._tcp` (Apple Mobile Device Protocol v2) and `_touch-able._tcp` (iOS Remote Control) to the 17 browsed service types. These services are advertised by iPhones/iPads even when other services aren't active, improving phone detection.
+- Classification maps `_apple-mobdev2._tcp` ("Apple Device") and `_touch-able._tcp` ("Remote Control") to `.phone`.
+
+### Hostname display cleanup
+- `DiscoveredDevice.cleanHostname()` strips common domain suffixes (`.local`, `.home`, `.lan`, `.internal`, `.localdomain`, `.fritz.box`, `.gateway`, `.attlocal.net`) from reverse DNS hostnames for cleaner display.
+- Applied in both the device list (`deviceDisplayName`) and the detail sheet (`displayName`).
+- E.g., "Justins-MacBook-Pro.local" → "Justins-MacBook-Pro" in the device list.
+
+### Updated `NetworkScanner` identification layers (now six)
+1. **Bonjour** (17 service types including `_apple-mobdev2._tcp`, `_touch-able._tcp`)
+2. **SSDP / UPnP** (UDP multicast M-SEARCH with 3 ST values, parallel with Bonjour)
+3. **UPnP device descriptions** (fetches LOCATION URLs for friendlyName/manufacturer/model)
+4. **TCP port fingerprinting** (21 ports)
+5. **TCP liveness** (fast RST detection for firewalled hosts)
+6. **Reverse DNS** (with improved reclassification logic, hostname cleanup)
 
 ## Possible follow-ups (not done here)
 

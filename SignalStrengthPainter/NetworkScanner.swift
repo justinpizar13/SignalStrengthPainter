@@ -18,8 +18,19 @@ struct DiscoveredDevice: Identifiable {
 
     var displayHostname: String? {
         if let name = bonjourName, !name.isEmpty { return name }
-        if let h = hostname, !h.isEmpty, h != ipAddress { return h }
+        if let h = hostname, !h.isEmpty, h != ipAddress { return Self.cleanHostname(h) }
         return nil
+    }
+
+    static func cleanHostname(_ raw: String) -> String {
+        var name = raw
+        for suffix in [".local", ".home", ".lan", ".internal", ".localdomain", ".fritz.box", ".gateway", ".attlocal.net"] {
+            if name.lowercased().hasSuffix(suffix) {
+                name = String(name.dropLast(suffix.count))
+                break
+            }
+        }
+        return name
     }
 
     var portHint: String? {
@@ -106,6 +117,9 @@ final class NetworkScanner: ObservableObject {
     /// SSDP/UPnP results keyed by IP → HTTP headers from M-SEARCH response
     private var ssdpByIP: [String: [String: String]] = [:]
 
+    /// UPnP device descriptions fetched from SSDP LOCATION URLs
+    private var upnpDescriptions: [String: (friendlyName: String, manufacturer: String?, modelName: String?)] = [:]
+
     private static let trustedKey = "trustedDeviceIPs"
 
     private static let probePorts: [UInt16] = [
@@ -136,6 +150,7 @@ final class NetworkScanner: ObservableObject {
         discoveredIPs = []
         bonjourByIP = [:]
         ssdpByIP = [:]
+        upnpDescriptions = [:]
         scanStatusMessage = "Discovering local network..."
 
         let (ip, mask) = getLocalIPAndMask()
@@ -153,6 +168,11 @@ final class NetworkScanner: ObservableObject {
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { await self.discoverBonjourServices() }
                 group.addTask { await self.discoverSSDPDevices() }
+            }
+
+            if !ssdpByIP.isEmpty {
+                scanStatusMessage = "Fetching device details..."
+                await fetchUPnPDescriptions()
             }
 
             let subnet = calculateSubnetRange(ip: ip, mask: mask)
@@ -195,17 +215,18 @@ final class NetworkScanner: ObservableObject {
                                     ssdpHeaders: ssdpInfo
                                 )
                                 let bonjourNames = bonjourInfo?.map(\.name)
+                                let ssdpName = self.upnpDescriptions[foundIP]?.friendlyName
                                 let bonjourServices = bonjourInfo?.map(\.service) ?? []
                                 var allServices = Array(Set(bonjourServices))
                                 if let ssdpInfo {
-                                    let hint = Self.ssdpServiceHint(ssdpInfo)
+                                    let hint = self.ssdpServiceHint(ssdpInfo, ip: foundIP)
                                     if !allServices.contains(hint) { allServices.append(hint) }
                                 }
                                 let device = DiscoveredDevice(
                                     id: foundIP,
                                     ipAddress: foundIP,
                                     hostname: nil,
-                                    bonjourName: bonjourNames?.first,
+                                    bonjourName: bonjourNames?.first ?? ssdpName,
                                     services: allServices,
                                     deviceType: deviceType,
                                     openPorts: ports,
@@ -266,7 +287,9 @@ final class NetworkScanner: ObservableObject {
             "_homekit._tcp", "_hap._tcp",
             "_device-info._tcp", "_companion-link._tcp",
             "_sleep-proxy._udp", "_rdlink._tcp",
-            "_amzn-wplay._tcp"
+            "_amzn-wplay._tcp",
+            "_apple-mobdev2._tcp",
+            "_touch-able._tcp"
         ]
 
         var collectedEndpoints: [(name: String, service: String, endpoint: NWEndpoint)] = []
@@ -403,6 +426,8 @@ final class NetworkScanner: ObservableObject {
         if raw.contains("device-info") { return "Device Info" }
         if raw.contains("sleep-proxy") { return "Sleep Proxy" }
         if raw.contains("amzn-wplay") { return "Amazon Audio" }
+        if raw.contains("apple-mobdev") { return "Apple Device" }
+        if raw.contains("touch-able") { return "Remote Control" }
         if raw.contains("http") { return "Web Server" }
         return raw
     }
@@ -426,16 +451,17 @@ final class NetworkScanner: ObservableObject {
                 ssdpHeaders: ssdpInfo
             )
             let bonjourNames = entries.map(\.name)
+            let ssdpName = upnpDescriptions[ip]?.friendlyName
             var allServices = Array(Set(entries.map(\.service)))
             if let ssdpInfo {
-                let hint = Self.ssdpServiceHint(ssdpInfo)
+                let hint = ssdpServiceHint(ssdpInfo, ip: ip)
                 if !allServices.contains(hint) { allServices.append(hint) }
             }
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
                 hostname: nil,
-                bonjourName: bonjourNames.first,
+                bonjourName: bonjourNames.first ?? ssdpName,
                 services: allServices,
                 deviceType: deviceType,
                 openPorts: [],
@@ -477,8 +503,7 @@ final class NetworkScanner: ObservableObject {
                     }
                 }
 
-                let mSearch = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 3\r\nST: ssdp:all\r\n\r\n"
-                let mBytes = Array(mSearch.utf8)
+                let searchTargets = ["ssdp:all", "upnp:rootdevice", "urn:dial-multiscreen-org:service:dial:1"]
 
                 var destAddr = sockaddr_in()
                 destAddr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
@@ -486,13 +511,18 @@ final class NetworkScanner: ObservableObject {
                 destAddr.sin_port = UInt16(1900).bigEndian
                 inet_pton(AF_INET, "239.255.255.250", &destAddr.sin_addr)
 
-                mBytes.withUnsafeBufferPointer { buf in
-                    withUnsafeMutablePointer(to: &destAddr) { addrPtr in
-                        addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                            _ = sendto(fd, buf.baseAddress!, mBytes.count, 0, sockPtr,
-                                       socklen_t(MemoryLayout<sockaddr_in>.size))
+                for st in searchTargets {
+                    let mSearch = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 3\r\nST: \(st)\r\n\r\n"
+                    let mBytes = Array(mSearch.utf8)
+                    mBytes.withUnsafeBufferPointer { buf in
+                        withUnsafeMutablePointer(to: &destAddr) { addrPtr in
+                            addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                                _ = sendto(fd, buf.baseAddress!, mBytes.count, 0, sockPtr,
+                                           socklen_t(MemoryLayout<sockaddr_in>.size))
+                            }
                         }
                     }
+                    usleep(100_000)
                 }
 
                 var ssdpResults: [String: [String: String]] = [:]
@@ -558,12 +588,13 @@ final class NetworkScanner: ObservableObject {
                 openPorts: [],
                 ssdpHeaders: headers
             )
-            let serviceHint = Self.ssdpServiceHint(headers)
+            let serviceHint = ssdpServiceHint(headers, ip: ip)
+            let ssdpName = upnpDescriptions[ip]?.friendlyName
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
                 hostname: nil,
-                bonjourName: nil,
+                bonjourName: ssdpName,
                 services: [serviceHint],
                 deviceType: deviceType,
                 openPorts: [],
@@ -577,7 +608,18 @@ final class NetworkScanner: ObservableObject {
         sortDevices()
     }
 
-    private nonisolated static func ssdpServiceHint(_ headers: [String: String]) -> String {
+    private func ssdpServiceHint(_ headers: [String: String], ip: String) -> String {
+        if let upnp = upnpDescriptions[ip] {
+            let mfr = (upnp.manufacturer ?? "").lowercased()
+            if mfr.contains("amazon") { return "Amazon \(upnp.modelName ?? "Alexa")" }
+            if mfr.contains("ring") { return "Ring" }
+            if mfr.contains("roku") { return "Roku" }
+            if mfr.contains("sonos") { return "Sonos" }
+            if mfr.contains("samsung") { return "Samsung" }
+            if mfr.contains("google") { return "Google Cast" }
+            if mfr.contains("apple") { return "Apple" }
+            if let model = upnp.modelName, !model.isEmpty { return model }
+        }
         let server = (headers["SERVER"] ?? "").lowercased()
         if server.contains("amazon") || server.contains("alexa") || server.contains("echo") { return "Amazon Alexa" }
         if server.contains("ring") { return "Ring" }
@@ -586,6 +628,62 @@ final class NetworkScanner: ObservableObject {
         if server.contains("samsung") { return "Samsung UPnP" }
         if server.contains("google") { return "Google Cast" }
         return "UPnP"
+    }
+
+    // MARK: - UPnP Device Description Fetching
+
+    private func fetchUPnPDescriptions() async {
+        var locationsByIP: [String: String] = [:]
+        for (ip, headers) in ssdpByIP {
+            if let location = headers["LOCATION"], !location.isEmpty,
+               location.lowercased().hasPrefix("http") {
+                locationsByIP[ip] = location
+            }
+        }
+        guard !locationsByIP.isEmpty else { return }
+
+        await withTaskGroup(of: (String, String, String?, String?)?.self) { group in
+            for (ip, location) in locationsByIP {
+                group.addTask {
+                    guard let result = await Self.fetchDeviceDescription(from: location) else { return nil }
+                    return (ip, result.friendlyName, result.manufacturer, result.modelName)
+                }
+            }
+            for await result in group {
+                if let (ip, friendlyName, manufacturer, modelName) = result {
+                    upnpDescriptions[ip] = (friendlyName: friendlyName, manufacturer: manufacturer, modelName: modelName)
+                }
+            }
+        }
+    }
+
+    private nonisolated static func fetchDeviceDescription(from urlString: String) async -> (friendlyName: String, manufacturer: String?, modelName: String?)? {
+        guard let url = URL(string: urlString) else { return nil }
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 3
+        config.timeoutIntervalForResource = 3
+        let session = URLSession(configuration: config)
+
+        do {
+            let (data, _) = try await session.data(from: url)
+            guard let xml = String(data: data, encoding: .utf8) else { return nil }
+
+            guard let friendlyName = extractXMLValue("friendlyName", from: xml), !friendlyName.isEmpty else { return nil }
+            let manufacturer = extractXMLValue("manufacturer", from: xml)
+            let modelName = extractXMLValue("modelName", from: xml)
+            return (friendlyName, manufacturer, modelName)
+        } catch {
+            return nil
+        }
+    }
+
+    private nonisolated static func extractXMLValue(_ tag: String, from xml: String) -> String? {
+        guard let startRange = xml.range(of: "<\(tag)>", options: .caseInsensitive),
+              let endRange = xml.range(of: "</\(tag)>", options: .caseInsensitive),
+              startRange.upperBound < endRange.lowerBound else { return nil }
+        let value = String(xml[startRange.upperBound..<endRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
 
     // MARK: - Hostname Resolution
@@ -602,8 +700,9 @@ final class NetworkScanner: ObservableObject {
             for await result in group {
                 guard let (index, name) = result, index < devices.count, let name else { continue }
                 devices[index].hostname = name
+                let cleaned = DiscoveredDevice.cleanHostname(name).lowercased()
                 let currentType = devices[index].deviceType
-                if let nameType = classifyByNameString(name.lowercased()) {
+                if let nameType = classifyByNameString(cleaned) {
                     if currentType == .unknown {
                         devices[index].deviceType = nameType
                     } else if [.iotDevice, .smartTV].contains(currentType),
@@ -611,6 +710,13 @@ final class NetworkScanner: ObservableObject {
                         devices[index].deviceType = nameType
                     }
                 }
+            }
+        }
+
+        for i in devices.indices {
+            guard devices[i].bonjourName == nil else { continue }
+            if let upnp = upnpDescriptions[devices[i].ipAddress] {
+                devices[i].bonjourName = upnp.friendlyName
             }
         }
     }
@@ -846,12 +952,12 @@ final class NetworkScanner: ObservableObject {
             if allServices.contains(where: { $0.contains("spotify") || $0.contains("raop") || $0.contains("media") }) { return .speaker }
             if allServices.contains(where: { $0.contains("homekit") || $0.contains("hap") }) { return .iotDevice }
             if allServices.contains(where: { $0.contains("file sharing") || $0.contains("remote desktop") }) { return .computer }
-            if allServices.contains(where: { $0.contains("companion") }) { return .phone }
+            if allServices.contains(where: { $0.contains("companion") || $0.contains("apple device") || $0.contains("remote control") }) { return .phone }
 
             if let nameType = classifyByNameString(nameStr) { return nameType }
         }
 
-        if let headers = ssdpHeaders, let ssdpType = classifyBySSDP(headers) {
+        if let headers = ssdpHeaders, let ssdpType = classifyBySSDP(headers, ip: ip) {
             return ssdpType
         }
 
@@ -913,26 +1019,44 @@ final class NetworkScanner: ObservableObject {
         return .unknown
     }
 
-    private func classifyBySSDP(_ headers: [String: String]) -> DiscoveredDevice.DeviceType? {
+    private func classifyBySSDP(_ headers: [String: String], ip: String) -> DiscoveredDevice.DeviceType? {
         let server = (headers["SERVER"] ?? "").lowercased()
         let st = (headers["ST"] ?? "").lowercased()
-        let combined = server + " " + st
+        let usn = (headers["USN"] ?? "").lowercased()
+        let upnp = upnpDescriptions[ip]
+        let mfr = (upnp?.manufacturer ?? "").lowercased()
+        let model = (upnp?.modelName ?? "").lowercased()
+        let fname = (upnp?.friendlyName ?? "").lowercased()
+        let combined = [server, st, usn, mfr, model, fname].joined(separator: " ")
 
-        if combined.contains("amazon") || combined.contains("alexa") || combined.contains("echo") {
-            if combined.contains("fire tv") || combined.contains("firetv") { return .smartTV }
+        if mfr.contains("amazon") || combined.contains("alexa") || combined.contains("echo") {
+            if combined.contains("fire tv") || combined.contains("firetv") || combined.contains("fire_tv") { return .smartTV }
+            if combined.contains("fire tablet") || combined.contains("kindle") { return .phone }
             return .speaker
         }
-        if combined.contains("ring") { return .iotDevice }
+        if mfr.contains("ring") || combined.contains("ring") { return .iotDevice }
         if combined.contains("xbox") { return .gameConsole }
         if combined.contains("playstation") || combined.contains("ps5") { return .gameConsole }
         if combined.contains("nintendo") { return .gameConsole }
-        if combined.contains("roku") { return .smartTV }
-        if combined.contains("samsung") && combined.contains("tv") { return .smartTV }
+        if mfr.contains("roku") || combined.contains("roku") { return .smartTV }
+        if (mfr.contains("samsung") || combined.contains("samsung")) && combined.contains("tv") { return .smartTV }
         if combined.contains("lg webos") || combined.contains("webostv") { return .smartTV }
-        if combined.contains("vizio") { return .smartTV }
-        if combined.contains("sonos") { return .speaker }
+        if mfr.contains("vizio") || combined.contains("vizio") { return .smartTV }
+        if mfr.contains("sonos") || combined.contains("sonos") { return .speaker }
         if combined.contains("homepod") { return .speaker }
-        if combined.contains("printer") || combined.contains("epson") || combined.contains("brother") { return .printer }
+        if mfr.contains("google") || combined.contains("google") {
+            if combined.contains("home") || combined.contains("nest") || model.contains("speaker") { return .speaker }
+            if combined.contains("chromecast") { return .smartTV }
+        }
+        if mfr.contains("apple") {
+            if combined.contains("apple tv") || combined.contains("appletv") { return .smartTV }
+            if combined.contains("homepod") { return .speaker }
+            if combined.contains("iphone") || combined.contains("ipad") { return .phone }
+            if combined.contains("mac") { return .computer }
+        }
+        if combined.contains("printer") || mfr.contains("epson") || mfr.contains("brother") ||
+           mfr.contains("hp") || mfr.contains("canon") { return .printer }
+        if mfr.contains("tp-link") || mfr.contains("belkin") || mfr.contains("wemo") { return .iotDevice }
         if st.contains("mediarenderer") { return .smartTV }
         if st.contains("dial") { return .smartTV }
         return nil
