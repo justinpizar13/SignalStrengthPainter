@@ -14,7 +14,8 @@ The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPaint
 
 | Layer | Role |
 |--------|------|
-| **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. |
+| **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. Applies `.withAppTheme()` for centralized theming. |
+| **`AppTheme.swift`** | Centralized theming: `AppearanceMode` enum (system/light/dark), `AppTheme` struct with semantic colors for both modes, `EnvironmentKey` injection, `ThemedRootModifier`. User preference persisted via `@AppStorage("appearanceMode")`. |
 | **`MainTabView.swift`** | **Tab-based UI** with 5 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Devices** (network device discovery), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `SignalDetailView` (Signal tab). |
 | **`DashboardView.swift`** | **Speed tab**: WiFiman/Speedtest-inspired dashboard with **network topology** visualization (ISP → Router → Device), **speed test** (download + upload via Cloudflare with live sparkline, ping/jitter), **speed report** (post-test contextual report rating connection for Netflix/streaming, gaming, video calls, home office, and browsing), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), and a **survey quick-action card**. |
 | **`SpeedTestManager.swift`** | Multi-phase speed test engine: **latency** (10 HTTP pings, trimmed mean + jitter), **download** (8 concurrent async streams fetching 4 MB chunks via `URLSession.data(for:)` in a `TaskGroup`), **upload** (8 concurrent async streams uploading 4 MB chunks via `URLSession.upload(for:from:)`). Both transfer phases use `TransferCounter` for byte tracking, a shared `sampleTransferPhase()` loop (250 ms sampling, rolling 4-sample window for live display), and compute final speed as total bytes / total time. Each phase runs up to 12 s. |
@@ -136,16 +137,74 @@ The repo **`README.md`** may still describe older **pedometer-only** behavior; t
 - **UI integration in `DashboardView`:** "Speed Test" section appears between the topology card and the Network Latency grid. Three states: empty (no results yet), active (phase indicator with live Mbps gauge + sparkline + progress bar), complete (side-by-side Download/Upload tiles + Ping/Jitter badges). Start/Stop/Test Again button. On completion, a **Wi-Fi Report** card appears below the button rating the connection for streaming, gaming, video calls, home office, and browsing.
 - **Standalone Latency Test removed:** The separate 10-ping latency test section (header, sparkline card, button) was removed from the Speed tab. Ping/jitter are now measured as part of the speed test. Service latency probes are triggered automatically when the speed test completes (via `.onChange`).
 
+## Theming & appearance
+
+The app supports **light mode, dark mode, and system default** via a centralized theming system.
+
+### Architecture
+
+| File | Role |
+|------|------|
+| **`AppTheme.swift`** | Defines `AppearanceMode` enum (system/light/dark), `AppTheme` struct with semantic color properties, `EnvironmentKey` for injecting theme, and `ThemedRootModifier` view modifier. |
+| **`SignalStrengthPainterApp.swift`** | Applies `.withAppTheme()` on `MainTabView` to inject the theme and set `preferredColorScheme`. |
+| **`MainTabView.swift`** | Contains `AppearanceToggle` — a `Menu`-based picker (top-right corner overlay on the tab view) for switching between System/Light/Dark. |
+
+### How it works
+
+- User preference is persisted via `@AppStorage("appearanceMode")` as an `Int` (0 = system, 1 = light, 2 = dark).
+- `ThemedRootModifier` reads the stored preference and the system `colorScheme`, resolves the effective scheme, then injects the correct `AppTheme` into the environment and applies `.preferredColorScheme()` (passing `nil` for system to let iOS decide).
+- All views read `@Environment(\.theme)` to access semantic colors like `theme.background`, `theme.cardFill`, `theme.primaryText`, etc.
+- **Default behavior:** follows the user's iOS system appearance setting (light or dark).
+
+### Theme color properties
+
+`AppTheme` exposes these semantic colors (each has a dark and light variant):
+
+- `background` — main screen background
+- `cardFill` — card/tile background
+- `cardStroke` — card border
+- `primaryText` — headings / main text
+- `secondaryText` — secondary labels
+- `tertiaryText` — dimmed labels
+- `quaternaryText` — very dim / placeholder text
+- `canvasBackground` — survey canvas panel
+- `canvasStroke` — canvas border
+- `divider` — separator lines
+- `buttonText` — text on filled buttons
+- `subtle` — subtle background accents
+
+### Appearance toggle
+
+- Located as a small circular button in the **top-right** of the tab bar area.
+- Uses a `Menu` that presents three options: System (circle.lefthalf.filled), Light (sun.max.fill), Dark (moon.fill).
+- Persisted across launches via `@AppStorage`.
+
+### What stays fixed across themes
+
+- Status indicator colors: green `(0.25, 0.86, 0.43)`, amber `(0.98, 0.78, 0.28)`, red `(0.98, 0.39, 0.34)`.
+- Accent color: `.blue` throughout.
+- Floor plan canvas interior colors (room fills, wall strokes) — these are illustrative and don't change with theme.
+- Paywall hero canvas background (always dark for visual impact).
+
+### Files changed for theming
+
+All 8 view files were updated to replace hardcoded `Color(red: 0.06, ...)`, `.foregroundStyle(.white)`, `Color.white.opacity(...)`, etc. with `theme.*` properties:
+- `MainTabView.swift` (tab view + `SignalDetailView`)
+- `DashboardView.swift`
+- `ContentView.swift`
+- `DeviceDiscoveryView.swift` (main view + `DeviceDetailSheet`)
+- `PaywallView.swift`
+- `SignalCanvasView.swift`
+
+Removed: `.preferredColorScheme(.dark)` from `MainTabView`, `PaywallView`, and preview blocks (theming is now controlled centrally).
+
 ## Visual design language (unified across all tabs)
 
-All tabs now share a consistent dark theme:
-
-- **Background:** `Color(red: 0.06, green: 0.06, blue: 0.08)` app-wide.
-- **Cards:** `Color.white.opacity(0.04–0.05)` fill + `Color.white.opacity(0.06–0.08)` stroke, `cornerRadius: 14–16`.
 - **Fonts:** Explicit `.system(size:weight:design:)` sizing throughout (no semantic styles like `.headline`/`.caption`).
 - **Buttons:** Full-width gradient primary buttons (`blue → blue.opacity(0.85)`), secondary buttons with subtle card-style backgrounds — no system `ButtonStyle` (`.borderedProminent`/`.bordered`).
 - **Colors:** Green `(0.25, 0.86, 0.43)`, amber `(0.98, 0.78, 0.28)`, red `(0.98, 0.39, 0.34)` used consistently for status indicators across all tabs.
 - **Icons:** SF Symbols in blue icon boxes (`blue.opacity(0.12–0.15)` background) for metric tiles and section accents.
+- **Cards:** Rounded rectangles with `theme.cardFill` + `theme.cardStroke`, `cornerRadius: 14–16`.
 
 The Survey tab was restyled to match this language (previously used system button styles and semantic fonts) without changing any core functionality.
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     var onStartSurvey: (() -> Void)?
 
+    @Environment(\.theme) private var theme
     @StateObject private var speedTest = SpeedTestManager()
 
     @State private var serviceLatencies: [String: Double] = [:]
@@ -51,7 +52,7 @@ struct DashboardView: View {
                     .padding(.bottom, 32)
             }
         }
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
         .onChange(of: speedTest.phase) { newPhase in
             if newPhase == .complete {
                 testServiceLatencies()
@@ -68,7 +69,7 @@ struct DashboardView: View {
                 .foregroundStyle(.blue)
             Text("Wi-Fi")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
         }
         .frame(maxWidth: .infinity)
     }
@@ -89,7 +90,7 @@ struct DashboardView: View {
 
             topologyNode(
                 icon: "wifi.router",
-                iconColor: .white.opacity(0.8),
+                iconColor: theme.secondaryText,
                 label: "Router",
                 detail: "192.168.0.1"
             )
@@ -108,10 +109,10 @@ struct DashboardView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(theme.subtle, lineWidth: 1)
                 )
         )
     }
@@ -126,7 +127,7 @@ struct DashboardView: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(theme.subtle)
                     .frame(width: 50, height: 50)
                 Image(systemName: icon)
                     .font(.system(size: 20))
@@ -135,12 +136,12 @@ struct DashboardView: View {
 
             Text(label)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
                 .lineLimit(1)
 
             Text(detail)
                 .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(theme.tertiaryText)
                 .lineLimit(1)
 
             if let status {
@@ -183,7 +184,7 @@ struct DashboardView: View {
         HStack {
             Text(title)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Spacer()
             if let trailing {
                 Button(trailing) {}
@@ -203,7 +204,7 @@ struct DashboardView: View {
                     .foregroundStyle(overallGradeColor)
                 Text("Your Wi-Fi Report")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Spacer()
                 Text(overallGradeLabel)
                     .font(.system(size: 13, weight: .bold))
@@ -215,7 +216,7 @@ struct DashboardView: View {
 
             Text(overallSummary)
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(spacing: 8) {
@@ -228,7 +229,7 @@ struct DashboardView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(overallGradeColor.opacity(0.2), lineWidth: 1)
@@ -250,10 +251,10 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(activity.name)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Text(activity.detail)
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(theme.tertiaryText)
             }
 
             Spacer()
@@ -381,27 +382,27 @@ struct DashboardView: View {
 
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
                 .lineLimit(1)
 
             if let ms = serviceLatencies[host] {
                 Text("\(Int(ms))")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
             } else {
                 Text("--")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(theme.quaternaryText)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -425,10 +426,10 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Map Your WiFi Coverage")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                     Text("Walk your space to paint signal quality onto a floor plan using AR")
                         .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .foregroundStyle(theme.tertiaryText)
                         .lineLimit(2)
                 }
 
@@ -436,15 +437,15 @@ struct DashboardView: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.25))
+                    .foregroundStyle(theme.quaternaryText)
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(theme.cardFill)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(theme.subtle, lineWidth: 1)
                     )
             )
         }
@@ -466,10 +467,10 @@ struct DashboardView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(theme.subtle, lineWidth: 1)
                 )
         )
     }
@@ -478,13 +479,13 @@ struct DashboardView: View {
         VStack(spacing: 10) {
             Image(systemName: "arrow.up.arrow.down.circle")
                 .font(.system(size: 36))
-                .foregroundStyle(.white.opacity(0.15))
+                .foregroundStyle(theme.quaternaryText)
             Text("No speed test results yet")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(theme.tertiaryText)
             Text("Tap the button below to measure\nyour download and upload speeds")
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.2))
+                .foregroundStyle(theme.quaternaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -507,14 +508,14 @@ struct DashboardView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(Int(speedTest.pingMs))")
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(theme.primaryText)
                             Text("ms")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .foregroundStyle(theme.tertiaryText)
                         }
                     } else {
                         ProgressView()
-                            .tint(.white)
+                            .tint(theme.primaryText)
                             .scaleEffect(1.2)
                             .padding(.vertical, 12)
                     }
@@ -525,12 +526,12 @@ struct DashboardView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(formatSpeed(speedTest.currentSpeed))
                             .font(.system(size: 56, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.primaryText)
                             .contentTransition(.numericText())
                             .animation(.easeInOut(duration: 0.2), value: formatSpeed(speedTest.currentSpeed))
                         Text("Mbps")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(theme.tertiaryText)
                     }
                     .frame(maxWidth: .infinity)
 
@@ -553,12 +554,12 @@ struct DashboardView: View {
             HStack {
                 Text("Internet \u{2192} Your iPhone")
                     .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(theme.secondaryText)
                 Spacer()
                 if let date = speedTest.testDate {
                     Text(formattedTime(date))
                         .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(theme.tertiaryText)
                 }
             }
 
@@ -593,16 +594,16 @@ struct DashboardView: View {
                     .foregroundStyle(color)
                 Text(direction)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(theme.secondaryText)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(formatSpeed(speed))
                     .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Text("Mbps")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(theme.tertiaryText)
             }
         }
         .frame(maxWidth: .infinity)
@@ -621,10 +622,10 @@ struct DashboardView: View {
         HStack(spacing: 6) {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(theme.tertiaryText)
             Text(value)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(theme.secondaryText)
         }
     }
 
@@ -734,11 +735,11 @@ struct DashboardView: View {
     private func speedTestPhaseStep(_ label: String, isActive: Bool, isDone: Bool) -> some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(isActive ? speedTestPhaseColor : isDone ? Color(red: 0.25, green: 0.86, blue: 0.43) : .white.opacity(0.2))
+                .fill(isActive ? speedTestPhaseColor : isDone ? Color(red: 0.25, green: 0.86, blue: 0.43) : theme.quaternaryText)
                 .frame(width: 8, height: 8)
             Text(label)
                 .font(.system(size: 12, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? .white : .white.opacity(0.4))
+                .foregroundStyle(isActive ? theme.primaryText : theme.tertiaryText)
         }
     }
 
@@ -807,7 +808,7 @@ struct DashboardView: View {
                 }
             }
             .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(theme.buttonText)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .background(
@@ -864,5 +865,5 @@ struct DashboardView: View {
 
 #Preview {
     DashboardView()
-        .preferredColorScheme(.dark)
+        .withAppTheme()
 }

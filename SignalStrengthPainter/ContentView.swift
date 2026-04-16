@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.theme) private var theme
     @StateObject private var viewModel = SignalMapViewModel()
     @State private var showResetConfirmation = false
 
@@ -12,8 +13,8 @@ struct ContentView: View {
                 calibrationLayout
             }
         }
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
-        .foregroundStyle(.white)
+        .background(theme.background.ignoresSafeArea())
+        .foregroundStyle(theme.primaryText)
         .onDisappear {
             viewModel.stopTracking()
         }
@@ -123,12 +124,12 @@ struct ContentView: View {
                     .foregroundStyle(.blue)
                 Text("Walk The Space")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
             }
 
             Text("Use AR anchoring to track movement on the floor plan, then paint signal quality directly onto the map.")
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
 
             trackingStatusBadge
         }
@@ -142,7 +143,7 @@ struct ContentView: View {
                 .foregroundStyle(.blue)
             Text("Walk The Space")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
 
             Spacer(minLength: 0)
 
@@ -157,12 +158,12 @@ struct ContentView: View {
                 .frame(width: 8, height: 8)
             Text(viewModel.trackingStatus)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(theme.secondaryText)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(
-            Capsule().fill(Color.white.opacity(0.06))
+            Capsule().fill(theme.subtle)
         )
     }
 
@@ -173,12 +174,12 @@ struct ContentView: View {
                 .frame(width: 6, height: 6)
             Text(viewModel.trackingStatus)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(theme.secondaryText)
                 .lineLimit(1)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Capsule().fill(Color.white.opacity(0.06)))
+        .background(Capsule().fill(theme.subtle))
     }
 
     // MARK: - Instruction Card
@@ -187,21 +188,21 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(viewModel.instructionTitle)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
 
             Text(viewModel.instructionDetail)
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(theme.subtle, lineWidth: 1)
                 )
         )
     }
@@ -210,10 +211,10 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(viewModel.instructionTitle)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text(viewModel.instructionDetail)
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(theme.tertiaryText)
                 .lineLimit(3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -221,10 +222,10 @@ struct ContentView: View {
         .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(theme.subtle, lineWidth: 1)
                 )
         )
     }
@@ -248,20 +249,20 @@ struct ContentView: View {
             HStack {
                 Text("Weaker / higher latency")
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(theme.tertiaryText)
                 Spacer()
                 Text("Stronger / lower latency")
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(theme.tertiaryText)
             }
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -282,7 +283,7 @@ struct ContentView: View {
 
             Text("Weak → Strong")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(theme.tertiaryText)
                 .fixedSize()
         }
     }
@@ -299,7 +300,7 @@ struct ContentView: View {
                     Text(viewModel.primaryActionTitle)
                 }
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.buttonText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
                 .background(
@@ -327,7 +328,7 @@ struct ContentView: View {
                             Text("Stop")
                                 .font(.system(size: 14, weight: .semibold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .background(
@@ -350,15 +351,15 @@ struct ContentView: View {
                         Text("Reset")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(theme.secondaryText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(theme.subtle)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(theme.cardStroke, lineWidth: 1)
                             )
                     )
                 }
@@ -372,15 +373,15 @@ struct ContentView: View {
                         Text("Re-anchor")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundStyle(viewModel.isTracking ? .white.opacity(0.7) : .white.opacity(0.25))
+                    .foregroundStyle(viewModel.isTracking ? theme.secondaryText : theme.quaternaryText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(theme.subtle)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(theme.cardStroke, lineWidth: 1)
                             )
                     )
                 }
@@ -420,12 +421,12 @@ struct ContentView: View {
                         .foregroundStyle(.blue)
                     Text("Map Rotation")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                 }
                 Spacer()
                 Text("\(Int(viewModel.mapRotationDegrees))°")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(theme.secondaryText)
             }
 
             Slider(
@@ -440,15 +441,15 @@ struct ContentView: View {
 
             Text("Adjust if the AR path direction doesn't match your floor plan orientation.")
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(theme.tertiaryText)
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -479,11 +480,11 @@ struct ContentView: View {
                 if let ms = viewModel.latestLatencyMs {
                     Text("\(Int(ms)) ms")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                 } else {
                     Text("— ms")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.3))
+                        .foregroundStyle(theme.tertiaryText)
                 }
             }
             Spacer()
@@ -493,7 +494,7 @@ struct ContentView: View {
                     .foregroundStyle(.blue)
                 Text("\(viewModel.trail.count) pts")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(theme.tertiaryText)
             }
         }
     }
@@ -512,10 +513,10 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Text(label)
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(theme.tertiaryText)
             }
 
             Spacer(minLength: 0)
@@ -523,10 +524,10 @@ struct ContentView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -535,5 +536,6 @@ struct ContentView: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+            .withAppTheme()
     }
 }

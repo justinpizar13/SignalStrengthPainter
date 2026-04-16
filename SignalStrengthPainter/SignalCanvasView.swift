@@ -7,9 +7,11 @@ struct SignalCanvasView: View {
     let showSurveyor: Bool
     let calibrationStart: CGPoint?
     let pendingReanchorPoint: CGPoint?
-    /// Uniform scale about the view center (smaller = more “zoomed out” for long walks).
+    /// Uniform scale about the view center (smaller = more "zoomed out" for long walks).
     var contentScale: CGFloat = 1.0
     let onMapTap: ((CGPoint) -> Void)?
+
+    @Environment(\.theme) private var theme
 
     var body: some View {
         GeometryReader { geometry in
@@ -54,11 +56,11 @@ struct SignalCanvasView: View {
                     )
             }
         }
-        .background(Color(red: 0.12, green: 0.12, blue: 0.14))
+        .background(theme.canvasBackground)
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .stroke(theme.canvasStroke, lineWidth: 1)
         )
     }
 

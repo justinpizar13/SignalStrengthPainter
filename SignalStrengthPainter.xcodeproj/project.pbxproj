@@ -20,6 +20,7 @@
 		A1B2C3D401234567890123A1 /* SpeedTestManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123A2 /* SpeedTestManager.swift */; };
 		A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123B2 /* NetworkScanner.swift */; };
 		A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */; };
+		A1B2C3D401234567890123D1 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123D2 /* AppTheme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		A1B2C3D401234567890123A2 /* SpeedTestManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedTestManager.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123B2 /* NetworkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkScanner.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscoveryView.swift; sourceTree = "<group>"; };
+		A1B2C3D401234567890123D2 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +77,7 @@
 				A1B2C3D401234567890123A2 /* SpeedTestManager.swift */,
 				A1B2C3D401234567890123B2 /* NetworkScanner.swift */,
 				A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */,
+				A1B2C3D401234567890123D2 /* AppTheme.swift */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 			);
 			path = SignalStrengthPainter;
@@ -169,6 +172,7 @@
 				A1B2C3D401234567890123A1 /* SpeedTestManager.swift in Sources */,
 				A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */,
 				A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */,
+				A1B2C3D401234567890123D1 /* AppTheme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,6 +3,7 @@ import SwiftUI
 struct MainTabView: View {
     @AppStorage("isProUser") private var isProUser = false
     @State private var selectedTab: Tab = .speed
+    @State private var showAppearancePicker = false
 
     enum Tab: Int {
         case speed, survey, signal, devices, pro
@@ -59,11 +60,54 @@ struct MainTabView: View {
             }
         }
         .tint(.blue)
-        .preferredColorScheme(.dark)
+        .overlay(alignment: .topTrailing) {
+            appearanceButton
+                .padding(.top, 2)
+                .padding(.trailing, 16)
+        }
         .onChange(of: isProUser) { _, newValue in
             if newValue && selectedTab == .pro {
                 selectedTab = .speed
             }
+        }
+    }
+
+    // MARK: - Appearance Toggle
+
+    private var appearanceButton: some View {
+        AppearanceToggle()
+    }
+}
+
+// MARK: - Appearance Toggle
+
+struct AppearanceToggle: View {
+    @AppStorage("appearanceMode") private var modeRaw: Int = AppearanceMode.system.rawValue
+    @Environment(\.theme) private var theme
+
+    private var mode: AppearanceMode {
+        AppearanceMode(rawValue: modeRaw) ?? .system
+    }
+
+    var body: some View {
+        Menu {
+            ForEach([AppearanceMode.system, .light, .dark], id: \.rawValue) { option in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        modeRaw = option.rawValue
+                    }
+                } label: {
+                    Label(option.label, systemImage: option.icon)
+                }
+            }
+        } label: {
+            Image(systemName: mode.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(theme.secondaryText)
+                .frame(width: 32, height: 32)
+                .background(theme.cardFill)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(theme.cardStroke, lineWidth: 1))
         }
     }
 }
@@ -71,6 +115,7 @@ struct MainTabView: View {
 // MARK: - Signal Detail Tab
 
 struct SignalDetailView: View {
+    @Environment(\.theme) private var theme
     @State private var latestLatencyMs: Double?
     @State private var animateRings = false
 
@@ -99,7 +144,7 @@ struct SignalDetailView: View {
                     .padding(.bottom, 32)
             }
         }
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                 animateRings = true
@@ -112,10 +157,10 @@ struct SignalDetailView: View {
         VStack(spacing: 6) {
             Text("Signal Strength")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text("Current WiFi connection quality")
                 .font(.system(size: 15))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
         }
     }
 
@@ -164,7 +209,7 @@ struct SignalDetailView: View {
                             .foregroundStyle(ringColor)
                         Text("Based on network latency")
                             .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.45))
+                            .foregroundStyle(theme.tertiaryText)
                     }
 
                     Spacer()
@@ -172,19 +217,19 @@ struct SignalDetailView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(Int(ms))")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.primaryText)
                         Text("ms latency")
                             .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.45))
+                            .foregroundStyle(theme.tertiaryText)
                     }
                 }
             } else {
                 HStack {
                     ProgressView()
-                        .tint(.white.opacity(0.5))
+                        .tint(theme.tertiaryText)
                     Text("Measuring signal quality...")
                         .font(.system(size: 15))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(theme.tertiaryText)
                         .padding(.leading, 8)
                     Spacer()
                 }
@@ -193,7 +238,7 @@ struct SignalDetailView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(ringColor.opacity(0.2), lineWidth: 1)
@@ -229,22 +274,22 @@ struct SignalDetailView: View {
 
             Text(value)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(label)
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -253,7 +298,7 @@ struct SignalDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Improve Your Signal")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
 
             tipRow(icon: "location.fill", text: "Move closer to your router for a stronger connection")
             tipRow(icon: "map.fill", text: "Use the Survey tab to map dead zones in your space")
@@ -263,10 +308,10 @@ struct SignalDetailView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -280,7 +325,7 @@ struct SignalDetailView: View {
 
             Text(text)
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -308,4 +353,5 @@ struct SignalDetailView: View {
 
 #Preview {
     MainTabView()
+        .withAppTheme()
 }

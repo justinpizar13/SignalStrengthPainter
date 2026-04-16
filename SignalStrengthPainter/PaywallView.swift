@@ -3,6 +3,7 @@ import SwiftUI
 struct PaywallView: View {
     @Binding var isPresented: Bool
     var onPurchase: (() -> Void)?
+    @Environment(\.theme) private var theme
     @State private var selectedPlan: Plan = .monthly
     @State private var currentPage = 0
 
@@ -14,7 +15,7 @@ struct PaywallView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
+            theme.background.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -41,7 +42,6 @@ struct PaywallView: View {
                 .padding(.top, 12)
                 .padding(.trailing, 16)
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Hero preview
@@ -55,7 +55,7 @@ struct PaywallView: View {
         }
         .overlay(
             LinearGradient(
-                colors: [.clear, .clear, .black.opacity(0.85), .black],
+                colors: [.clear, .clear, theme.background.opacity(0.85), theme.background],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -184,7 +184,7 @@ struct PaywallView: View {
         HStack(spacing: 0) {
             Text("Unlock Wifi Buddy ")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text("Pro")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.blue)
@@ -219,7 +219,7 @@ struct PaywallView: View {
     private var tagline: some View {
         Text("Visualize your Wi-Fi coverage &\noptimize your network setup")
             .font(.system(size: 16, weight: .regular))
-            .foregroundStyle(.white.opacity(0.8))
+            .foregroundStyle(theme.secondaryText)
             .multilineTextAlignment(.center)
             .lineSpacing(3)
     }
@@ -235,7 +235,7 @@ struct PaywallView: View {
                         .frame(width: 20, height: 8)
                 } else {
                     Circle()
-                        .fill(.white.opacity(0.3))
+                        .fill(theme.tertiaryText)
                         .frame(width: 8, height: 8)
                 }
             }
@@ -285,7 +285,7 @@ struct PaywallView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .stroke(isSelected ? Color.blue : Color.white.opacity(0.3), lineWidth: 2)
+                        .stroke(isSelected ? Color.blue : theme.tertiaryText, lineWidth: 2)
                         .frame(width: 24, height: 24)
 
                     if isSelected {
@@ -298,11 +298,11 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
 
                     Text(subtitle)
                         .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(theme.tertiaryText)
                 }
 
                 Spacer()
@@ -322,13 +322,13 @@ struct PaywallView: View {
                         if let crossedOutPrice {
                             Text(crossedOutPrice)
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.4))
-                                .strikethrough(true, color: .white.opacity(0.4))
+                                .foregroundStyle(theme.tertiaryText)
+                                .strikethrough(true, color: theme.tertiaryText)
                         }
 
                         Text(price)
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.primaryText)
                     }
                 }
             }
@@ -336,11 +336,11 @@ struct PaywallView: View {
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(isSelected ? 0.08 : 0.04))
+                    .fill(isSelected ? theme.subtle : theme.cardFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? Color.blue : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? Color.blue : theme.cardStroke, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -355,7 +355,7 @@ struct PaywallView: View {
         } label: {
             Text("Buy Now")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.buttonText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
                 .background(Color.blue)
@@ -378,7 +378,7 @@ struct PaywallView: View {
                 isPresented = false
             }
             .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.white.opacity(0.5))
+            .foregroundStyle(theme.tertiaryText)
         }
         .padding(.top, 4)
     }
@@ -391,9 +391,9 @@ struct PaywallView: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(theme.secondaryText)
                 .frame(width: 30, height: 30)
-                .background(Color.white.opacity(0.15))
+                .background(theme.subtle)
                 .clipShape(Circle())
         }
     }
@@ -401,4 +401,5 @@ struct PaywallView: View {
 
 #Preview {
     PaywallView(isPresented: .constant(true))
+        .withAppTheme()
 }

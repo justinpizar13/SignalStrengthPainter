@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DeviceDiscoveryView: View {
+    @Environment(\.theme) private var theme
     @StateObject private var scanner = NetworkScanner()
     @State private var selectedDevice: DiscoveredDevice?
 
@@ -44,7 +45,7 @@ struct DeviceDiscoveryView: View {
                     .padding(.bottom, 32)
             }
         }
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
         .sheet(item: $selectedDevice) { device in
             DeviceDetailSheet(device: device)
                 .presentationDetents([.medium])
@@ -58,10 +59,10 @@ struct DeviceDiscoveryView: View {
         VStack(spacing: 6) {
             Text("Device Discovery")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text("See who's connected to your network")
                 .font(.system(size: 15))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
         }
     }
 
@@ -70,19 +71,19 @@ struct DeviceDiscoveryView: View {
     private var networkInfoCard: some View {
         HStack(spacing: 16) {
             networkInfoItem(icon: "wifi", label: "Your IP", value: scanner.localIP)
-            divider
+            dividerLine
             networkInfoItem(icon: "network", label: "Subnet", value: scanner.subnetMask)
-            divider
+            dividerLine
             networkInfoItem(icon: "desktopcomputer", label: "Devices", value: scanner.devices.isEmpty ? "—" : "\(scanner.devices.count)")
         }
         .padding(.vertical, 18)
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(theme.subtle, lineWidth: 1)
                 )
         )
     }
@@ -94,19 +95,19 @@ struct DeviceDiscoveryView: View {
                 .foregroundStyle(.blue)
             Text(value)
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
                 .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private var divider: some View {
+    private var dividerLine: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.08))
+            .fill(theme.divider)
             .frame(width: 1, height: 40)
     }
 
@@ -133,7 +134,7 @@ struct DeviceDiscoveryView: View {
                 }
             }
             .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(theme.buttonText)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .background(
@@ -161,7 +162,7 @@ struct DeviceDiscoveryView: View {
                     .scaleEffect(0.9)
                 Text(scanner.scanStatusMessage)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(theme.secondaryText)
                 Spacer()
             }
 
@@ -186,7 +187,7 @@ struct DeviceDiscoveryView: View {
             HStack {
                 Text("Connected Devices")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Spacer()
                 Text("\(scanner.devices.count)")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -214,7 +215,7 @@ struct DeviceDiscoveryView: View {
                             .foregroundStyle(type.color)
                         Text("\(count)")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(theme.secondaryText)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -258,7 +259,7 @@ struct DeviceDiscoveryView: View {
                 HStack(spacing: 6) {
                     Text(deviceDisplayName(device))
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                         .lineLimit(1)
 
                     if device.isCurrentDevice {
@@ -274,7 +275,7 @@ struct DeviceDiscoveryView: View {
                 HStack(spacing: 8) {
                     Text(device.ipAddress)
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(theme.tertiaryText)
 
                     if let latency = device.latencyMs {
                         HStack(spacing: 3) {
@@ -283,7 +284,7 @@ struct DeviceDiscoveryView: View {
                                 .frame(width: 5, height: 5)
                             Text("\(Int(latency)) ms")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.35))
+                                .foregroundStyle(theme.tertiaryText)
                         }
                     }
                 }
@@ -300,15 +301,15 @@ struct DeviceDiscoveryView: View {
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.2))
+                .foregroundStyle(theme.quaternaryText)
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -328,7 +329,7 @@ struct DeviceDiscoveryView: View {
                     .foregroundStyle(level.color)
                 Text("Network Assessment")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Spacer()
                 Text(level.label)
                     .font(.system(size: 13, weight: .bold))
@@ -340,7 +341,7 @@ struct DeviceDiscoveryView: View {
 
             Text(level.message(total: totalCount, unknown: unknownCount))
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 12) {
@@ -352,7 +353,7 @@ struct DeviceDiscoveryView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(level.color.opacity(0.2), lineWidth: 1)
@@ -367,7 +368,7 @@ struct DeviceDiscoveryView: View {
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(theme.tertiaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -383,7 +384,7 @@ struct DeviceDiscoveryView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Protect Your Network")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
 
             tipRow(icon: "lock.shield.fill", color: .blue,
                    text: "Change your Wi-Fi password if you see unknown devices")
@@ -399,11 +400,11 @@ struct DeviceDiscoveryView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                )
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                    )
         )
     }
 
@@ -415,7 +416,7 @@ struct DeviceDiscoveryView: View {
                 .frame(width: 20)
             Text(text)
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -481,6 +482,7 @@ struct DeviceDiscoveryView: View {
 struct DeviceDetailSheet: View {
     let device: DiscoveredDevice
 
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -497,7 +499,7 @@ struct DeviceDetailSheet: View {
 
             Text(displayName)
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
                 .padding(.top, 16)
 
             Text(device.deviceType.rawValue)
@@ -507,28 +509,28 @@ struct DeviceDetailSheet: View {
 
             VStack(spacing: 0) {
                 detailRow(label: "IP Address", value: device.ipAddress)
-                Divider().overlay(Color.white.opacity(0.06))
+                Divider().overlay(theme.divider)
                 detailRow(label: "Response Time", value: device.latencyMs.map { "\(Int($0)) ms" } ?? "—")
-                Divider().overlay(Color.white.opacity(0.06))
+                Divider().overlay(theme.divider)
                 detailRow(label: "First Seen", value: formattedTime(device.firstSeen))
 
                 if !device.services.isEmpty {
-                    Divider().overlay(Color.white.opacity(0.06))
+                    Divider().overlay(theme.divider)
                     detailRow(label: "Services", value: device.services.joined(separator: ", "))
                 }
 
                 if device.isCurrentDevice {
-                    Divider().overlay(Color.white.opacity(0.06))
+                    Divider().overlay(theme.divider)
                     detailRow(label: "Status", value: "This is your device")
                 }
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(theme.cardFill)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                            .stroke(theme.cardStroke, lineWidth: 1)
                     )
             )
             .padding(.horizontal, 20)
@@ -536,18 +538,18 @@ struct DeviceDetailSheet: View {
 
             Spacer()
         }
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
     }
 
     private func detailRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 12)
@@ -570,5 +572,5 @@ struct DeviceDetailSheet: View {
 
 #Preview {
     DeviceDiscoveryView()
-        .preferredColorScheme(.dark)
+        .withAppTheme()
 }
