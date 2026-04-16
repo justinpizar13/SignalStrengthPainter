@@ -9,6 +9,7 @@ struct DiscoveredDevice: Identifiable {
     var bonjourName: String?
     var services: [String]
     var deviceType: DeviceType
+    var openPorts: [UInt16]
     var latencyMs: Double?
     var manufacturer: String?
     let firstSeen: Date
@@ -19,6 +20,25 @@ struct DiscoveredDevice: Identifiable {
         if let name = bonjourName, !name.isEmpty { return name }
         if let h = hostname, !h.isEmpty, h != ipAddress { return h }
         return nil
+    }
+
+    var portHint: String? {
+        if openPorts.isEmpty { return nil }
+        var hints: [String] = []
+        if openPorts.contains(62078) { hints.append("Apple Sync") }
+        if openPorts.contains(548) { hints.append("AFP") }
+        if openPorts.contains(445) { hints.append("SMB") }
+        if openPorts.contains(7000) { hints.append("AirPlay") }
+        if openPorts.contains(9100) || openPorts.contains(631) { hints.append("Printing") }
+        if openPorts.contains(554) { hints.append("RTSP") }
+        if openPorts.contains(8008) || openPorts.contains(8443) { hints.append("Cast") }
+        if openPorts.contains(1883) { hints.append("MQTT") }
+        if openPorts.contains(3689) { hints.append("Media") }
+        if hints.isEmpty {
+            let webPorts = openPorts.filter { [80, 443, 8080].contains($0) }
+            if !webPorts.isEmpty { hints.append("Web") }
+        }
+        return hints.isEmpty ? nil : hints.joined(separator: ", ")
     }
 
     enum DeviceType: String {
@@ -73,14 +93,20 @@ final class NetworkScanner: ObservableObject {
     @Published var subnetMask: String = "—"
     @Published var scanStatusMessage: String = "Ready to scan"
 
-    private var browser: NWBrowser?
     private var scanTask: Task<Void, Never>?
     private let probeQueue = DispatchQueue(label: "network.scanner.probe", attributes: .concurrent)
 
     private var discoveredIPs: Set<String> = []
-    private var bonjourResults: [String: (name: String, service: String)] = [:]
+
+    /// Bonjour results keyed by resolved IP → array of (name, service)
+    private var bonjourByIP: [String: [(name: String, service: String)]] = [:]
 
     private static let trustedKey = "trustedDeviceIPs"
+
+    private static let probePorts: [UInt16] = [
+        80, 443, 62078, 548, 445, 7000, 8080,
+        9100, 631, 554, 8008, 8443, 1883, 3689
+    ]
 
     var trustedIPs: Set<String> {
         Set(UserDefaults.standard.stringArray(forKey: Self.trustedKey) ?? [])
@@ -102,14 +128,12 @@ final class NetworkScanner: ObservableObject {
         scanProgress = 0
         devices = []
         discoveredIPs = []
-        bonjourResults = [:]
+        bonjourByIP = [:]
         scanStatusMessage = "Discovering local network..."
 
         let (ip, mask) = getLocalIPAndMask()
         localIP = ip ?? "Unknown"
         subnetMask = mask ?? "Unknown"
-
-        startBonjourBrowsing()
 
         scanTask = Task {
             guard let ip, let mask else {
@@ -117,6 +141,9 @@ final class NetworkScanner: ObservableObject {
                 isScanning = false
                 return
             }
+
+            scanStatusMessage = "Browsing Bonjour services..."
+            await discoverBonjourServices()
 
             let subnet = calculateSubnetRange(ip: ip, mask: mask)
             let gatewayIP = inferGatewayIP(localIP: ip)
@@ -132,51 +159,46 @@ final class NetworkScanner: ObservableObject {
                 let batchEnd = min(batchStart + batchSize, totalHosts)
                 let batch = Array(subnet[batchStart..<batchEnd])
 
-                await withTaskGroup(of: (String, Double?)?.self) { group in
+                await withTaskGroup(of: (String, Double, [UInt16])?.self) { group in
                     for targetIP in batch {
                         group.addTask { [weak self] in
                             guard let self else { return nil }
-                            let latency = await self.probeHost(targetIP)
-                            if latency != nil {
-                                return (targetIP, latency)
-                            }
-                            return nil
+                            guard let result = await self.probeHost(targetIP) else { return nil }
+                            return (targetIP, result.latency, result.ports)
                         }
                     }
 
                     for await result in group {
-                        if let (foundIP, latency) = result {
+                        if let (foundIP, latency, ports) = result {
                             if !discoveredIPs.contains(foundIP) {
                                 discoveredIPs.insert(foundIP)
                                 let isGateway = foundIP == gatewayIP
                                 let isSelf = foundIP == ip
+                                let bonjourInfo = bonjourByIP[foundIP]
                                 let deviceType = classifyDevice(
                                     ip: foundIP,
                                     isGateway: isGateway,
                                     isSelf: isSelf,
-                                    bonjourInfo: bonjourResults[foundIP]
+                                    bonjourEntries: bonjourInfo,
+                                    openPorts: ports
                                 )
-                                let hostname = bonjourResults[foundIP]?.name
+                                let bonjourNames = bonjourInfo?.map(\.name)
+                                let bonjourServices = bonjourInfo?.map(\.service) ?? []
                                 let device = DiscoveredDevice(
                                     id: foundIP,
                                     ipAddress: foundIP,
-                                    hostname: hostname,
-                                    bonjourName: bonjourResults[foundIP]?.name,
-                                    services: bonjourResults[foundIP].map { [$0.service] } ?? [],
+                                    hostname: nil,
+                                    bonjourName: bonjourNames?.first,
+                                    services: Array(Set(bonjourServices)),
                                     deviceType: deviceType,
+                                    openPorts: ports,
                                     latencyMs: latency,
                                     firstSeen: Date(),
                                     isCurrentDevice: isSelf,
                                     isTrusted: trustedIPs.contains(foundIP)
                                 )
                                 devices.append(device)
-                                devices.sort { lhs, rhs in
-                                    if lhs.isCurrentDevice { return true }
-                                    if rhs.isCurrentDevice { return false }
-                                    if lhs.deviceType == .router { return true }
-                                    if rhs.deviceType == .router { return false }
-                                    return lhs.ipAddress < rhs.ipAddress
-                                }
+                                sortDevices()
                             }
                         }
                     }
@@ -186,9 +208,6 @@ final class NetworkScanner: ObservableObject {
                 scanProgress = Double(scannedCount) / Double(totalHosts)
                 scanStatusMessage = "Scanned \(scannedCount)/\(totalHosts) — Found \(devices.count) device\(devices.count == 1 ? "" : "s")"
             }
-
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            enrichDevicesWithBonjour()
 
             scanStatusMessage = "Resolving device names..."
             await resolveHostnames()
@@ -200,66 +219,177 @@ final class NetworkScanner: ObservableObject {
 
     func stopScan() {
         scanTask?.cancel()
-        browser?.cancel()
-        browser = nil
         isScanning = false
         scanStatusMessage = devices.isEmpty ? "Scan stopped" : "Scan stopped — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
     }
 
-    // MARK: - Bonjour Discovery
+    private func sortDevices() {
+        devices.sort { lhs, rhs in
+            if lhs.isCurrentDevice { return true }
+            if rhs.isCurrentDevice { return false }
+            if lhs.deviceType == .router { return true }
+            if rhs.deviceType == .router { return false }
+            if lhs.deviceType != .unknown && rhs.deviceType == .unknown { return true }
+            if lhs.deviceType == .unknown && rhs.deviceType != .unknown { return false }
+            return lhs.ipAddress < rhs.ipAddress
+        }
+    }
 
-    private func startBonjourBrowsing() {
-        let serviceTypes = ["_http._tcp", "_airplay._tcp", "_raop._tcp",
-                           "_smb._tcp", "_ipp._tcp", "_printer._tcp",
-                           "_googlecast._tcp", "_spotify-connect._tcp",
-                           "_homekit._tcp", "_hap._tcp"]
+    // MARK: - Bonjour Discovery (resolves to IPs)
 
-        for serviceType in serviceTypes {
+    private func discoverBonjourServices() async {
+        let serviceTypes = [
+            "_http._tcp", "_airplay._tcp", "_raop._tcp",
+            "_smb._tcp", "_ipp._tcp", "_printer._tcp",
+            "_googlecast._tcp", "_spotify-connect._tcp",
+            "_homekit._tcp", "_hap._tcp",
+            "_device-info._tcp", "_companion-link._tcp",
+            "_sleep-proxy._udp", "_rdlink._tcp"
+        ]
+
+        var collectedEndpoints: [(name: String, service: String, endpoint: NWEndpoint)] = []
+
+        await withTaskGroup(of: [(name: String, service: String, endpoint: NWEndpoint)].self) { group in
+            for serviceType in serviceTypes {
+                group.addTask { [weak self] in
+                    guard self != nil else { return [] }
+                    return await self?.browseServiceType(serviceType) ?? []
+                }
+            }
+
+            for await results in group {
+                collectedEndpoints.append(contentsOf: results)
+            }
+        }
+
+        scanStatusMessage = "Resolving \(collectedEndpoints.count) services..."
+
+        await withTaskGroup(of: (String, String, String)?.self) { group in
+            for item in collectedEndpoints {
+                group.addTask { [weak self] in
+                    guard let self else { return nil }
+                    guard let ip = await self.resolveServiceEndpoint(item.endpoint) else { return nil }
+                    return (ip, item.name, item.service)
+                }
+            }
+
+            for await result in group {
+                if let (ip, name, service) = result {
+                    var entries = bonjourByIP[ip] ?? []
+                    if !entries.contains(where: { $0.name == name && $0.service == service }) {
+                        entries.append((name: name, service: service))
+                    }
+                    bonjourByIP[ip] = entries
+                }
+            }
+        }
+    }
+
+    private func browseServiceType(_ serviceType: String) async -> [(name: String, service: String, endpoint: NWEndpoint)] {
+        await withCheckedContinuation { continuation in
+            var results: [(name: String, service: String, endpoint: NWEndpoint)] = []
+            let lock = NSLock()
+            var hasResumed = false
+
             let params = NWParameters()
             params.includePeerToPeer = true
             let browser = NWBrowser(for: .bonjour(type: serviceType, domain: nil), using: params)
 
-            browser.browseResultsChangedHandler = { [weak self] results, _ in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    for result in results {
-                        if case let .service(name, type, _, _) = result.endpoint {
-                            let friendlyService = self.friendlyServiceName(type)
-                            self.bonjourResults[name] = (name: name, service: friendlyService)
+            browser.browseResultsChangedHandler = { browseResults, _ in
+                lock.lock()
+                for result in browseResults {
+                    if case let .service(name, type, _, _) = result.endpoint {
+                        let friendly = Self.friendlyServiceName(type)
+                        if !results.contains(where: { $0.endpoint == result.endpoint }) {
+                            results.append((name: name, service: friendly, endpoint: result.endpoint))
                         }
                     }
                 }
+                lock.unlock()
             }
 
             browser.stateUpdateHandler = { _ in }
-            browser.start(queue: probeQueue)
+            browser.start(queue: DispatchQueue.global(qos: .userInitiated))
 
-            Task {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) {
                 browser.cancel()
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                let snapshot = results
+                lock.unlock()
+                continuation.resume(returning: snapshot)
             }
         }
     }
 
-    private func enrichDevicesWithBonjour() {
-        for (name, info) in bonjourResults {
-            if let idx = devices.firstIndex(where: {
-                $0.bonjourName == name || $0.hostname?.localizedCaseInsensitiveContains(name) == true
-            }) {
-                if !devices[idx].services.contains(info.service) {
-                    devices[idx].services.append(info.service)
-                }
-                if devices[idx].bonjourName == nil {
-                    devices[idx].bonjourName = info.name
+    private func resolveServiceEndpoint(_ endpoint: NWEndpoint) async -> String? {
+        await withCheckedContinuation { continuation in
+            let connection = NWConnection(to: endpoint, using: .tcp)
+            var hasResumed = false
+            let lock = NSLock()
+
+            func finish(_ value: String?) {
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                lock.unlock()
+                connection.cancel()
+                continuation.resume(returning: value)
+            }
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    if let path = connection.currentPath,
+                       let remoteEndpoint = path.remoteEndpoint,
+                       case let .hostPort(host, _) = remoteEndpoint {
+                        switch host {
+                        case .ipv4(let addr):
+                            finish("\(addr)")
+                        default:
+                            finish(nil)
+                        }
+                    } else {
+                        finish(nil)
+                    }
+                case .failed, .cancelled:
+                    finish(nil)
+                default:
+                    break
                 }
             }
+
+            probeQueue.asyncAfter(deadline: .now() + 2.0) {
+                finish(nil)
+            }
+
+            connection.start(queue: probeQueue)
         }
     }
+
+    private nonisolated static func friendlyServiceName(_ raw: String) -> String {
+        if raw.contains("airplay") { return "AirPlay" }
+        if raw.contains("raop") { return "AirPlay Audio" }
+        if raw.contains("smb") { return "File Sharing" }
+        if raw.contains("ipp") || raw.contains("printer") { return "Printer" }
+        if raw.contains("googlecast") { return "Chromecast" }
+        if raw.contains("spotify") { return "Spotify Connect" }
+        if raw.contains("homekit") || raw.contains("hap") { return "HomeKit" }
+        if raw.contains("companion-link") { return "Apple Companion" }
+        if raw.contains("rdlink") { return "Remote Desktop" }
+        if raw.contains("device-info") { return "Device Info" }
+        if raw.contains("sleep-proxy") { return "Sleep Proxy" }
+        if raw.contains("http") { return "Web Server" }
+        return raw
+    }
+
+    // MARK: - Hostname Resolution
 
     private func resolveHostnames() async {
         await withTaskGroup(of: (Int, String?)?.self) { group in
             for (index, device) in devices.enumerated() {
-                if device.hostname != nil { continue }
+                if device.bonjourName != nil { continue }
                 group.addTask {
                     let name = await self.reverseDNS(ip: device.ipAddress)
                     return (index, name)
@@ -269,12 +399,7 @@ final class NetworkScanner: ObservableObject {
                 guard let (index, name) = result, index < devices.count, let name else { continue }
                 devices[index].hostname = name
                 if devices[index].deviceType == .unknown {
-                    devices[index].deviceType = classifyDevice(
-                        ip: devices[index].ipAddress,
-                        isGateway: false,
-                        isSelf: devices[index].isCurrentDevice,
-                        bonjourInfo: (name: name, service: "")
-                    )
+                    devices[index].deviceType = classifyByName(name)
                 }
             }
         }
@@ -312,29 +437,30 @@ final class NetworkScanner: ObservableObject {
         }
     }
 
-    private func friendlyServiceName(_ raw: String) -> String {
-        if raw.contains("airplay") { return "AirPlay" }
-        if raw.contains("raop") { return "AirPlay Audio" }
-        if raw.contains("smb") { return "File Sharing" }
-        if raw.contains("ipp") || raw.contains("printer") { return "Printer" }
-        if raw.contains("googlecast") { return "Chromecast" }
-        if raw.contains("spotify") { return "Spotify Connect" }
-        if raw.contains("homekit") || raw.contains("hap") { return "HomeKit" }
-        if raw.contains("http") { return "Web Server" }
-        return raw
-    }
+    // MARK: - TCP Probe (all ports, concurrent)
 
-    // MARK: - TCP Probe
-
-    private func probeHost(_ ip: String) async -> Double? {
-        let ports: [UInt16] = [80, 443, 62078, 548, 445, 7000, 8080]
-
-        for port in ports {
-            if let latency = await probePort(host: ip, port: port) {
-                return latency
+    private func probeHost(_ ip: String) async -> (latency: Double, ports: [UInt16])? {
+        await withTaskGroup(of: (UInt16, Double)?.self) { group -> (Double, [UInt16])? in
+            for port in Self.probePorts {
+                group.addTask { [weak self] in
+                    guard let self else { return nil }
+                    if let latency = await self.probePort(host: ip, port: port) {
+                        return (port, latency)
+                    }
+                    return nil
+                }
             }
+
+            var hits: [(UInt16, Double)] = []
+            for await result in group {
+                if let r = result { hits.append(r) }
+            }
+
+            guard !hits.isEmpty else { return nil }
+            let bestLatency = hits.map(\.1).min()!
+            let openPorts = hits.map(\.0).sorted()
+            return (bestLatency, openPorts)
         }
-        return nil
     }
 
     private func probePort(host: String, port: UInt16) async -> Double? {
@@ -385,6 +511,78 @@ final class NetworkScanner: ObservableObject {
 
             connection.start(queue: probeQueue)
         }
+    }
+
+    // MARK: - Device Classification
+
+    private func classifyDevice(
+        ip: String,
+        isGateway: Bool,
+        isSelf: Bool,
+        bonjourEntries: [(name: String, service: String)]?,
+        openPorts: [UInt16]
+    ) -> DiscoveredDevice.DeviceType {
+        if isGateway { return .router }
+        if isSelf { return .phone }
+
+        if let entries = bonjourEntries {
+            let allNames = entries.map { $0.name.lowercased() }
+            let allServices = entries.map { $0.service.lowercased() }
+
+            if allServices.contains(where: { $0.contains("printer") || $0.contains("ipp") }) { return .printer }
+            if allServices.contains(where: { $0.contains("chromecast") }) { return .smartTV }
+            if allServices.contains(where: { $0.contains("airplay") }) {
+                let nameStr = allNames.joined(separator: " ")
+                if nameStr.contains("tv") || nameStr.contains("apple tv") { return .smartTV }
+                if nameStr.contains("homepod") || nameStr.contains("sonos") || nameStr.contains("echo") { return .speaker }
+                return .smartTV
+            }
+            if allServices.contains(where: { $0.contains("spotify") || $0.contains("raop") || $0.contains("media") }) { return .speaker }
+            if allServices.contains(where: { $0.contains("homekit") || $0.contains("hap") }) { return .iotDevice }
+            if allServices.contains(where: { $0.contains("file sharing") || $0.contains("remote desktop") }) { return .computer }
+            if allServices.contains(where: { $0.contains("companion") }) { return .phone }
+
+            let combined = allNames.joined(separator: " ")
+            if let nameType = classifyByNameString(combined) { return nameType }
+        }
+
+        return classifyByPorts(openPorts)
+    }
+
+    private func classifyByName(_ name: String) -> DiscoveredDevice.DeviceType {
+        classifyByNameString(name.lowercased()) ?? .unknown
+    }
+
+    private func classifyByNameString(_ lowered: String) -> DiscoveredDevice.DeviceType? {
+        if lowered.contains("iphone") || lowered.contains("ipad") || lowered.contains("android") || lowered.contains("pixel") { return .phone }
+        if lowered.contains("macbook") || lowered.contains("imac") || lowered.contains("mac-") || lowered.contains("mac.") ||
+           lowered.contains("mbp") || lowered.contains("windows") || lowered.contains("desktop") || lowered.contains("laptop") ||
+           lowered.contains("thinkpad") || lowered.contains("surface") { return .computer }
+        if lowered.contains("tv") || lowered.contains("roku") || lowered.contains("fire") ||
+           lowered.contains("chromecast") || lowered.contains("shield") { return .smartTV }
+        if lowered.contains("xbox") || lowered.contains("playstation") || lowered.contains("ps5") ||
+           lowered.contains("ps4") || lowered.contains("nintendo") || lowered.contains("switch") { return .gameConsole }
+        if lowered.contains("echo") || lowered.contains("homepod") || lowered.contains("sonos") ||
+           lowered.contains("home mini") || lowered.contains("nest") { return .speaker }
+        if lowered.contains("printer") || lowered.contains("epson") || lowered.contains("canon") ||
+           lowered.contains("brother") || lowered.contains("hp-") || lowered.contains("laserjet") { return .printer }
+        if lowered.contains("cam") || lowered.contains("ring") || lowered.contains("nest") ||
+           lowered.contains("hue") || lowered.contains("wemo") || lowered.contains("smart") ||
+           lowered.contains("plug") || lowered.contains("bulb") || lowered.contains("sensor") { return .iotDevice }
+        return nil
+    }
+
+    private func classifyByPorts(_ ports: [UInt16]) -> DiscoveredDevice.DeviceType {
+        if ports.contains(62078) { return .phone }
+        if ports.contains(548) { return .computer }
+        if ports.contains(445) && !ports.contains(7000) { return .computer }
+        if ports.contains(9100) || ports.contains(631) { return .printer }
+        if ports.contains(7000) || ports.contains(8008) { return .smartTV }
+        if ports.contains(3689) { return .speaker }
+        if ports.contains(554) { return .iotDevice }
+        if ports.contains(1883) { return .iotDevice }
+        if ports.count == 1 && ports.first == 80 { return .iotDevice }
+        return .unknown
     }
 
     // MARK: - Network Utilities
@@ -457,30 +655,5 @@ final class NetworkScanner: ObservableObject {
         let parts = localIP.split(separator: ".")
         guard parts.count == 4 else { return "192.168.0.1" }
         return "\(parts[0]).\(parts[1]).\(parts[2]).1"
-    }
-
-    private func classifyDevice(ip: String, isGateway: Bool, isSelf: Bool, bonjourInfo: (name: String, service: String)?) -> DiscoveredDevice.DeviceType {
-        if isGateway { return .router }
-        if isSelf { return .phone }
-
-        if let info = bonjourInfo {
-            let nameLower = info.name.lowercased()
-            let serviceLower = info.service.lowercased()
-
-            if serviceLower.contains("printer") || serviceLower.contains("ipp") { return .printer }
-            if serviceLower.contains("airplay") && (nameLower.contains("tv") || nameLower.contains("apple tv")) { return .smartTV }
-            if serviceLower.contains("chromecast") { return .smartTV }
-            if serviceLower.contains("spotify") || serviceLower.contains("raop") { return .speaker }
-            if serviceLower.contains("homekit") || serviceLower.contains("hap") { return .iotDevice }
-
-            if nameLower.contains("iphone") || nameLower.contains("ipad") || nameLower.contains("android") { return .phone }
-            if nameLower.contains("macbook") || nameLower.contains("imac") || nameLower.contains("mac") { return .computer }
-            if nameLower.contains("windows") || nameLower.contains("desktop") || nameLower.contains("laptop") { return .computer }
-            if nameLower.contains("tv") || nameLower.contains("roku") || nameLower.contains("fire") { return .smartTV }
-            if nameLower.contains("xbox") || nameLower.contains("playstation") || nameLower.contains("nintendo") { return .gameConsole }
-            if nameLower.contains("echo") || nameLower.contains("homepod") || nameLower.contains("sonos") { return .speaker }
-        }
-
-        return .unknown
     }
 }

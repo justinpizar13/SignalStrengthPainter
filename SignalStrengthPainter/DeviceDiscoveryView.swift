@@ -315,6 +315,11 @@ struct DeviceDiscoveryView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(device.deviceType.color.opacity(0.7))
                         .lineLimit(1)
+                } else if let hint = device.portHint {
+                    Text(hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.tertiaryText)
+                        .lineLimit(1)
                 }
             }
 
@@ -562,6 +567,11 @@ struct DeviceDetailSheet: View {
                 if !device.services.isEmpty {
                     Divider().overlay(theme.divider)
                     detailRow(label: "Services", value: device.services.joined(separator: ", "))
+                }
+
+                if !device.openPorts.isEmpty {
+                    Divider().overlay(theme.divider)
+                    detailRow(label: "Open Ports", value: device.openPorts.map(String.init).joined(separator: ", "))
                 }
 
                 if device.isCurrentDevice {
