@@ -27,15 +27,17 @@ struct DiscoveredDevice: Identifiable {
         var hints: [String] = []
         if openPorts.contains(62078) { hints.append("Apple Sync") }
         if openPorts.contains(548) { hints.append("AFP") }
-        if openPorts.contains(445) { hints.append("SMB") }
+        if openPorts.contains(445) || openPorts.contains(139) { hints.append("SMB") }
         if openPorts.contains(7000) { hints.append("AirPlay") }
-        if openPorts.contains(9100) || openPorts.contains(631) { hints.append("Printing") }
+        if openPorts.contains(9100) || openPorts.contains(631) || openPorts.contains(515) { hints.append("Printing") }
         if openPorts.contains(554) { hints.append("RTSP") }
         if openPorts.contains(8008) || openPorts.contains(8443) { hints.append("Cast") }
         if openPorts.contains(1883) { hints.append("MQTT") }
         if openPorts.contains(3689) { hints.append("Media") }
+        if openPorts.contains(22) { hints.append("SSH") }
+        if openPorts.contains(5353) { hints.append("mDNS") }
         if hints.isEmpty {
-            let webPorts = openPorts.filter { [80, 443, 8080].contains($0) }
+            let webPorts = openPorts.filter { [80, 443, 8080, 8888, 3000, 5000].contains($0) }
             if !webPorts.isEmpty { hints.append("Web") }
         }
         return hints.isEmpty ? nil : hints.joined(separator: ", ")
@@ -105,7 +107,8 @@ final class NetworkScanner: ObservableObject {
 
     private static let probePorts: [UInt16] = [
         80, 443, 62078, 548, 445, 7000, 8080,
-        9100, 631, 554, 8008, 8443, 1883, 3689
+        9100, 631, 554, 8008, 8443, 1883, 3689,
+        22, 139, 5353, 8888, 5000, 515, 3000
     ]
 
     var trustedIPs: Set<String> {
@@ -152,7 +155,7 @@ final class NetworkScanner: ObservableObject {
 
             scanStatusMessage = "Scanning \(totalHosts) addresses..."
 
-            let batchSize = 30
+            let batchSize = 20
             for batchStart in stride(from: 0, to: totalHosts, by: batchSize) {
                 if Task.isCancelled { break }
 
@@ -208,6 +211,9 @@ final class NetworkScanner: ObservableObject {
                 scanProgress = Double(scannedCount) / Double(totalHosts)
                 scanStatusMessage = "Scanned \(scannedCount)/\(totalHosts) — Found \(devices.count) device\(devices.count == 1 ? "" : "s")"
             }
+
+            scanStatusMessage = "Adding Bonjour-discovered devices..."
+            addBonjourOnlyDevices(localIP: ip, gatewayIP: gatewayIP)
 
             scanStatusMessage = "Resolving device names..."
             await resolveHostnames()
@@ -384,6 +390,42 @@ final class NetworkScanner: ObservableObject {
         return raw
     }
 
+    // MARK: - Bonjour Fallback (include devices found via Bonjour but missed by port scan)
+
+    private func addBonjourOnlyDevices(localIP: String, gatewayIP: String) {
+        for (ip, entries) in bonjourByIP {
+            guard !discoveredIPs.contains(ip) else { continue }
+            discoveredIPs.insert(ip)
+
+            let isGateway = ip == gatewayIP
+            let isSelf = ip == localIP
+            let deviceType = classifyDevice(
+                ip: ip,
+                isGateway: isGateway,
+                isSelf: isSelf,
+                bonjourEntries: entries,
+                openPorts: []
+            )
+            let bonjourNames = entries.map(\.name)
+            let bonjourServices = entries.map(\.service)
+            let device = DiscoveredDevice(
+                id: ip,
+                ipAddress: ip,
+                hostname: nil,
+                bonjourName: bonjourNames.first,
+                services: Array(Set(bonjourServices)),
+                deviceType: deviceType,
+                openPorts: [],
+                latencyMs: nil,
+                firstSeen: Date(),
+                isCurrentDevice: isSelf,
+                isTrusted: trustedIPs.contains(ip)
+            )
+            devices.append(device)
+        }
+        sortDevices()
+    }
+
     // MARK: - Hostname Resolution
 
     private func resolveHostnames() async {
@@ -437,10 +479,10 @@ final class NetworkScanner: ObservableObject {
         }
     }
 
-    // MARK: - TCP Probe (all ports, concurrent)
+    // MARK: - TCP Probe (all ports, concurrent) + Liveness Check
 
     private func probeHost(_ ip: String) async -> (latency: Double, ports: [UInt16])? {
-        await withTaskGroup(of: (UInt16, Double)?.self) { group -> (Double, [UInt16])? in
+        let portResults = await withTaskGroup(of: (UInt16, Double)?.self) { group -> [(UInt16, Double)] in
             for port in Self.probePorts {
                 group.addTask { [weak self] in
                     guard let self else { return nil }
@@ -455,11 +497,97 @@ final class NetworkScanner: ObservableObject {
             for await result in group {
                 if let r = result { hits.append(r) }
             }
+            return hits
+        }
 
-            guard !hits.isEmpty else { return nil }
-            let bestLatency = hits.map(\.1).min()!
-            let openPorts = hits.map(\.0).sorted()
+        if !portResults.isEmpty {
+            let bestLatency = portResults.map(\.1).min()!
+            let openPorts = portResults.map(\.0).sorted()
             return (bestLatency, openPorts)
+        }
+
+        if let latency = await livenessCheck(ip) {
+            return (latency, [])
+        }
+
+        return nil
+    }
+
+    /// Detects if a host is alive even with all probed ports filtered.
+    /// A fast TCP RST (connection refused) means the host is up but the port is closed.
+    private func livenessCheck(_ ip: String) async -> Double? {
+        let checkPorts: [UInt16] = [443, 80, 7, 1]
+        return await withTaskGroup(of: Double?.self) { group in
+            for port in checkPorts {
+                group.addTask { [weak self] in
+                    guard let self else { return nil }
+                    return await self.probeLiveness(host: ip, port: port)
+                }
+            }
+
+            for await result in group {
+                if let latency = result {
+                    group.cancelAll()
+                    return latency
+                }
+            }
+            return nil
+        }
+    }
+
+    /// Connects to a port with a longer timeout; counts both "ready" and fast "refused" as alive.
+    private func probeLiveness(host: String, port: UInt16) async -> Double? {
+        await withCheckedContinuation { continuation in
+            guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+                continuation.resume(returning: nil)
+                return
+            }
+
+            let params = NWParameters.tcp
+            params.requiredInterfaceType = .wifi
+            let connection = NWConnection(
+                host: NWEndpoint.Host(host),
+                port: nwPort,
+                using: params
+            )
+
+            let start = DispatchTime.now()
+            var hasResumed = false
+            let lock = NSLock()
+
+            func finish(_ value: Double?) {
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                lock.unlock()
+                connection.cancel()
+                continuation.resume(returning: value)
+            }
+
+            connection.stateUpdateHandler = { state in
+                let elapsedNs = DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds
+                let ms = Double(elapsedNs) / 1_000_000
+                switch state {
+                case .ready:
+                    finish(ms)
+                case .failed:
+                    if ms < 500 {
+                        finish(ms)
+                    } else {
+                        finish(nil)
+                    }
+                case .cancelled:
+                    finish(nil)
+                default:
+                    break
+                }
+            }
+
+            probeQueue.asyncAfter(deadline: .now() + 0.8) {
+                finish(nil)
+            }
+
+            connection.start(queue: probeQueue)
         }
     }
 
@@ -505,7 +633,7 @@ final class NetworkScanner: ObservableObject {
                 }
             }
 
-            probeQueue.asyncAfter(deadline: .now() + 0.3) {
+            probeQueue.asyncAfter(deadline: .now() + 0.8) {
                 finish(nil)
             }
 
@@ -575,8 +703,11 @@ final class NetworkScanner: ObservableObject {
     private func classifyByPorts(_ ports: [UInt16]) -> DiscoveredDevice.DeviceType {
         if ports.contains(62078) { return .phone }
         if ports.contains(548) { return .computer }
+        if ports.contains(22) && (ports.contains(445) || ports.contains(548) || ports.contains(5000)) { return .computer }
         if ports.contains(445) && !ports.contains(7000) { return .computer }
-        if ports.contains(9100) || ports.contains(631) { return .printer }
+        if ports.contains(139) && !ports.contains(7000) { return .computer }
+        if ports.contains(22) && ports.count <= 3 { return .computer }
+        if ports.contains(9100) || ports.contains(631) || ports.contains(515) { return .printer }
         if ports.contains(7000) || ports.contains(8008) { return .smartTV }
         if ports.contains(3689) { return .speaker }
         if ports.contains(554) { return .iotDevice }
