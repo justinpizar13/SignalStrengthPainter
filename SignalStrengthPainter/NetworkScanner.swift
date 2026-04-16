@@ -103,6 +103,9 @@ final class NetworkScanner: ObservableObject {
     /// Bonjour results keyed by resolved IP → array of (name, service)
     private var bonjourByIP: [String: [(name: String, service: String)]] = [:]
 
+    /// SSDP/UPnP results keyed by IP → HTTP headers from M-SEARCH response
+    private var ssdpByIP: [String: [String: String]] = [:]
+
     private static let trustedKey = "trustedDeviceIPs"
 
     private static let probePorts: [UInt16] = [
@@ -132,6 +135,7 @@ final class NetworkScanner: ObservableObject {
         devices = []
         discoveredIPs = []
         bonjourByIP = [:]
+        ssdpByIP = [:]
         scanStatusMessage = "Discovering local network..."
 
         let (ip, mask) = getLocalIPAndMask()
@@ -145,8 +149,11 @@ final class NetworkScanner: ObservableObject {
                 return
             }
 
-            scanStatusMessage = "Browsing Bonjour services..."
-            await discoverBonjourServices()
+            scanStatusMessage = "Discovering services (Bonjour + UPnP)..."
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await self.discoverBonjourServices() }
+                group.addTask { await self.discoverSSDPDevices() }
+            }
 
             let subnet = calculateSubnetRange(ip: ip, mask: mask)
             let gatewayIP = inferGatewayIP(localIP: ip)
@@ -178,21 +185,28 @@ final class NetworkScanner: ObservableObject {
                                 let isGateway = foundIP == gatewayIP
                                 let isSelf = foundIP == ip
                                 let bonjourInfo = bonjourByIP[foundIP]
+                                let ssdpInfo = ssdpByIP[foundIP]
                                 let deviceType = classifyDevice(
                                     ip: foundIP,
                                     isGateway: isGateway,
                                     isSelf: isSelf,
                                     bonjourEntries: bonjourInfo,
-                                    openPorts: ports
+                                    openPorts: ports,
+                                    ssdpHeaders: ssdpInfo
                                 )
                                 let bonjourNames = bonjourInfo?.map(\.name)
                                 let bonjourServices = bonjourInfo?.map(\.service) ?? []
+                                var allServices = Array(Set(bonjourServices))
+                                if let ssdpInfo {
+                                    let hint = Self.ssdpServiceHint(ssdpInfo)
+                                    if !allServices.contains(hint) { allServices.append(hint) }
+                                }
                                 let device = DiscoveredDevice(
                                     id: foundIP,
                                     ipAddress: foundIP,
                                     hostname: nil,
                                     bonjourName: bonjourNames?.first,
-                                    services: Array(Set(bonjourServices)),
+                                    services: allServices,
                                     deviceType: deviceType,
                                     openPorts: ports,
                                     latencyMs: latency,
@@ -212,8 +226,9 @@ final class NetworkScanner: ObservableObject {
                 scanStatusMessage = "Scanned \(scannedCount)/\(totalHosts) — Found \(devices.count) device\(devices.count == 1 ? "" : "s")"
             }
 
-            scanStatusMessage = "Adding Bonjour-discovered devices..."
+            scanStatusMessage = "Adding discovered-only devices..."
             addBonjourOnlyDevices(localIP: ip, gatewayIP: gatewayIP)
+            addSSDPOnlyDevices(localIP: ip, gatewayIP: gatewayIP)
 
             scanStatusMessage = "Resolving device names..."
             await resolveHostnames()
@@ -250,7 +265,8 @@ final class NetworkScanner: ObservableObject {
             "_googlecast._tcp", "_spotify-connect._tcp",
             "_homekit._tcp", "_hap._tcp",
             "_device-info._tcp", "_companion-link._tcp",
-            "_sleep-proxy._udp", "_rdlink._tcp"
+            "_sleep-proxy._udp", "_rdlink._tcp",
+            "_amzn-wplay._tcp"
         ]
 
         var collectedEndpoints: [(name: String, service: String, endpoint: NWEndpoint)] = []
@@ -386,6 +402,7 @@ final class NetworkScanner: ObservableObject {
         if raw.contains("rdlink") { return "Remote Desktop" }
         if raw.contains("device-info") { return "Device Info" }
         if raw.contains("sleep-proxy") { return "Sleep Proxy" }
+        if raw.contains("amzn-wplay") { return "Amazon Audio" }
         if raw.contains("http") { return "Web Server" }
         return raw
     }
@@ -399,21 +416,27 @@ final class NetworkScanner: ObservableObject {
 
             let isGateway = ip == gatewayIP
             let isSelf = ip == localIP
+            let ssdpInfo = ssdpByIP[ip]
             let deviceType = classifyDevice(
                 ip: ip,
                 isGateway: isGateway,
                 isSelf: isSelf,
                 bonjourEntries: entries,
-                openPorts: []
+                openPorts: [],
+                ssdpHeaders: ssdpInfo
             )
             let bonjourNames = entries.map(\.name)
-            let bonjourServices = entries.map(\.service)
+            var allServices = Array(Set(entries.map(\.service)))
+            if let ssdpInfo {
+                let hint = Self.ssdpServiceHint(ssdpInfo)
+                if !allServices.contains(hint) { allServices.append(hint) }
+            }
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
                 hostname: nil,
                 bonjourName: bonjourNames.first,
-                services: Array(Set(bonjourServices)),
+                services: allServices,
                 deviceType: deviceType,
                 openPorts: [],
                 latencyMs: nil,
@@ -424,6 +447,145 @@ final class NetworkScanner: ObservableObject {
             devices.append(device)
         }
         sortDevices()
+    }
+
+    // MARK: - SSDP / UPnP Discovery
+
+    private func discoverSSDPDevices() async {
+        let results: [String: [String: String]] = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+                guard fd >= 0 else {
+                    continuation.resume(returning: [:])
+                    return
+                }
+
+                var reuse: Int32 = 1
+                setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+                var timeout = timeval(tv_sec: 4, tv_usec: 0)
+                setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
+                var bindAddr = sockaddr_in()
+                bindAddr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+                bindAddr.sin_family = sa_family_t(AF_INET)
+                bindAddr.sin_port = 0
+                bindAddr.sin_addr.s_addr = INADDR_ANY
+                withUnsafeMutablePointer(to: &bindAddr) { ptr in
+                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                        _ = Darwin.bind(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+                    }
+                }
+
+                let mSearch = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 3\r\nST: ssdp:all\r\n\r\n"
+                let mBytes = Array(mSearch.utf8)
+
+                var destAddr = sockaddr_in()
+                destAddr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+                destAddr.sin_family = sa_family_t(AF_INET)
+                destAddr.sin_port = UInt16(1900).bigEndian
+                inet_pton(AF_INET, "239.255.255.250", &destAddr.sin_addr)
+
+                mBytes.withUnsafeBufferPointer { buf in
+                    withUnsafeMutablePointer(to: &destAddr) { addrPtr in
+                        addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                            _ = sendto(fd, buf.baseAddress!, mBytes.count, 0, sockPtr,
+                                       socklen_t(MemoryLayout<sockaddr_in>.size))
+                        }
+                    }
+                }
+
+                var ssdpResults: [String: [String: String]] = [:]
+                var buffer = [UInt8](repeating: 0, count: 4096)
+
+                while true {
+                    var fromAddr = sockaddr_in()
+                    var fromLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+
+                    let n = withUnsafeMutablePointer(to: &fromAddr) { addrPtr in
+                        addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                            recvfrom(fd, &buffer, buffer.count, 0, sockPtr, &fromLen)
+                        }
+                    }
+                    if n <= 0 { break }
+
+                    var sinAddr = fromAddr.sin_addr
+                    var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                    _ = withUnsafePointer(to: &sinAddr) { addrPtr in
+                        inet_ntop(AF_INET, addrPtr, &ipBuf, socklen_t(INET_ADDRSTRLEN))
+                    }
+                    let ip = String(cString: ipBuf)
+
+                    guard let response = String(bytes: buffer[0..<n], encoding: .utf8) else { continue }
+                    var headers: [String: String] = ssdpResults[ip] ?? [:]
+                    for line in response.components(separatedBy: "\r\n") {
+                        guard let colonIdx = line.firstIndex(of: ":") else { continue }
+                        let key = String(line[line.startIndex..<colonIdx])
+                            .trimmingCharacters(in: .whitespaces).uppercased()
+                        let value = String(line[line.index(after: colonIdx)...])
+                            .trimmingCharacters(in: .whitespaces)
+                        if key.isEmpty { continue }
+                        if let existing = headers[key] {
+                            if !existing.lowercased().contains(value.lowercased()) {
+                                headers[key] = existing + "; " + value
+                            }
+                        } else {
+                            headers[key] = value
+                        }
+                    }
+                    ssdpResults[ip] = headers
+                }
+
+                Darwin.close(fd)
+                continuation.resume(returning: ssdpResults)
+            }
+        }
+        ssdpByIP = results
+    }
+
+    private func addSSDPOnlyDevices(localIP: String, gatewayIP: String) {
+        for (ip, headers) in ssdpByIP {
+            guard !discoveredIPs.contains(ip) else { continue }
+            discoveredIPs.insert(ip)
+
+            let isGateway = ip == gatewayIP
+            let isSelf = ip == localIP
+            let deviceType = classifyDevice(
+                ip: ip,
+                isGateway: isGateway,
+                isSelf: isSelf,
+                bonjourEntries: nil,
+                openPorts: [],
+                ssdpHeaders: headers
+            )
+            let serviceHint = Self.ssdpServiceHint(headers)
+            let device = DiscoveredDevice(
+                id: ip,
+                ipAddress: ip,
+                hostname: nil,
+                bonjourName: nil,
+                services: [serviceHint],
+                deviceType: deviceType,
+                openPorts: [],
+                latencyMs: nil,
+                firstSeen: Date(),
+                isCurrentDevice: isSelf,
+                isTrusted: trustedIPs.contains(ip)
+            )
+            devices.append(device)
+        }
+        sortDevices()
+    }
+
+    private nonisolated static func ssdpServiceHint(_ headers: [String: String]) -> String {
+        let server = (headers["SERVER"] ?? "").lowercased()
+        if server.contains("amazon") || server.contains("alexa") || server.contains("echo") { return "Amazon Alexa" }
+        if server.contains("ring") { return "Ring" }
+        if server.contains("roku") { return "Roku" }
+        if server.contains("sonos") { return "Sonos" }
+        if server.contains("samsung") { return "Samsung UPnP" }
+        if server.contains("google") { return "Google Cast" }
+        return "UPnP"
     }
 
     // MARK: - Hostname Resolution
@@ -440,8 +602,14 @@ final class NetworkScanner: ObservableObject {
             for await result in group {
                 guard let (index, name) = result, index < devices.count, let name else { continue }
                 devices[index].hostname = name
-                if devices[index].deviceType == .unknown {
-                    devices[index].deviceType = classifyByName(name)
+                let currentType = devices[index].deviceType
+                if let nameType = classifyByNameString(name.lowercased()) {
+                    if currentType == .unknown {
+                        devices[index].deviceType = nameType
+                    } else if [.iotDevice, .smartTV].contains(currentType),
+                              [.gameConsole, .computer, .phone, .printer, .speaker].contains(nameType) {
+                        devices[index].deviceType = nameType
+                    }
                 }
             }
         }
@@ -648,55 +816,81 @@ final class NetworkScanner: ObservableObject {
         isGateway: Bool,
         isSelf: Bool,
         bonjourEntries: [(name: String, service: String)]?,
-        openPorts: [UInt16]
+        openPorts: [UInt16],
+        ssdpHeaders: [String: String]?
     ) -> DiscoveredDevice.DeviceType {
         if isGateway { return .router }
         if isSelf { return .phone }
 
-        if let entries = bonjourEntries {
+        if let entries = bonjourEntries, !entries.isEmpty {
             let allNames = entries.map { $0.name.lowercased() }
             let allServices = entries.map { $0.service.lowercased() }
+            let nameStr = allNames.joined(separator: " ")
 
             if allServices.contains(where: { $0.contains("printer") || $0.contains("ipp") }) { return .printer }
             if allServices.contains(where: { $0.contains("chromecast") }) { return .smartTV }
+            if allServices.contains(where: { $0.contains("amazon audio") }) { return .speaker }
+
             if allServices.contains(where: { $0.contains("airplay") }) {
-                let nameStr = allNames.joined(separator: " ")
                 if nameStr.contains("tv") || nameStr.contains("apple tv") { return .smartTV }
                 if nameStr.contains("homepod") || nameStr.contains("sonos") || nameStr.contains("echo") { return .speaker }
+                let hasComputerService = allServices.contains(where: {
+                    $0.contains("file sharing") || $0.contains("remote desktop")
+                })
+                if hasComputerService { return .computer }
+                if openPorts.contains(548) || openPorts.contains(445) || openPorts.contains(22) { return .computer }
+                if let nameType = classifyByNameString(nameStr), nameType == .computer { return .computer }
                 return .smartTV
             }
+
             if allServices.contains(where: { $0.contains("spotify") || $0.contains("raop") || $0.contains("media") }) { return .speaker }
             if allServices.contains(where: { $0.contains("homekit") || $0.contains("hap") }) { return .iotDevice }
             if allServices.contains(where: { $0.contains("file sharing") || $0.contains("remote desktop") }) { return .computer }
             if allServices.contains(where: { $0.contains("companion") }) { return .phone }
 
-            let combined = allNames.joined(separator: " ")
-            if let nameType = classifyByNameString(combined) { return nameType }
+            if let nameType = classifyByNameString(nameStr) { return nameType }
+        }
+
+        if let headers = ssdpHeaders, let ssdpType = classifyBySSDP(headers) {
+            return ssdpType
         }
 
         return classifyByPorts(openPorts)
     }
 
-    private func classifyByName(_ name: String) -> DiscoveredDevice.DeviceType {
-        classifyByNameString(name.lowercased()) ?? .unknown
-    }
-
     private func classifyByNameString(_ lowered: String) -> DiscoveredDevice.DeviceType? {
         if lowered.contains("iphone") || lowered.contains("ipad") || lowered.contains("android") || lowered.contains("pixel") { return .phone }
-        if lowered.contains("macbook") || lowered.contains("imac") || lowered.contains("mac-") || lowered.contains("mac.") ||
-           lowered.contains("mbp") || lowered.contains("windows") || lowered.contains("desktop") || lowered.contains("laptop") ||
-           lowered.contains("thinkpad") || lowered.contains("surface") { return .computer }
-        if lowered.contains("tv") || lowered.contains("roku") || lowered.contains("fire") ||
-           lowered.contains("chromecast") || lowered.contains("shield") { return .smartTV }
+
+        if lowered.contains("macbook") || lowered.contains("imac") || lowered.contains("mac mini") ||
+           lowered.contains("macmini") || lowered.contains("mac-mini") || lowered.contains("mac pro") ||
+           lowered.contains("macpro") || lowered.contains("mac-pro") || lowered.contains("mac-") ||
+           lowered.contains("mac.") || lowered.contains("mbp") || lowered.contains("windows") ||
+           lowered.contains("desktop") || lowered.contains("laptop") || lowered.contains("thinkpad") ||
+           lowered.contains("surface") || lowered.contains("dell-") || lowered.contains("lenovo") ||
+           lowered.contains("hp-pc") || lowered.contains("workstation") { return .computer }
+
         if lowered.contains("xbox") || lowered.contains("playstation") || lowered.contains("ps5") ||
-           lowered.contains("ps4") || lowered.contains("nintendo") || lowered.contains("switch") { return .gameConsole }
-        if lowered.contains("echo") || lowered.contains("homepod") || lowered.contains("sonos") ||
-           lowered.contains("home mini") || lowered.contains("nest") { return .speaker }
+           lowered.contains("ps4") || lowered.contains("nintendo") { return .gameConsole }
+        if lowered.contains("switch") && !lowered.contains("network switch") &&
+           !lowered.contains("ethernet switch") { return .gameConsole }
+
+        if lowered.contains("echo") || lowered.contains("alexa") || lowered.contains("homepod") ||
+           lowered.contains("sonos") || lowered.contains("home mini") ||
+           lowered.contains("nest audio") || lowered.contains("nest mini") { return .speaker }
+
+        if lowered.contains("roku") || lowered.contains("fire tv") || lowered.contains("firetv") ||
+           lowered.contains("fire stick") || lowered.contains("chromecast") ||
+           lowered.contains("shield") { return .smartTV }
+        if lowered.contains("tv") { return .smartTV }
+
         if lowered.contains("printer") || lowered.contains("epson") || lowered.contains("canon") ||
            lowered.contains("brother") || lowered.contains("hp-") || lowered.contains("laserjet") { return .printer }
-        if lowered.contains("cam") || lowered.contains("ring") || lowered.contains("nest") ||
+
+        if lowered.contains("ring") || lowered.contains("doorbell") || lowered.contains("cam") ||
            lowered.contains("hue") || lowered.contains("wemo") || lowered.contains("smart") ||
-           lowered.contains("plug") || lowered.contains("bulb") || lowered.contains("sensor") { return .iotDevice }
+           lowered.contains("plug") || lowered.contains("bulb") || lowered.contains("sensor") ||
+           lowered.contains("thermostat") { return .iotDevice }
+        if lowered.contains("nest") { return .iotDevice }
         return nil
     }
 
@@ -704,7 +898,10 @@ final class NetworkScanner: ObservableObject {
         if ports.contains(62078) { return .phone }
         if ports.contains(548) { return .computer }
         if ports.contains(22) && (ports.contains(445) || ports.contains(548) || ports.contains(5000)) { return .computer }
+        if ports.contains(445) && ports.contains(22) { return .computer }
+        if ports.contains(445) && ports.contains(7000) { return .computer }
         if ports.contains(445) && !ports.contains(7000) { return .computer }
+        if ports.contains(139) && ports.contains(22) { return .computer }
         if ports.contains(139) && !ports.contains(7000) { return .computer }
         if ports.contains(22) && ports.count <= 3 { return .computer }
         if ports.contains(9100) || ports.contains(631) || ports.contains(515) { return .printer }
@@ -714,6 +911,31 @@ final class NetworkScanner: ObservableObject {
         if ports.contains(1883) { return .iotDevice }
         if ports.count == 1 && ports.first == 80 { return .iotDevice }
         return .unknown
+    }
+
+    private func classifyBySSDP(_ headers: [String: String]) -> DiscoveredDevice.DeviceType? {
+        let server = (headers["SERVER"] ?? "").lowercased()
+        let st = (headers["ST"] ?? "").lowercased()
+        let combined = server + " " + st
+
+        if combined.contains("amazon") || combined.contains("alexa") || combined.contains("echo") {
+            if combined.contains("fire tv") || combined.contains("firetv") { return .smartTV }
+            return .speaker
+        }
+        if combined.contains("ring") { return .iotDevice }
+        if combined.contains("xbox") { return .gameConsole }
+        if combined.contains("playstation") || combined.contains("ps5") { return .gameConsole }
+        if combined.contains("nintendo") { return .gameConsole }
+        if combined.contains("roku") { return .smartTV }
+        if combined.contains("samsung") && combined.contains("tv") { return .smartTV }
+        if combined.contains("lg webos") || combined.contains("webostv") { return .smartTV }
+        if combined.contains("vizio") { return .smartTV }
+        if combined.contains("sonos") { return .speaker }
+        if combined.contains("homepod") { return .speaker }
+        if combined.contains("printer") || combined.contains("epson") || combined.contains("brother") { return .printer }
+        if st.contains("mediarenderer") { return .smartTV }
+        if st.contains("dial") { return .smartTV }
+        return nil
     }
 
     // MARK: - Network Utilities
