@@ -92,6 +92,20 @@ struct DiscoveredDevice: Identifiable {
             case .unknown: return .gray
             }
         }
+
+        var shortName: String {
+            switch self {
+            case .router: return "Router"
+            case .phone: return "Phone"
+            case .computer: return "Computer"
+            case .smartTV: return "Media Player"
+            case .printer: return "Printer"
+            case .speaker: return "Speaker"
+            case .iotDevice: return "Device"
+            case .gameConsole: return "Console"
+            case .unknown: return "Device"
+            }
+        }
     }
 }
 
@@ -253,6 +267,9 @@ final class NetworkScanner: ObservableObject {
 
             scanStatusMessage = "Resolving device names..."
             await resolveHostnames()
+
+            scanStatusMessage = "Identifying devices..."
+            await httpFingerprint()
 
             isScanning = false
             scanStatusMessage = "Scan complete — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
@@ -1016,6 +1033,8 @@ final class NetworkScanner: ObservableObject {
         if ports.contains(554) { return .iotDevice }
         if ports.contains(1883) { return .iotDevice }
         if ports.count == 1 && ports.first == 80 { return .iotDevice }
+        let webOnlyPorts: Set<UInt16> = [80, 443, 8080, 8888, 8443, 3000, 5000]
+        if !ports.isEmpty && Set(ports).isSubset(of: webOnlyPorts) { return .iotDevice }
         return .unknown
     }
 
@@ -1060,6 +1079,259 @@ final class NetworkScanner: ObservableObject {
         if st.contains("mediarenderer") { return .smartTV }
         if st.contains("dial") { return .smartTV }
         return nil
+    }
+
+    // MARK: - HTTP Fingerprinting (seventh identification layer)
+
+    private struct HTTPFingerprintResult {
+        var manufacturer: String?
+        var deviceName: String?
+        var suggestedType: DiscoveredDevice.DeviceType?
+    }
+
+    private func httpFingerprint() async {
+        let candidates: [(index: Int, ip: String, port: UInt16)] = devices.enumerated().compactMap { (index, device) in
+            guard !device.isCurrentDevice, device.deviceType != .router else { return nil }
+            let needsName = device.bonjourName == nil && device.hostname == nil
+            let needsType = device.deviceType == .unknown
+            guard needsName || needsType || device.manufacturer == nil else { return nil }
+
+            if device.openPorts.contains(80) { return (index, device.ipAddress, 80) }
+            if device.openPorts.contains(8080) { return (index, device.ipAddress, 8080) }
+            return nil
+        }
+
+        guard !candidates.isEmpty else { return }
+
+        await withTaskGroup(of: (Int, HTTPFingerprintResult?)?.self) { group in
+            for (index, ip, port) in candidates {
+                group.addTask {
+                    let result = await Self.performHTTPFingerprint(ip: ip, port: port)
+                    return (index, result)
+                }
+            }
+
+            for await taskResult in group {
+                guard let (index, fpResult) = taskResult, let fpResult,
+                      index < devices.count else { continue }
+                if let mfr = fpResult.manufacturer {
+                    devices[index].manufacturer = mfr
+                }
+                if devices[index].bonjourName == nil,
+                   let name = fpResult.deviceName, !name.isEmpty {
+                    devices[index].bonjourName = name
+                }
+                if let suggested = fpResult.suggestedType {
+                    let current = devices[index].deviceType
+                    if current == .unknown ||
+                       (current == .iotDevice && [.speaker, .smartTV, .printer, .computer, .phone, .gameConsole].contains(suggested)) {
+                        devices[index].deviceType = suggested
+                    }
+                }
+            }
+        }
+    }
+
+    private nonisolated static func performHTTPFingerprint(ip: String, port: UInt16) async -> HTTPFingerprintResult? {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 3
+        config.timeoutIntervalForResource = 3
+        let session = URLSession(configuration: config)
+
+        if let result = await fetchAndAnalyzeHTTP(session: session, ip: ip, port: port, path: "/") {
+            return result
+        }
+
+        for path in ["/xml/device_description.xml", "/rootDesc.xml", "/description.xml"] {
+            if let result = await fetchAndAnalyzeUPnP(session: session, ip: ip, port: port, path: path) {
+                return result
+            }
+        }
+
+        return nil
+    }
+
+    private nonisolated static func fetchAndAnalyzeHTTP(
+        session: URLSession, ip: String, port: UInt16, path: String
+    ) async -> HTTPFingerprintResult? {
+        guard let url = URL(string: "http://\(ip):\(port)\(path)") else { return nil }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode < 500 else { return nil }
+
+            let serverHeader = (httpResponse.value(forHTTPHeaderField: "Server") ?? "").lowercased()
+            let bodyStr = String(data: data.prefix(8192), encoding: .utf8) ?? ""
+            let body = bodyStr.lowercased()
+
+            if body.contains("<friendlyname>") || body.contains("<manufacturer>") {
+                return analyzeUPnPXML(bodyStr)
+            }
+
+            return analyzeHTTPResponse(serverHeader: serverHeader, body: body, rawBody: bodyStr)
+        } catch {
+            return nil
+        }
+    }
+
+    private nonisolated static func fetchAndAnalyzeUPnP(
+        session: URLSession, ip: String, port: UInt16, path: String
+    ) async -> HTTPFingerprintResult? {
+        guard let url = URL(string: "http://\(ip):\(port)\(path)") else { return nil }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200,
+                  let xml = String(data: data, encoding: .utf8),
+                  xml.lowercased().contains("<friendlyname>") || xml.lowercased().contains("<manufacturer>")
+            else { return nil }
+
+            return analyzeUPnPXML(xml)
+        } catch {
+            return nil
+        }
+    }
+
+    private nonisolated static func analyzeUPnPXML(_ xml: String) -> HTTPFingerprintResult? {
+        let friendlyName = extractXMLValue("friendlyName", from: xml)
+        let manufacturer = extractXMLValue("manufacturer", from: xml)
+        let modelName = extractXMLValue("modelName", from: xml)
+
+        guard manufacturer != nil || friendlyName != nil else { return nil }
+
+        let combined = [manufacturer ?? "", modelName ?? "", friendlyName ?? ""]
+            .joined(separator: " ").lowercased()
+
+        var result = HTTPFingerprintResult()
+        result.manufacturer = manufacturer
+        result.deviceName = friendlyName
+
+        if combined.contains("amazon") || combined.contains("echo") || combined.contains("alexa") {
+            if combined.contains("fire tv") || combined.contains("firetv") || combined.contains("fire_tv") {
+                result.suggestedType = .smartTV
+            } else if combined.contains("fire tablet") || combined.contains("kindle") {
+                result.suggestedType = .phone
+            } else {
+                result.suggestedType = .speaker
+            }
+        } else if combined.contains("google") {
+            if combined.contains("chromecast") { result.suggestedType = .smartTV }
+            else if combined.contains("home") || combined.contains("nest") || combined.contains("speaker") {
+                result.suggestedType = .speaker
+            }
+        } else if combined.contains("roku") {
+            result.suggestedType = .smartTV
+        } else if combined.contains("sonos") {
+            result.suggestedType = .speaker
+        } else if combined.contains("samsung") && combined.contains("tv") {
+            result.suggestedType = .smartTV
+        } else if combined.contains("printer") || combined.contains("epson") ||
+                    combined.contains("brother") || combined.contains("canon") {
+            result.suggestedType = .printer
+        } else if combined.contains("tp-link") || combined.contains("belkin") || combined.contains("wemo") {
+            result.suggestedType = .iotDevice
+        }
+
+        return result
+    }
+
+    private nonisolated static func analyzeHTTPResponse(
+        serverHeader: String, body: String, rawBody: String
+    ) -> HTTPFingerprintResult? {
+        let title = extractHTMLTitle(from: rawBody)
+        let titleLower = (title ?? "").lowercased()
+        let combined = [serverHeader, body, titleLower].joined(separator: " ")
+
+        if combined.contains("amazon") || combined.contains("alexa") || combined.contains("echo dot") ||
+           combined.contains("echo show") || combined.contains("echo pop") {
+            if combined.contains("fire tv") || combined.contains("firetv") {
+                return HTTPFingerprintResult(manufacturer: "Amazon", deviceName: title ?? "Fire TV", suggestedType: .smartTV)
+            }
+            return HTTPFingerprintResult(manufacturer: "Amazon", deviceName: title, suggestedType: .speaker)
+        }
+
+        if serverHeader.contains("google") || combined.contains("chromecast") ||
+           combined.contains("google home") || combined.contains("google nest") {
+            if combined.contains("chromecast") {
+                return HTTPFingerprintResult(manufacturer: "Google", deviceName: title ?? "Chromecast", suggestedType: .smartTV)
+            }
+            return HTTPFingerprintResult(manufacturer: "Google", deviceName: title, suggestedType: .speaker)
+        }
+
+        if combined.contains("roku") {
+            return HTTPFingerprintResult(manufacturer: "Roku", deviceName: title ?? "Roku", suggestedType: .smartTV)
+        }
+
+        if combined.contains("samsung") && combined.contains("tv") {
+            return HTTPFingerprintResult(manufacturer: "Samsung", deviceName: title, suggestedType: .smartTV)
+        }
+
+        if combined.contains("sonos") {
+            return HTTPFingerprintResult(manufacturer: "Sonos", deviceName: title ?? "Sonos", suggestedType: .speaker)
+        }
+
+        if combined.contains("homepod") {
+            return HTTPFingerprintResult(manufacturer: "Apple", deviceName: title ?? "HomePod", suggestedType: .speaker)
+        }
+
+        if combined.contains("epson") {
+            return HTTPFingerprintResult(manufacturer: "Epson", deviceName: title, suggestedType: .printer)
+        }
+        if combined.contains("brother") && (combined.contains("print") || combined.contains("mfc") || combined.contains("hl-")) {
+            return HTTPFingerprintResult(manufacturer: "Brother", deviceName: title, suggestedType: .printer)
+        }
+        if combined.contains("canon") && (combined.contains("print") || combined.contains("pixma") || combined.contains("imagerunner")) {
+            return HTTPFingerprintResult(manufacturer: "Canon", deviceName: title, suggestedType: .printer)
+        }
+        if (combined.contains("hp ") || combined.contains("hewlett")) &&
+           (combined.contains("print") || combined.contains("laserjet") || combined.contains("officejet") || combined.contains("envy")) {
+            return HTTPFingerprintResult(manufacturer: "HP", deviceName: title, suggestedType: .printer)
+        }
+
+        if combined.contains("tp-link") || combined.contains("tplink") {
+            return HTTPFingerprintResult(manufacturer: "TP-Link", deviceName: title, suggestedType: .iotDevice)
+        }
+        if combined.contains("belkin") || combined.contains("wemo") {
+            return HTTPFingerprintResult(manufacturer: "Belkin", deviceName: title, suggestedType: .iotDevice)
+        }
+        if combined.contains("philips") && combined.contains("hue") {
+            return HTTPFingerprintResult(manufacturer: "Philips", deviceName: "Hue Bridge", suggestedType: .iotDevice)
+        }
+        if combined.contains("ring") && (combined.contains("doorbell") || combined.contains("camera") || combined.contains("security")) {
+            return HTTPFingerprintResult(manufacturer: "Ring", deviceName: title, suggestedType: .iotDevice)
+        }
+        if combined.contains("nest") && (combined.contains("thermostat") || combined.contains("camera") || combined.contains("protect")) {
+            return HTTPFingerprintResult(manufacturer: "Google", deviceName: title, suggestedType: .iotDevice)
+        }
+        if combined.contains("xbox") {
+            return HTTPFingerprintResult(manufacturer: "Microsoft", deviceName: title ?? "Xbox", suggestedType: .gameConsole)
+        }
+        if combined.contains("playstation") || combined.contains("ps5") || combined.contains("ps4") {
+            return HTTPFingerprintResult(manufacturer: "Sony", deviceName: title ?? "PlayStation", suggestedType: .gameConsole)
+        }
+
+        if !serverHeader.isEmpty {
+            let cleaned = serverHeader.components(separatedBy: CharacterSet(charactersIn: "/"))
+                .first?.trimmingCharacters(in: .whitespaces) ?? ""
+            let genericServers = ["httpd", "http", "server", "apache", "nginx", "lighttpd",
+                                  "webserver", "micro", "lwip", "boa", "mini", "uhttpd", "embedded"]
+            if cleaned.count >= 3 && !genericServers.contains(cleaned) {
+                return HTTPFingerprintResult(manufacturer: cleaned.capitalized, deviceName: title, suggestedType: nil)
+            }
+        }
+
+        return nil
+    }
+
+    private nonisolated static func extractHTMLTitle(from html: String) -> String? {
+        guard let startRange = html.range(of: "<title>", options: .caseInsensitive),
+              let endRange = html.range(of: "</title>", options: .caseInsensitive),
+              startRange.upperBound < endRange.lowerBound else { return nil }
+        let title = String(html[startRange.upperBound..<endRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
     }
 
     // MARK: - Network Utilities

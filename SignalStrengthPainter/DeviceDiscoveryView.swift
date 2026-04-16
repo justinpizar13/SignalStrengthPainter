@@ -460,6 +460,9 @@ struct DeviceDiscoveryView: View {
         if let hostname = device.hostname, !hostname.isEmpty, hostname != device.ipAddress {
             return DiscoveredDevice.cleanHostname(hostname)
         }
+        if let mfr = device.manufacturer, !mfr.isEmpty {
+            return "\(mfr) \(device.deviceType.shortName)"
+        }
         return device.deviceType.rawValue
     }
 
@@ -666,6 +669,9 @@ struct DeviceDetailSheet: View {
         if let name = device.bonjourName, !name.isEmpty { return name }
         if let hostname = device.hostname, !hostname.isEmpty {
             return DiscoveredDevice.cleanHostname(hostname)
+        }
+        if let mfr = device.manufacturer, !mfr.isEmpty {
+            return "\(mfr) \(device.deviceType.shortName)"
         }
         return device.deviceType.rawValue
     }
