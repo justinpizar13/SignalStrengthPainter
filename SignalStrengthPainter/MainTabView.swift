@@ -5,7 +5,7 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .speed
 
     enum Tab: Int {
-        case speed, survey, signal, pro
+        case speed, survey, signal, devices, pro
     }
 
     var body: some View {
@@ -30,6 +30,13 @@ struct MainTabView: View {
                     Text("Signal")
                 }
                 .tag(Tab.signal)
+
+            DeviceDiscoveryView()
+                .tabItem {
+                    Image(systemName: "laptopcomputer.and.iphone")
+                    Text("Devices")
+                }
+                .tag(Tab.devices)
 
             if !isProUser {
                 PaywallView(

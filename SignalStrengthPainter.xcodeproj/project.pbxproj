@@ -18,6 +18,8 @@
 		A1B2C3D40123456789012381 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012382 /* MainTabView.swift */; };
 		A1B2C3D40123456789012391 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012392 /* DashboardView.swift */; };
 		A1B2C3D401234567890123A1 /* SpeedTestManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123A2 /* SpeedTestManager.swift */; };
+		A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123B2 /* NetworkScanner.swift */; };
+		A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		A1B2C3D40123456789012382 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012392 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123A2 /* SpeedTestManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedTestManager.swift; sourceTree = "<group>"; };
+		A1B2C3D401234567890123B2 /* NetworkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkScanner.swift; sourceTree = "<group>"; };
+		A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscoveryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +73,8 @@
 				A1B2C3D40123456789012382 /* MainTabView.swift */,
 				A1B2C3D40123456789012392 /* DashboardView.swift */,
 				A1B2C3D401234567890123A2 /* SpeedTestManager.swift */,
+				A1B2C3D401234567890123B2 /* NetworkScanner.swift */,
+				A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 			);
 			path = SignalStrengthPainter;
@@ -161,6 +167,8 @@
 				A1B2C3D40123456789012381 /* MainTabView.swift in Sources */,
 				A1B2C3D40123456789012391 /* DashboardView.swift in Sources */,
 				A1B2C3D401234567890123A1 /* SpeedTestManager.swift in Sources */,
+				A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */,
+				A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

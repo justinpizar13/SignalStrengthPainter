@@ -15,7 +15,7 @@ The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPaint
 | Layer | Role |
 |--------|------|
 | **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. |
-| **`MainTabView.swift`** | **Tab-based UI** with 4 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `SignalDetailView` (Signal tab). |
+| **`MainTabView.swift`** | **Tab-based UI** with 5 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Devices** (network device discovery), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `SignalDetailView` (Signal tab). |
 | **`DashboardView.swift`** | **Speed tab**: WiFiman/Speedtest-inspired dashboard with **network topology** visualization (ISP → Router → Device), **speed test** (download + upload via Cloudflare with live sparkline, ping/jitter), **speed report** (post-test contextual report rating connection for Netflix/streaming, gaming, video calls, home office, and browsing), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), and a **survey quick-action card**. |
 | **`SpeedTestManager.swift`** | Multi-phase speed test engine: **latency** (10 HTTP pings, trimmed mean + jitter), **download** (8 concurrent async streams fetching 4 MB chunks via `URLSession.data(for:)` in a `TaskGroup`), **upload** (8 concurrent async streams uploading 4 MB chunks via `URLSession.upload(for:from:)`). Both transfer phases use `TransferCounter` for byte tracking, a shared `sampleTransferPhase()` loop (250 ms sampling, rolling 4-sample window for live display), and compute final speed as total bytes / total time. Each phase runs up to 12 s. |
 | **`PaywallView.swift`** | NetSpot-inspired Pro upsell screen: Canvas hero, pricing cards (**Monthly $1.99**, **Lifetime ~~$19.99~~ $9.99** with "Best Deal" badge), Buy Now CTA, Restore / Not Now links, X close. Now accepts optional `onPurchase` closure for tab-mode integration. StoreKit not yet wired. |
@@ -24,6 +24,8 @@ The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPaint
 | **`SignalCanvasView.swift`** | Draws placeholder floor plan, heat blobs, blue path, surveyor symbol; optional **content scale**; map taps in map space. |
 | **`LatencyProbe.swift`** | Measures RTT-ish time via `NWConnection` TCP to `8.8.8.8:53`. |
 | **`SignalTrailModels.swift`** | `TrailPoint`, `LatencyQuality`, **heat color** derived from latency bands. |
+| **`NetworkScanner.swift`** | **Device discovery engine**: Combines **Bonjour browsing** (`NWBrowser` for service types like `_airplay._tcp`, `_http._tcp`, `_homekit._tcp`, etc.) with **TCP subnet scanning** (probes common ports 80, 443, 62078, etc. across the /24 range). Uses `getifaddrs` to determine local IP/mask. Classifies devices into types (router, phone, computer, smart TV, printer, speaker, IoT, game console) based on Bonjour names and services. Scans in batches of 30 with 300 ms timeout per probe. Published properties: `devices`, `isScanning`, `scanProgress`, `localIP`, `subnetMask`, `scanStatusMessage`. |
+| **`DeviceDiscoveryView.swift`** | **Devices tab**: "Who's on my Wi-Fi?" experience. Shows network info card (IP, subnet, device count), scan button, live progress bar during scan, scrollable device list with type icons and latency badges, tappable rows opening a detail sheet, **security assessment** card (Looks Good / Review / Attention based on unknown device count), and **Protect Your Network** tips section. Also contains `DeviceDetailSheet` (presented as `.medium` detent sheet with IP, response time, services, and first-seen time). |
 | **`ContentView.swift`** | **Survey tab**: Two layouts: **calibration** (scrollable, full chrome) vs **expanded survey/review** (map-first). Custom gradient/card-styled buttons (no system `.borderedProminent`). Footer shows latency + point count in card tiles. **Reset** uses **confirmation dialog**. Styled to match the dark-card design language of the other tabs. |
 | **`Info.plist`** | `NSMotionUsageDescription`, `NSLocalNetworkUsageDescription`, **`NSCameraUsageDescription`** (AR). |
 
@@ -104,10 +106,11 @@ The repo **`README.md`** may still describe older **pedometer-only** behavior; t
 ## Tab-based UI
 
 - **`MainTabView`** is the root view, replacing the old fullscreen-cover flow.
-- **Tabs:** Speed (dashboard), Survey (AR walk), Signal (connection quality), Pro (paywall).
+- **Tabs:** Speed (dashboard), Survey (AR walk), Signal (connection quality), Devices (network discovery), Pro (paywall).
 - **Pro tab** is **conditionally shown** based on `@AppStorage("isProUser")`. When `isProUser == true`, the Pro tab is hidden.
 - **DashboardView (Speed tab):** Network topology visualization, speed test with download/upload/ping/jitter, **post-test Wi-Fi report** (rates connection for streaming, gaming, video calls, home office, and browsing with contextual verdicts), service latency grid (Google, Cloudflare, OpenDNS, Gateway), and a survey quick-action card. The standalone latency test section was removed in favor of the integrated speed test.
 - **SignalDetailView (Signal tab):** Animated WiFi signal rings, latency-based quality indicator, metrics grid, and improvement tips.
+- **DeviceDiscoveryView (Devices tab):** Scans the local network for connected devices using Bonjour + TCP subnet probing. Shows device list with type classification, response times, network info summary, security assessment (rates network safety based on unknown device count), and security tips. Tapping a device opens a detail sheet with IP, latency, services, and timestamps. `NetworkScanner` manages all discovery state.
 - **PaywallView** now accepts an optional `onPurchase` closure. In tab mode, "Buy Now" calls `onPurchase` (sets `isProUser = true`) and switches back to the Speed tab.
 
 ## Paywall / monetization
