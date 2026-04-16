@@ -4,6 +4,8 @@ struct DeviceDiscoveryView: View {
     @Environment(\.theme) private var theme
     @StateObject private var scanner = NetworkScanner()
     @State private var selectedDevice: DiscoveredDevice?
+    @State private var showTrustConfirm = false
+    @State private var deviceToTrust: DiscoveredDevice?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -47,9 +49,11 @@ struct DeviceDiscoveryView: View {
         }
         .background(theme.background.ignoresSafeArea())
         .sheet(item: $selectedDevice) { device in
-            DeviceDetailSheet(device: device)
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+            DeviceDetailSheet(device: device) { ip, trusted in
+                scanner.setTrusted(ip, trusted: trusted)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -270,6 +274,15 @@ struct DeviceDiscoveryView: View {
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.blue.opacity(0.2)))
                     }
+
+                    if device.isTrusted {
+                        Text("TRUSTED")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Color(red: 0.25, green: 0.86, blue: 0.43))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color(red: 0.25, green: 0.86, blue: 0.43).opacity(0.2)))
+                    }
                 }
 
                 HStack(spacing: 8) {
@@ -287,6 +300,14 @@ struct DeviceDiscoveryView: View {
                                 .foregroundStyle(theme.tertiaryText)
                         }
                     }
+                }
+
+                if let hostname = device.displayHostname,
+                   hostname != deviceDisplayName(device) {
+                    Text(hostname)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.secondaryText)
+                        .lineLimit(1)
                 }
 
                 if !device.services.isEmpty {
@@ -309,7 +330,7 @@ struct DeviceDiscoveryView: View {
                 .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(theme.cardStroke, lineWidth: 1)
+                        .stroke(device.isTrusted ? Color(red: 0.25, green: 0.86, blue: 0.43).opacity(0.3) : theme.cardStroke, lineWidth: 1)
                 )
         )
     }
@@ -317,10 +338,11 @@ struct DeviceDiscoveryView: View {
     // MARK: - Security Assessment
 
     private var securityAssessment: some View {
-        let unknownCount = scanner.devices.filter { $0.deviceType == .unknown }.count
+        let unknownUntrustedCount = scanner.devices.filter { $0.deviceType == .unknown && !$0.isTrusted }.count
+        let trustedCount = scanner.devices.filter { $0.isTrusted }.count
         let totalCount = scanner.devices.count
-        let knownCount = totalCount - unknownCount
-        let level = securityLevel(total: totalCount, unknown: unknownCount)
+        let identifiedCount = totalCount - unknownUntrustedCount - trustedCount
+        let level = securityLevel(total: totalCount, unknown: unknownUntrustedCount)
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
@@ -339,15 +361,18 @@ struct DeviceDiscoveryView: View {
                     .background(Capsule().fill(level.color.opacity(0.15)))
             }
 
-            Text(level.message(total: totalCount, unknown: unknownCount))
+            Text(level.message(total: totalCount, unknown: unknownUntrustedCount))
                 .font(.system(size: 13))
                 .foregroundStyle(theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 12) {
                 assessmentStat(value: "\(totalCount)", label: "Total", color: .blue)
-                assessmentStat(value: "\(knownCount)", label: "Identified", color: Color(red: 0.25, green: 0.86, blue: 0.43))
-                assessmentStat(value: "\(unknownCount)", label: "Unknown", color: unknownCount > 0 ? Color(red: 0.98, green: 0.78, blue: 0.28) : .gray)
+                assessmentStat(value: "\(identifiedCount)", label: "Identified", color: Color(red: 0.25, green: 0.86, blue: 0.43))
+                if trustedCount > 0 {
+                    assessmentStat(value: "\(trustedCount)", label: "Trusted", color: .cyan)
+                }
+                assessmentStat(value: "\(unknownUntrustedCount)", label: "Unknown", color: unknownUntrustedCount > 0 ? Color(red: 0.98, green: 0.78, blue: 0.28) : .gray)
             }
         }
         .padding(16)
@@ -427,7 +452,7 @@ struct DeviceDiscoveryView: View {
         if device.isCurrentDevice { return "This iPhone" }
         if device.deviceType == .router { return "Router / Gateway" }
         if let name = device.bonjourName, !name.isEmpty { return name }
-        if let hostname = device.hostname, !hostname.isEmpty { return hostname }
+        if let hostname = device.hostname, !hostname.isEmpty, hostname != device.ipAddress { return hostname }
         return device.deviceType.rawValue
     }
 
@@ -481,9 +506,11 @@ struct DeviceDiscoveryView: View {
 
 struct DeviceDetailSheet: View {
     let device: DiscoveredDevice
+    var onToggleTrust: ((String, Bool) -> Void)?
 
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
+    @State private var showTrustConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -502,13 +529,31 @@ struct DeviceDetailSheet: View {
                 .foregroundStyle(theme.primaryText)
                 .padding(.top, 16)
 
-            Text(device.deviceType.rawValue)
-                .font(.system(size: 14))
-                .foregroundStyle(device.deviceType.color)
-                .padding(.top, 4)
+            HStack(spacing: 6) {
+                Text(device.deviceType.rawValue)
+                    .font(.system(size: 14))
+                    .foregroundStyle(device.deviceType.color)
+
+                if device.isTrusted {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 10))
+                        Text("Trusted")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(red: 0.25, green: 0.86, blue: 0.43))
+                }
+            }
+            .padding(.top, 4)
 
             VStack(spacing: 0) {
                 detailRow(label: "IP Address", value: device.ipAddress)
+
+                if let hostname = device.displayHostname {
+                    Divider().overlay(theme.divider)
+                    detailRow(label: "Device Name", value: hostname)
+                }
+
                 Divider().overlay(theme.divider)
                 detailRow(label: "Response Time", value: device.latencyMs.map { "\(Int($0)) ms" } ?? "—")
                 Divider().overlay(theme.divider)
@@ -536,9 +581,57 @@ struct DeviceDetailSheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 24)
 
+            if !device.isCurrentDevice {
+                trustButton
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
+
             Spacer()
         }
         .background(theme.background.ignoresSafeArea())
+        .confirmationDialog(
+            device.isTrusted ? "Remove trust for this device?" : "Trust this device?",
+            isPresented: $showTrustConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(device.isTrusted ? "Remove Trust" : "Trust Device", role: device.isTrusted ? .destructive : nil) {
+                onToggleTrust?(device.ipAddress, !device.isTrusted)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(device.isTrusted
+                 ? "This device will be counted as unknown again in your network assessment."
+                 : "Only trust devices you recognize. Trusted devices won't be flagged in your network security assessment.")
+        }
+    }
+
+    private var trustButton: some View {
+        Button {
+            showTrustConfirmation = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: device.isTrusted ? "shield.slash" : "checkmark.shield.fill")
+                Text(device.isTrusted ? "Remove Trust" : "Trust This Device")
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(device.isTrusted ? Color(red: 0.98, green: 0.39, blue: 0.34) : Color(red: 0.25, green: 0.86, blue: 0.43))
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(device.isTrusted
+                          ? Color(red: 0.98, green: 0.39, blue: 0.34).opacity(0.1)
+                          : Color(red: 0.25, green: 0.86, blue: 0.43).opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(device.isTrusted
+                                    ? Color(red: 0.98, green: 0.39, blue: 0.34).opacity(0.3)
+                                    : Color(red: 0.25, green: 0.86, blue: 0.43).opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
     }
 
     private func detailRow(label: String, value: String) -> some View {

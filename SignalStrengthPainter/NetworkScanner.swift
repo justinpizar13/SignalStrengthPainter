@@ -13,6 +13,13 @@ struct DiscoveredDevice: Identifiable {
     var manufacturer: String?
     let firstSeen: Date
     var isCurrentDevice: Bool
+    var isTrusted: Bool
+
+    var displayHostname: String? {
+        if let name = bonjourName, !name.isEmpty { return name }
+        if let h = hostname, !h.isEmpty, h != ipAddress { return h }
+        return nil
+    }
 
     enum DeviceType: String {
         case router = "Router / Gateway"
@@ -72,6 +79,22 @@ final class NetworkScanner: ObservableObject {
 
     private var discoveredIPs: Set<String> = []
     private var bonjourResults: [String: (name: String, service: String)] = [:]
+
+    private static let trustedKey = "trustedDeviceIPs"
+
+    var trustedIPs: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: Self.trustedKey) ?? [])
+    }
+
+    func setTrusted(_ ip: String, trusted: Bool) {
+        var current = trustedIPs
+        if trusted { current.insert(ip) } else { current.remove(ip) }
+        UserDefaults.standard.set(Array(current), forKey: Self.trustedKey)
+        if let idx = devices.firstIndex(where: { $0.ipAddress == ip }) {
+            devices[idx].isTrusted = trusted
+        }
+        objectWillChange.send()
+    }
 
     func startScan() {
         guard !isScanning else { return }
@@ -143,7 +166,8 @@ final class NetworkScanner: ObservableObject {
                                     deviceType: deviceType,
                                     latencyMs: latency,
                                     firstSeen: Date(),
-                                    isCurrentDevice: isSelf
+                                    isCurrentDevice: isSelf,
+                                    isTrusted: trustedIPs.contains(foundIP)
                                 )
                                 devices.append(device)
                                 devices.sort { lhs, rhs in
@@ -165,6 +189,9 @@ final class NetworkScanner: ObservableObject {
 
             try? await Task.sleep(nanoseconds: 500_000_000)
             enrichDevicesWithBonjour()
+
+            scanStatusMessage = "Resolving device names..."
+            await resolveHostnames()
 
             isScanning = false
             scanStatusMessage = "Scan complete — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
@@ -225,6 +252,62 @@ final class NetworkScanner: ObservableObject {
                 if devices[idx].bonjourName == nil {
                     devices[idx].bonjourName = info.name
                 }
+            }
+        }
+    }
+
+    private func resolveHostnames() async {
+        await withTaskGroup(of: (Int, String?)?.self) { group in
+            for (index, device) in devices.enumerated() {
+                if device.hostname != nil { continue }
+                group.addTask {
+                    let name = await self.reverseDNS(ip: device.ipAddress)
+                    return (index, name)
+                }
+            }
+            for await result in group {
+                guard let (index, name) = result, index < devices.count, let name else { continue }
+                devices[index].hostname = name
+                if devices[index].deviceType == .unknown {
+                    devices[index].deviceType = classifyDevice(
+                        ip: devices[index].ipAddress,
+                        isGateway: false,
+                        isSelf: devices[index].isCurrentDevice,
+                        bonjourInfo: (name: name, service: "")
+                    )
+                }
+            }
+        }
+    }
+
+    private func reverseDNS(ip: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            probeQueue.async {
+                var addr = sockaddr_in()
+                addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+                addr.sin_family = sa_family_t(AF_INET)
+                guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                let result = withUnsafePointer(to: &addr, { ptr in
+                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                        getnameinfo(sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size),
+                                    &hostname, socklen_t(hostname.count),
+                                    nil, 0, 0)
+                    }
+                })
+
+                if result == 0 {
+                    let name = String(cString: hostname)
+                    if name != ip {
+                        continuation.resume(returning: name)
+                        return
+                    }
+                }
+                continuation.resume(returning: nil)
             }
         }
     }
