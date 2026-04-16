@@ -299,11 +299,11 @@ final class NetworkScanner: ObservableObject {
     private func discoverBonjourServices() async {
         let serviceTypes = [
             "_http._tcp", "_airplay._tcp", "_raop._tcp",
-            "_smb._tcp", "_ipp._tcp", "_printer._tcp",
+            "_smb._tcp", "_afpovertcp._tcp", "_ipp._tcp", "_printer._tcp",
             "_googlecast._tcp", "_spotify-connect._tcp",
             "_homekit._tcp", "_hap._tcp",
             "_device-info._tcp", "_companion-link._tcp",
-            "_sleep-proxy._udp", "_rdlink._tcp",
+            "_sleep-proxy._udp", "_rdlink._tcp", "_rfb._tcp",
             "_amzn-wplay._tcp",
             "_apple-mobdev2._tcp",
             "_touch-able._tcp"
@@ -391,6 +391,14 @@ final class NetworkScanner: ObservableObject {
             var hasResumed = false
             let lock = NSLock()
 
+            func extractIPv4() -> String? {
+                guard let path = connection.currentPath,
+                      let remoteEndpoint = path.remoteEndpoint,
+                      case let .hostPort(host, _) = remoteEndpoint else { return nil }
+                if case .ipv4(let addr) = host { return "\(addr)" }
+                return nil
+            }
+
             func finish(_ value: String?) {
                 lock.lock()
                 guard !hasResumed else { lock.unlock(); return }
@@ -403,27 +411,20 @@ final class NetworkScanner: ObservableObject {
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    if let path = connection.currentPath,
-                       let remoteEndpoint = path.remoteEndpoint,
-                       case let .hostPort(host, _) = remoteEndpoint {
-                        switch host {
-                        case .ipv4(let addr):
-                            finish("\(addr)")
-                        default:
-                            finish(nil)
-                        }
-                    } else {
-                        finish(nil)
-                    }
-                case .failed, .cancelled:
-                    finish(nil)
+                    finish(extractIPv4())
+                case .failed:
+                    finish(extractIPv4())
+                case .waiting:
+                    finish(extractIPv4())
+                case .cancelled:
+                    break
                 default:
                     break
                 }
             }
 
             probeQueue.asyncAfter(deadline: .now() + 2.0) {
-                finish(nil)
+                finish(extractIPv4())
             }
 
             connection.start(queue: probeQueue)
@@ -434,6 +435,8 @@ final class NetworkScanner: ObservableObject {
         if raw.contains("airplay") { return "AirPlay" }
         if raw.contains("raop") { return "AirPlay Audio" }
         if raw.contains("smb") { return "File Sharing" }
+        if raw.contains("afpovertcp") { return "File Sharing" }
+        if raw.contains("rfb") { return "Screen Sharing" }
         if raw.contains("ipp") || raw.contains("printer") { return "Printer" }
         if raw.contains("googlecast") { return "Chromecast" }
         if raw.contains("spotify") { return "Spotify Connect" }
@@ -958,7 +961,7 @@ final class NetworkScanner: ObservableObject {
                 if nameStr.contains("tv") || nameStr.contains("apple tv") { return .smartTV }
                 if nameStr.contains("homepod") || nameStr.contains("sonos") || nameStr.contains("echo") { return .speaker }
                 let hasComputerService = allServices.contains(where: {
-                    $0.contains("file sharing") || $0.contains("remote desktop")
+                    $0.contains("file sharing") || $0.contains("remote desktop") || $0.contains("screen sharing")
                 })
                 if hasComputerService { return .computer }
                 if openPorts.contains(548) || openPorts.contains(445) || openPorts.contains(22) { return .computer }
@@ -968,7 +971,7 @@ final class NetworkScanner: ObservableObject {
 
             if allServices.contains(where: { $0.contains("spotify") || $0.contains("raop") || $0.contains("media") }) { return .speaker }
             if allServices.contains(where: { $0.contains("homekit") || $0.contains("hap") }) { return .iotDevice }
-            if allServices.contains(where: { $0.contains("file sharing") || $0.contains("remote desktop") }) { return .computer }
+            if allServices.contains(where: { $0.contains("file sharing") || $0.contains("remote desktop") || $0.contains("screen sharing") }) { return .computer }
             if allServices.contains(where: { $0.contains("companion") || $0.contains("apple device") || $0.contains("remote control") }) { return .phone }
 
             if let nameType = classifyByNameString(nameStr) { return nameType }

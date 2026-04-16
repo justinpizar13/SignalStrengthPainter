@@ -272,8 +272,17 @@ The Survey tab was restyled to match this language (previously used system butto
 - Applied in both the device list (`deviceDisplayName`) and the detail sheet (`displayName`).
 - E.g., "Justins-MacBook-Pro.local" → "Justins-MacBook-Pro" in the device list.
 
+### Bonjour endpoint resolution fix (computer name discovery)
+- **Problem:** Devices discovered via Bonjour (e.g., Mac Mini advertising `_companion-link._tcp`, `_airplay._tcp`) were losing their Bonjour names because `resolveServiceEndpoint` only extracted the resolved IP when a TCP connection reached `.ready` state. If the Bonjour service port was firewalled or unresponsive, the connection went to `.failed` and the IP (and thus the Bonjour name) was discarded.
+- **Fix:** `resolveServiceEndpoint` now extracts the IPv4 address from `connection.currentPath` in `.failed` and `.waiting` states (not just `.ready`), and also attempts extraction in the timeout handler before giving up. DNS resolution completes before the TCP handshake, so the resolved IP is available in the path even when the connection ultimately fails.
+- **Impact:** Computers like Mac Mini that advertise Bonjour services but have firewalled service ports now get their Bonjour sharing name (e.g., "Justin's Mac Mini") attached correctly.
+
+### Additional Bonjour service types for computers
+- Added `_afpovertcp._tcp` (AFP file sharing) and `_rfb._tcp` (Screen Sharing/VNC) to the 19 browsed service types (now 19 total), with friendly names "File Sharing" and "Screen Sharing" respectively.
+- Screen Sharing (`_rfb._tcp`) is now recognized as a computer-indicating service in the AirPlay co-detection branch and the general Bonjour classification, alongside File Sharing and Remote Desktop.
+
 ### Updated `NetworkScanner` identification layers (now seven)
-1. **Bonjour** (17 service types including `_apple-mobdev2._tcp`, `_touch-able._tcp`)
+1. **Bonjour** (19 service types including `_afpovertcp._tcp`, `_rfb._tcp`, `_apple-mobdev2._tcp`, `_touch-able._tcp`)
 2. **SSDP / UPnP** (UDP multicast M-SEARCH with 3 ST values, parallel with Bonjour)
 3. **UPnP device descriptions** (fetches LOCATION URLs for friendlyName/manufacturer/model)
 4. **TCP port fingerprinting** (21 ports)
