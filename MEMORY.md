@@ -75,6 +75,7 @@ The logo+sparkle is used consistently across all tabs:
 | **`LatencyProbe.swift`** | Measures RTT-ish time via `NWConnection` TCP to `8.8.8.8:53`. |
 | **`SignalTrailModels.swift`** | `TrailPoint`, `LatencyQuality`, **heat color** derived from latency bands. |
 | **`MACAddressResolver.swift`** | **MAC address resolver** — reads the iOS kernel ARP table via `sysctl(NET_RT_FLAGS)` and returns a `[IP: MAC]` map. Parses the packed `rt_msghdr` / `sockaddr_in` / `sockaddr_dl` stream with raw byte offsets (the C types aren't bridged to Swift). Also exposes `isLocallyAdministered(_:)` for detecting iOS/Android randomized privacy MACs and `oui(from:)` for extracting the 3-byte OUI. |
+| **`WiFiAssistantView.swift`** | **Wi-Fi Buddy Assistant** — pseudo-AI chat sheet presented from the Signal tab. Contains the `AssistantQA` knowledge base (12 curated Q&A entries), the `WiFiAssistantEngine` keyword matcher (sanitize → tokenize → stopword-strip → score → highest-wins), and the SwiftUI chat UI (header, bubble list, suggested-question chips, input bar). No LLM, no network, no tokens. |
 | **`OUIDatabase.swift`** | **OUI vendor database** — curated `[OUI: Manufacturer]` lookup covering ~300 common consumer-electronics manufacturers (Apple, Amazon, Google, Samsung, Sonos, Roku, Philips Hue, Ring, Nintendo, Raspberry Pi, Espressif, Tuya, etc.). `manufacturer(forMAC:)` powers the eighth identification layer so devices that evade Bonjour/SSDP/HTTP still get a trustworthy "Made by …" label. |
 | **`NetworkScanner.swift`** | **Device discovery engine** using four identification layers: **(1) Bonjour service discovery** — browses 14 service types (`_airplay._tcp`, `_smb._tcp`, `_homekit._tcp`, `_companion-link._tcp`, etc.), then **resolves each endpoint to an IP** via `NWConnection` so Bonjour names reliably attach to scanned devices. Bonjour-discovered devices are **always included** even if no TCP ports respond. **(2) TCP port fingerprinting** — probes 21 ports per host **concurrently** (80, 443, 62078, 548, 445, 7000, 8080, 9100, 631, 554, 8008, 8443, 1883, 3689, **22/SSH**, **139/NetBIOS**, **5353/mDNS**, 8888, 5000, 515, 3000); open ports stored on each device and used for **port-based classification** (e.g., 62078 = Apple phone, 548 = Mac/AFP, 22 = SSH/computer, 139 = NetBIOS/Windows, 9100 = printer, 7000 = AirPlay/TV). **(3) TCP liveness check** — for hosts with no open probed ports, a secondary check tries ports 443/80/7/1 and treats **fast connection refusal (TCP RST < 500 ms)** as proof the host is alive; discovers firewalled devices that drop all specific port probes. **(4) Reverse DNS** (`getnameinfo`) resolves hostnames; resolved names also feed into name-based classification. Classification cascade: gateway/self → Bonjour services + names → port fingerprint → hostname keywords → unknown. Supports **trusted device** marking persisted in `UserDefaults`. Uses `getifaddrs` for local IP/mask. Scans in batches of 20 with **800 ms** timeout per probe (increased from 300 ms to avoid dropping slower-responding devices). |
 | **`DeviceDiscoveryView.swift`** | **Devices tab**: "Who's on my Wi-Fi?" experience. Shows network info card, scan button, live progress. Device list shows type icons, **Bonjour/DNS names as primary label**, latency badges, **port-hint subtitles** (e.g., "Apple Sync", "AirPlay", "SMB") for devices without Bonjour services, and **"TRUSTED" badge**. Detail sheet shows resolved hostname, **open ports list**, services, trust status, and **Trust / Remove Trust** button. Security assessment counts only **untrusted unknown** devices. Identified devices sorted above unknowns. |
@@ -274,6 +275,46 @@ The Survey tab was restyled to match this language (previously used system butto
   - **Excellent** (< 50 ms): shows a green **"Signal is Great"** card with positive feedback (no action needed, good for 4K/gaming/calls, suggest Survey tab for full-space verification). Green accent border.
   - **Good / Poor** (>= 50 ms): shows the original **"Improve Your Signal"** card with actionable tips (move closer, map dead zones, restart router, reposition router).
 - Computed via `isExcellent` bool derived from `latestLatencyMs`.
+
+### Wi-Fi Buddy Assistant (pseudo-AI chat)
+
+A full-screen chat sheet presented from an **"Ask Wi-Fi Buddy"** CTA card inserted between the metrics grid and the tips section on the Signal tab. Entirely offline — no LLM, no network, no tokens — just a curated knowledge base matched by a deterministic keyword scorer. The "AI" framing is purely UX; answers are canned.
+
+**Lives in `WiFiAssistantView.swift`** with three pieces:
+
+1. **Knowledge base (`WiFiAssistantKnowledge.entries`)** — 12 `AssistantQA` structs covering the most common home Wi-Fi questions:
+   - "How can I make my Wi-Fi signal better?" (Coverage)
+   - "Why is my gaming slow at certain times of day?" (Gaming) — explicitly addresses the 7–11 PM ISP peak-hour congestion pattern
+   - "Why does my Wi-Fi keep disconnecting?" (Reliability)
+   - "Where should I place my router?" (Coverage)
+   - "Should I use 2.4 GHz or 5 GHz?" (Setup)
+   - "Why is my streaming buffering?" (Streaming)
+   - "Is my network secure?" (Security)
+   - "What's a good ping for gaming?" (Gaming)
+   - "Why is my upload so slow?" (Speed)
+   - "Do I need a Wi-Fi extender or a mesh system?" (Coverage)
+   - "What's a guest network and should I use one?" (Security)
+   - "How often should I restart my router?" (Reliability)
+   - Each answer cross-references the relevant app tab where applicable (e.g. "Use the Survey tab to walk your space and see exactly where the dead zones are", "Head over to the Devices tab to see every device on your network").
+
+2. **Matching engine (`WiFiAssistantEngine`)** — deterministic keyword scorer:
+   - `sanitize(_:)` — trims, strips control characters via `CharacterSet.controlCharacters`, caps at 300 chars (input hygiene).
+   - `tokenize(_:)` — lowercases, splits on `CharacterSet.alphanumerics.inverted`, drops a small English stopword set (`the`, `is`, `my`, `to`, `do`, `have`, `can`, etc. — ~40 entries). Returns a `Set<String>`.
+   - `findBestAnswer(for:in:)` — for each `AssistantQA`, counts how many of its `keywords` appear in the token set; returns the highest-scoring entry if `score >= 1`, else `nil`.
+   - `relatedQuestions(for:count:)` — picks 3 follow-up questions, same-category first then other categories, attached to every successful reply so users always see "what else to ask".
+   - `fallbackSuggestions(count:)` — randomly picks 4 starter questions for the "I'm not sure I caught that" response.
+   - `starterQuestions` — fixed list of 4 questions shown under the initial greeting so first-time users can tap instead of typing.
+
+3. **Chat UI (`WiFiAssistantView`)** — presented as a `.sheet` from `SignalDetailView`:
+   - **Header**: `AppLogoView(size: 34)` + "Wi-Fi Buddy Assistant" title + "Canned answers for common Wi-Fi questions" subtitle + circular close (X) button. Themed via `@Environment(\.theme)`.
+   - **Messages list**: `ScrollViewReader` + `ScrollView` auto-scrolls to the latest message. User bubbles are right-aligned with the same `blue → blue.opacity(0.85)` gradient used by the refresh button. Assistant bubbles are left-aligned with `theme.cardFill` + `theme.cardStroke`, preceded by a small Wi-Fi-glyph avatar circle.
+   - **Suggested-question chips**: horizontal scrolling capsule buttons appended under each assistant message (drawn from that message's `relatedQuestions`). Blue text on `Color.blue.opacity(0.12)` fill with a matching stroke.
+   - **Input bar** (pinned to bottom): multi-line `TextField` ("Ask about your Wi-Fi…") with `.lineLimit(1...4)` + blue circular send button. Submitting via keyboard return or tapping the send button both call `sendCurrentInput()` → `submit(_:)`, which appends the user message, runs `findBestAnswer`, and appends the assistant reply. Tapping a suggested-question chip calls `submit(_:)` directly.
+   - **Greeting**: on first appear, seeds one assistant message ("Hi! I'm your Wi-Fi Buddy assistant. Tap a question below or type your own — I've got canned tips for common home Wi-Fi issues.") with the four `starterQuestions` as chips.
+
+**Signal tab wiring** — `SignalDetailView` (in `MainTabView.swift`) gains `@State private var showAssistant` and a blue-gradient `assistantCTA` button card inserted between `metricsGrid` and `tipsSection`. The sheet is presented with `.sheet(isPresented:) { WiFiAssistantView().withAppTheme() }` so the assistant inherits the app's light/dark theme.
+
+**Not wired** — no analytics on which questions are asked, no persistence of chat history across sheet dismissals (each open starts fresh), no localization.
 
 ## Device discovery & classification improvements
 
