@@ -12,7 +12,7 @@ The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPain
 
 ### App Icon
 
-Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Design: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with a red center dot, and subtle sparkle accents in the upper-right corner. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via a Python/Pillow script to exactly match `AppLogoView`: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with round caps, a red center dot, and three 4-pointed white sparkle accents in the upper-right corner. The icon was regenerated (second iteration) to include the sparkles and match the updated in-app logo. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
 
 ### In-App Branding (`AppLogoView.swift`)
 
