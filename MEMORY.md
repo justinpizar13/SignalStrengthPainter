@@ -150,6 +150,7 @@ Tunable: `mapContentScale` in `SignalMapViewModel`.
 ## Privacy strings (`Info.plist`)
 
 - Motion, local network, **camera** (AR).
+- **`NSBonjourServices`** — declares every mDNS/Bonjour service type the app browses (must stay in sync with `NetworkScanner.bonjourServiceTypes`, currently 19 entries: `_http._tcp`, `_airplay._tcp`, `_raop._tcp`, `_smb._tcp`, `_afpovertcp._tcp`, `_ipp._tcp`, `_printer._tcp`, `_googlecast._tcp`, `_spotify-connect._tcp`, `_homekit._tcp`, `_hap._tcp`, `_device-info._tcp`, `_companion-link._tcp`, `_sleep-proxy._udp`, `_rdlink._tcp`, `_rfb._tcp`, `_amzn-wplay._tcp`, `_apple-mobdev2._tcp`, `_touch-able._tcp`). **Required on iOS 14+** — without it, `DNSServiceBrowse` returns `NoAuth(-65555)` for every browser, Bonjour discovery silently does nothing, and almost every device falls through to the TCP/MAC layers (showing up as generic "Device" entries or — when the MAC is randomized — the old "Private <Type>" label). Symptom in Xcode logs was 19 repeated `nw_browser_fail_on_dns_error_locked [B1..B19] DNSServiceBrowse failed: NoAuth(-65555)` lines per scan. Any time a new Bonjour type is added to the scanner, it **must** also be added to this key or the browser for that type will be dropped.
 
 ## README note
 
@@ -385,10 +386,19 @@ The Survey tab was restyled to match this language (previously used system butto
 - **UI changes (`DeviceDiscoveryView.swift`):**
   - Device rows now show a `"Made by <Vendor>"` subtitle when a vendor is resolved and it isn't already part of the title.
   - When a MAC is randomized, the row shows "Randomized MAC (privacy mode)" so the user understands why no vendor is shown.
-  - Display-name priority is now: Bonjour → hostname → `<OUI vendor> <ShortName>` → `<manufacturer> <ShortName>` → `Private <ShortName>` (for randomized) → generic type.
+  - Display-name priority is now: Bonjour → hostname → `<OUI vendor> <ShortName>` → `<manufacturer> <ShortName>` → bare `<device type>` (the `Private <ShortName>` label was removed — see "Randomized-MAC wording" below).
   - Detail sheet adds **MAC Address** and **Made By** rows and a new **"Is this yours?" identification-tips card** that gives context-sensitive guidance — citing the vendor when known, explaining randomized MACs, pointing users at the unplug test and router admin page, and advising a Wi-Fi password change if the device can't be identified and isn't theirs.
   - Detail sheet is now wrapped in a `ScrollView` so the tips card never gets clipped on small phones.
   - Security assessment no longer counts devices with a known vendor (or a randomized-MAC flag) as "mystery unknowns" — knowing the hardware vendor is enough context for the user to recognize the device.
+
+### Randomized-MAC wording ("Private Wi-Fi Address")
+- **Problem:** Devices that couldn't be categorized and had randomized MACs displayed as `"Private <ShortName>"` (e.g., "Private Phone / Tablet", "Private Device"). The bare word **Private** as a prefix reads as "hidden / suspicious" to a non-technical user and created anxiety about devices that are almost always the user's own iPhone or Android. The subtitle "Randomized MAC (privacy mode)" reinforced the same uneasy framing.
+- **Fix (`DeviceDiscoveryView.swift`):**
+  - Both `deviceDisplayName` (list row) and `displayName` (detail sheet) no longer prepend "Private" when `hasRandomizedMAC` is true. They fall through to the plain `deviceType.rawValue` instead (e.g., "Phone / Tablet", "Device").
+  - The vendor-line subtitle now says **"Uses Private Wi-Fi Address"** — the exact phrase iOS uses in Settings → Wi-Fi → (i). Framing this as a standard Apple privacy feature (rather than as "randomized/privacy mode") reassures users that it's normal iOS/Android behavior.
+  - The MAC Address row in the detail sheet labels the MAC as `"(Private)"` instead of `"(Randomized)"`, again matching iOS's own terminology.
+  - The "Is this yours?" tips card for randomized-MAC devices now reads: "This device uses a Private Wi-Fi Address, so we can't look up its manufacturer. iPhones, Android phones, Macs, and Windows laptops all turn this on by default — it's almost always one of your own devices, not an intruder."
+- **Note:** This UX fix compounds with the `NSBonjourServices` Info.plist fix. Before that Info.plist fix, Bonjour browsing failed entirely (`NoAuth(-65555)` × 19), which meant **every** iPhone/Mac/Apple TV on the network collapsed into the randomized-MAC fallback and users saw a screen full of "Private X" devices. With both fixes applied, Bonjour identifies owned Apple hardware properly, and only the handful of genuinely un-identifiable (and almost always friendly) randomized-MAC devices hit the softened wording.
 
 ## Possible follow-ups (not done here)
 

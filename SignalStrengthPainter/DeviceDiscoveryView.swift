@@ -496,9 +496,13 @@ struct DeviceDiscoveryView: View {
         if let mfr = device.manufacturer, !mfr.isEmpty {
             return "\(mfr) \(device.deviceType.shortName)"
         }
-        if device.hasRandomizedMAC {
-            return "Private \(device.deviceType.shortName)"
-        }
+        // We intentionally do NOT prefix with "Private" when the MAC is
+        // randomized. The bare word "Private" on a device row reads as
+        // "hidden / suspicious" to most users and unnecessarily alarms
+        // them about devices that are almost always their own iPhone or
+        // Android. The reason for the lack of vendor is communicated in
+        // the subtitle via `deviceVendorLine` using Apple's own
+        // "Private Wi-Fi Address" terminology.
         return device.deviceType.rawValue
     }
 
@@ -514,7 +518,11 @@ struct DeviceDiscoveryView: View {
             return "Made by \(vendor)"
         }
         if device.hasRandomizedMAC {
-            return "Randomized MAC (privacy mode)"
+            // Matches the exact phrase iOS uses in Settings → Wi-Fi → (i) →
+            // "Private Wi-Fi Address". Framing it as a normal iOS/Android
+            // privacy feature (rather than "randomized/privacy mode") keeps
+            // non-technical users from thinking their network is compromised.
+            return "Uses Private Wi-Fi Address"
         }
         if let mfr = device.manufacturer, !mfr.isEmpty,
            !displayName.lowercased().contains(mfr.lowercased()) {
@@ -627,7 +635,7 @@ struct DeviceDetailSheet: View {
                             Divider().overlay(theme.divider)
                             detailRow(
                                 label: "MAC Address",
-                                value: mac.uppercased() + (device.hasRandomizedMAC ? "  (Randomized)" : "")
+                                value: mac.uppercased() + (device.hasRandomizedMAC ? "  (Private)" : "")
                             )
                         }
 
@@ -751,7 +759,7 @@ struct DeviceDetailSheet: View {
         if let vendor = device.ouiVendor, !vendor.isEmpty {
             tips.append("The hardware address (MAC) says this device was made by \(vendor). Do you own a \(vendor) product?")
         } else if device.hasRandomizedMAC {
-            tips.append("This device uses a randomized MAC address, so we can't look up its manufacturer. Modern iPhones, Android phones, and laptops do this by default for privacy — it's usually one of your own devices.")
+            tips.append("This device uses a Private Wi-Fi Address, so we can't look up its manufacturer. iPhones, Android phones, Macs, and Windows laptops all turn this on by default — it's almost always one of your own devices, not an intruder.")
         } else if device.macAddress != nil {
             tips.append("We found a MAC address but its manufacturer isn't in our database. Search the first six hex digits on the IEEE OUI lookup to identify the maker.")
         } else {
@@ -824,9 +832,10 @@ struct DeviceDetailSheet: View {
         if let mfr = device.manufacturer, !mfr.isEmpty {
             return "\(mfr) \(device.deviceType.shortName)"
         }
-        if device.hasRandomizedMAC {
-            return "Private \(device.deviceType.shortName)"
-        }
+        // See `DeviceDiscoveryView.deviceDisplayName` — we deliberately do
+        // not prefix with "Private" here. The "Private Wi-Fi Address"
+        // context is surfaced in the MAC Address detail row and the
+        // identification-tips card instead.
         return device.deviceType.rawValue
     }
 
