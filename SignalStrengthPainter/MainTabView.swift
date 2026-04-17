@@ -108,6 +108,7 @@ struct SignalDetailView: View {
     @State private var latestLatencyMs: Double?
     @State private var animateRings = false
     @State private var isMeasuring = false
+    @State private var showAssistant = false
 
     private let probe = LatencyProbe()
 
@@ -132,19 +133,71 @@ struct SignalDetailView: View {
                     .padding(.top, 20)
                     .padding(.horizontal, 20)
 
+                assistantCTA
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+
                 tipsSection
-                    .padding(.top, 28)
+                    .padding(.top, 20)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
             }
         }
         .background(theme.background.ignoresSafeArea())
+        .sheet(isPresented: $showAssistant) {
+            WiFiAssistantView()
+                .withAppTheme()
+        }
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                 animateRings = true
             }
             measureSignal()
         }
+    }
+
+    private var assistantCTA: some View {
+        Button {
+            showAssistant = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ask Wi-Fi Buddy")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Common Wi-Fi questions, answered")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.white.opacity(0.8))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.8))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .blue.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var signalHeader: some View {
