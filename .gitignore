@@ -1,5 +1,6 @@
 # Xcode build artifacts
 .derivedData/
+.build/
 build/
 DerivedData/
 *.xcuserdata

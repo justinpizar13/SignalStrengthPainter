@@ -12,6 +12,19 @@ struct DiscoveredDevice: Identifiable {
     var openPorts: [UInt16]
     var latencyMs: Double?
     var manufacturer: String?
+    /// Colon-separated lowercase MAC (e.g. "3c:22:fb:1a:2b:3c") from the
+    /// kernel ARP table. Optional because some IPs may not have an ARP
+    /// entry by the time we read the table.
+    var macAddress: String?
+    /// Manufacturer resolved from the MAC's OUI (e.g. "Apple", "Amazon").
+    /// May differ from `manufacturer` when HTTP fingerprinting produced a
+    /// more specific brand (e.g., "Sonos" model information).
+    var ouiVendor: String?
+    /// `true` when the MAC has the locally-administered bit set, meaning
+    /// the OS is using a randomized (privacy) MAC address. iOS 14+,
+    /// Android 10+, Windows 10+, and macOS 12+ default to randomized MACs
+    /// per network, so we can't look up the real manufacturer.
+    var hasRandomizedMAC: Bool
     let firstSeen: Date
     var isCurrentDevice: Bool
     var isTrusted: Bool
@@ -270,6 +283,9 @@ final class NetworkScanner: ObservableObject {
                                     deviceType: deviceType,
                                     openPorts: ports,
                                     latencyMs: latency,
+                                    macAddress: nil,
+                                    ouiVendor: nil,
+                                    hasRandomizedMAC: false,
                                     firstSeen: Date(),
                                     isCurrentDevice: isSelf,
                                     isTrusted: trustedIPs.contains(foundIP)
@@ -303,8 +319,147 @@ final class NetworkScanner: ObservableObject {
             scanStatusMessage = "Identifying devices..."
             await httpFingerprint()
 
+            scanStatusMessage = "Reading hardware addresses..."
+            resolveMACAddresses()
+
             isScanning = false
             scanStatusMessage = "Scan complete — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
+        }
+    }
+
+    // MARK: - MAC address / OUI vendor resolution (eighth identification layer)
+
+    /// Reads the kernel ARP table via `MACAddressResolver` and annotates
+    /// every discovered device with its MAC address, OUI-derived vendor
+    /// name, and a flag indicating whether the MAC is a randomized privacy
+    /// address. This is the single most useful identification signal for
+    /// otherwise-opaque devices: even when Bonjour/SSDP/HTTP probes all
+    /// fail, the MAC's first three bytes tell us who made the hardware
+    /// (Apple, Amazon, Samsung, Sonos, Nintendo, Ring, Philips Hue, …).
+    /// Without this layer the user has no way to tell whether a generic
+    /// "Unknown Device" is their own phone or something malicious on
+    /// their Wi-Fi.
+    private func resolveMACAddresses() {
+        let arpTable = MACAddressResolver.readARPTable()
+        guard !arpTable.isEmpty else { return }
+
+        for i in devices.indices {
+            let ip = devices[i].ipAddress
+            guard let mac = arpTable[ip] else { continue }
+
+            devices[i].macAddress = mac
+            let isRandom = MACAddressResolver.isLocallyAdministered(mac)
+            devices[i].hasRandomizedMAC = isRandom
+
+            // Randomized MACs (iOS 14+, Android 10+ privacy feature) have
+            // no meaningful OUI — looking one up would mislead the user.
+            guard !isRandom else { continue }
+
+            guard let vendor = OUIDatabase.manufacturer(forMAC: mac) else { continue }
+            devices[i].ouiVendor = vendor
+
+            // If HTTP fingerprinting didn't already set a (usually more
+            // specific) manufacturer, promote the OUI vendor into the
+            // manufacturer slot so the UI's "<Manufacturer> <ShortName>"
+            // fallback produces a useful label.
+            if devices[i].manufacturer == nil {
+                devices[i].manufacturer = vendor
+            }
+
+            // Use the vendor to refine classification when prior layers
+            // couldn't narrow the type. Be conservative: only override
+            // `.unknown` and generic `.iotDevice` classifications, never
+            // more-specific results produced by Bonjour / SSDP / ports.
+            refineClassificationFromVendor(at: i, vendor: vendor)
+        }
+
+        sortDevices()
+    }
+
+    /// Refines `devices[i].deviceType` using the OUI vendor name, but only
+    /// when the current classification is weak (`.unknown` / `.iotDevice`
+    /// / `.smartTV`). We never override a strong, direct signal like
+    /// "Chromecast" Bonjour or "Amazon Echo" UPnP friendlyName.
+    private func refineClassificationFromVendor(at i: Int, vendor: String) {
+        let current = devices[i].deviceType
+        let v = vendor.lowercased()
+        let ports = devices[i].openPorts
+
+        // Strong signals we should never override.
+        guard current == .unknown || current == .iotDevice else { return }
+
+        if v.contains("apple") {
+            // Mac computers expose SMB/AFP/SSH/RDP ports; iPhones/iPads
+            // typically expose 62078 or nothing.
+            if ports.contains(548) || ports.contains(445) || ports.contains(22) {
+                devices[i].deviceType = .computer
+            } else if ports.contains(62078) {
+                devices[i].deviceType = .phone
+            }
+            return
+        }
+        if v.contains("amazon") {
+            devices[i].deviceType = .speaker
+            return
+        }
+        if v.contains("sonos") || v.contains("bose") {
+            devices[i].deviceType = .speaker
+            return
+        }
+        if v.contains("roku") || v.contains("vizio") {
+            devices[i].deviceType = .smartTV
+            return
+        }
+        if v.contains("nintendo") {
+            devices[i].deviceType = .gameConsole
+            return
+        }
+        if v.contains("hp") || v.contains("epson") || v.contains("canon") ||
+           v.contains("brother") {
+            // Only override if the device clearly looks like a printer
+            // (common printer ports). HP makes both printers and PCs.
+            if ports.contains(9100) || ports.contains(631) || ports.contains(515) {
+                devices[i].deviceType = .printer
+            }
+            return
+        }
+        if v.contains("philips") || v.contains("ring") || v.contains("wyze") ||
+           v.contains("eufy") || v.contains("anker") || v.contains("tuya") ||
+           v.contains("espressif") || v.contains("tp-link") ||
+           v.contains("belkin") {
+            if current == .unknown {
+                devices[i].deviceType = .iotDevice
+            }
+            return
+        }
+        if v.contains("dell") || v.contains("lenovo") || v.contains("asus") ||
+           v.contains("intel") || v.contains("microsoft") ||
+           v.contains("raspberry pi") {
+            if current == .unknown {
+                devices[i].deviceType = .computer
+            }
+            return
+        }
+        if v.contains("samsung") || v.contains("huawei") || v.contains("xiaomi") ||
+           v.contains("oneplus") {
+            // Samsung/Huawei make both phones and TVs. If port 7676
+            // (Samsung Smart View) or 8080 is open, lean TV; otherwise phone.
+            if current == .unknown {
+                devices[i].deviceType = .phone
+            }
+            return
+        }
+        if v.contains("sony") {
+            if ports.contains(9090) || ports.contains(7000) {
+                devices[i].deviceType = .smartTV
+            } else if current == .unknown {
+                devices[i].deviceType = .gameConsole
+            }
+            return
+        }
+        if v.contains("nest") || v.contains("ecobee") {
+            devices[i].deviceType = .iotDevice
+            return
         }
     }
 
@@ -501,6 +656,9 @@ final class NetworkScanner: ObservableObject {
                 deviceType: deviceType,
                 openPorts: [],
                 latencyMs: nil,
+                macAddress: nil,
+                ouiVendor: nil,
+                hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
                 isTrusted: trustedIPs.contains(ip)
@@ -634,6 +792,9 @@ final class NetworkScanner: ObservableObject {
                 deviceType: deviceType,
                 openPorts: [],
                 latencyMs: nil,
+                macAddress: nil,
+                ouiVendor: nil,
+                hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
                 isTrusted: trustedIPs.contains(ip)

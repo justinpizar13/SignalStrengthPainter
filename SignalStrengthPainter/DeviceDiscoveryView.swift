@@ -322,6 +322,18 @@ struct DeviceDiscoveryView: View {
                         .foregroundStyle(theme.tertiaryText)
                         .lineLimit(1)
                 }
+
+                if let vendorLine = deviceVendorLine(device) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "building.2.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(theme.quaternaryText)
+                        Text(vendorLine)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(theme.secondaryText)
+                            .lineLimit(1)
+                    }
+                }
             }
 
             Spacer(minLength: 0)
@@ -344,7 +356,20 @@ struct DeviceDiscoveryView: View {
     // MARK: - Security Assessment
 
     private var securityAssessment: some View {
-        let unknownUntrustedCount = scanner.devices.filter { $0.deviceType == .unknown && !$0.isTrusted }.count
+        // A device counts as "unknown" for the purposes of the security
+        // banner only when we literally cannot attribute it to anything —
+        // no vendor, no hostname, no Bonjour name, and no trust flag.
+        // Knowing the hardware vendor (from its MAC OUI) or seeing a
+        // randomized MAC both give the user enough information to
+        // recognize whether the device is theirs.
+        let unknownUntrustedCount = scanner.devices.filter { device in
+            guard !device.isTrusted else { return false }
+            guard device.deviceType == .unknown else { return false }
+            if let vendor = device.ouiVendor, !vendor.isEmpty { return false }
+            if let mfr = device.manufacturer, !mfr.isEmpty { return false }
+            if let name = device.bonjourName, !name.isEmpty { return false }
+            return true
+        }.count
         let trustedCount = scanner.devices.filter { $0.isTrusted }.count
         let totalCount = scanner.devices.count
         let identifiedCount = totalCount - unknownUntrustedCount - trustedCount
@@ -461,10 +486,41 @@ struct DeviceDiscoveryView: View {
         if let hostname = device.hostname, !hostname.isEmpty, hostname != device.ipAddress {
             return DiscoveredDevice.cleanHostname(hostname)
         }
+        // Prefer the MAC-derived OUI vendor over `manufacturer`, because
+        // the OUI comes directly from the hardware and is almost never
+        // wrong. `manufacturer` may have been inferred from a generic
+        // HTTP Server header which is more ambiguous.
+        if let vendor = device.ouiVendor, !vendor.isEmpty {
+            return "\(vendor) \(device.deviceType.shortName)"
+        }
         if let mfr = device.manufacturer, !mfr.isEmpty {
             return "\(mfr) \(device.deviceType.shortName)"
         }
+        if device.hasRandomizedMAC {
+            return "Private \(device.deviceType.shortName)"
+        }
         return device.deviceType.rawValue
+    }
+
+    /// Builds the small vendor/MAC subtitle shown on each device row. Gives
+    /// the user something trustworthy to identify the device by — the MAC
+    /// OUI is guaranteed-assigned by IEEE and can't be trivially faked.
+    private func deviceVendorLine(_ device: DiscoveredDevice) -> String? {
+        if device.isCurrentDevice { return nil }
+        if device.deviceType == .router { return nil }
+        let displayName = deviceDisplayName(device)
+        if let vendor = device.ouiVendor, !vendor.isEmpty,
+           !displayName.lowercased().contains(vendor.lowercased()) {
+            return "Made by \(vendor)"
+        }
+        if device.hasRandomizedMAC {
+            return "Randomized MAC (privacy mode)"
+        }
+        if let mfr = device.manufacturer, !mfr.isEmpty,
+           !displayName.lowercased().contains(mfr.lowercased()) {
+            return "Made by \(mfr)"
+        }
+        return nil
     }
 
     private func latencyColor(_ ms: Double) -> Color {
@@ -557,53 +613,76 @@ struct DeviceDetailSheet: View {
             }
             .padding(.top, 4)
 
-            VStack(spacing: 0) {
-                detailRow(label: "IP Address", value: device.ipAddress)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    VStack(spacing: 0) {
+                        detailRow(label: "IP Address", value: device.ipAddress)
 
-                if let hostname = device.displayHostname {
-                    Divider().overlay(theme.divider)
-                    detailRow(label: "Device Name", value: hostname)
-                }
+                        if let hostname = device.displayHostname {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Device Name", value: hostname)
+                        }
 
-                Divider().overlay(theme.divider)
-                detailRow(label: "Response Time", value: device.latencyMs.map { "\(Int($0)) ms" } ?? "—")
-                Divider().overlay(theme.divider)
-                detailRow(label: "First Seen", value: formattedTime(device.firstSeen))
+                        if let mac = device.macAddress {
+                            Divider().overlay(theme.divider)
+                            detailRow(
+                                label: "MAC Address",
+                                value: mac.uppercased() + (device.hasRandomizedMAC ? "  (Randomized)" : "")
+                            )
+                        }
 
-                if !device.services.isEmpty {
-                    Divider().overlay(theme.divider)
-                    detailRow(label: "Services", value: device.services.joined(separator: ", "))
-                }
+                        if let vendor = device.ouiVendor {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Made By", value: vendor)
+                        } else if let mfr = device.manufacturer {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Made By", value: mfr)
+                        }
 
-                if !device.openPorts.isEmpty {
-                    Divider().overlay(theme.divider)
-                    detailRow(label: "Open Ports", value: device.openPorts.map(String.init).joined(separator: ", "))
-                }
+                        Divider().overlay(theme.divider)
+                        detailRow(label: "Response Time", value: device.latencyMs.map { "\(Int($0)) ms" } ?? "—")
+                        Divider().overlay(theme.divider)
+                        detailRow(label: "First Seen", value: formattedTime(device.firstSeen))
 
-                if device.isCurrentDevice {
-                    Divider().overlay(theme.divider)
-                    detailRow(label: "Status", value: "This is your device")
-                }
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(theme.cardFill)
-                    .overlay(
+                        if !device.services.isEmpty {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Services", value: device.services.joined(separator: ", "))
+                        }
+
+                        if !device.openPorts.isEmpty {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Open Ports", value: device.openPorts.map(String.init).joined(separator: ", "))
+                        }
+
+                        if device.isCurrentDevice {
+                            Divider().overlay(theme.divider)
+                            detailRow(label: "Status", value: "This is your device")
+                        }
+                    }
+                    .padding(16)
+                    .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(theme.cardStroke, lineWidth: 1)
+                            .fill(theme.cardFill)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(theme.cardStroke, lineWidth: 1)
+                            )
                     )
-            )
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-
-            if !device.isCurrentDevice {
-                trustButton
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
-            }
 
-            Spacer()
+                    if !device.isCurrentDevice {
+                        identificationHelpCard
+                            .padding(.horizontal, 20)
+                    }
+
+                    if !device.isCurrentDevice {
+                        trustButton
+                            .padding(.horizontal, 20)
+                    }
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 24)
+            }
         }
         .background(theme.background.ignoresSafeArea())
         .confirmationDialog(
@@ -621,6 +700,74 @@ struct DeviceDetailSheet: View {
                  ? "This device will be counted as unknown again in your network assessment."
                  : "Only trust devices you recognize. Trusted devices won't be flagged in your network security assessment.")
         }
+    }
+
+    /// Context-sensitive card that walks the user through identifying the
+    /// device. When the MAC address resolves to a known vendor we point to
+    /// that as the primary clue; when it's a randomized MAC we explain
+    /// what that means; otherwise we fall back to generic actionable tips
+    /// (unplug test, router admin page). Without this card the user had
+    /// no recourse when a device came up as "Unknown" or a generic class.
+    private var identificationHelpCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.blue)
+                Text("Is this yours?")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(identificationTips, id: \.self) { tip in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("•")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.blue)
+                        Text(tip)
+                            .font(.system(size: 13))
+                            .foregroundStyle(theme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.blue.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.blue.opacity(0.15), lineWidth: 1)
+                )
+        )
+    }
+
+    private var identificationTips: [String] {
+        var tips: [String] = []
+
+        if let vendor = device.ouiVendor, !vendor.isEmpty {
+            tips.append("The hardware address (MAC) says this device was made by \(vendor). Do you own a \(vendor) product?")
+        } else if device.hasRandomizedMAC {
+            tips.append("This device uses a randomized MAC address, so we can't look up its manufacturer. Modern iPhones, Android phones, and laptops do this by default for privacy — it's usually one of your own devices.")
+        } else if device.macAddress != nil {
+            tips.append("We found a MAC address but its manufacturer isn't in our database. Search the first six hex digits on the IEEE OUI lookup to identify the maker.")
+        } else {
+            tips.append("We couldn't read this device's MAC address. Try scanning again after the device has been active on the network.")
+        }
+
+        if !device.openPorts.isEmpty {
+            let portList = device.openPorts.prefix(5).map(String.init).joined(separator: ", ")
+            tips.append("Open network ports: \(portList). Known services can hint at what the device is for.")
+        }
+
+        tips.append("Try the unplug test: turn off a device you suspect this might be, scan again, and see if it disappears.")
+        tips.append("Your router's admin page (usually 192.168.1.1) often lists device names for everything connected.")
+        tips.append("If you still can't identify it and it's not yours, change your Wi-Fi password immediately.")
+
+        return tips
     }
 
     private var trustButton: some View {
@@ -671,8 +818,14 @@ struct DeviceDetailSheet: View {
         if let hostname = device.hostname, !hostname.isEmpty {
             return DiscoveredDevice.cleanHostname(hostname)
         }
+        if let vendor = device.ouiVendor, !vendor.isEmpty {
+            return "\(vendor) \(device.deviceType.shortName)"
+        }
         if let mfr = device.manufacturer, !mfr.isEmpty {
             return "\(mfr) \(device.deviceType.shortName)"
+        }
+        if device.hasRandomizedMAC {
+            return "Private \(device.deviceType.shortName)"
         }
         return device.deviceType.rawValue
     }
