@@ -128,6 +128,20 @@ final class NetworkScanner: ObservableObject {
     /// Bonjour results keyed by resolved IP → array of (name, service)
     private var bonjourByIP: [String: [(name: String, service: String)]] = [:]
 
+    /// Bonjour hostnames (e.g., "Justins-Mac-mini.local") keyed by resolved IP
+    private var bonjourHostByIP: [String: String] = [:]
+
+    /// Long-lived Bonjour browsers kept alive for the full scan duration so
+    /// late-arriving services (and services that appear after the iOS Local
+    /// Network permission prompt is accepted) are still picked up.
+    private var activeBonjourBrowsers: [NWBrowser] = []
+
+    /// Deduplicated Bonjour results collected over the full scan window.
+    /// Held by a reference-typed nonisolated collector so that NWBrowser
+    /// callbacks (which fire on a background queue) can write into it
+    /// without tripping main-actor isolation.
+    private let bonjourCollector = BonjourCollector()
+
     /// SSDP/UPnP results keyed by IP → HTTP headers from M-SEARCH response
     private var ssdpByIP: [String: [String: String]] = [:]
 
@@ -163,8 +177,11 @@ final class NetworkScanner: ObservableObject {
         devices = []
         discoveredIPs = []
         bonjourByIP = [:]
+        bonjourHostByIP = [:]
         ssdpByIP = [:]
         upnpDescriptions = [:]
+        bonjourCollector.reset()
+        stopBonjourBrowsers()
         scanStatusMessage = "Discovering local network..."
 
         let (ip, mask) = getLocalIPAndMask()
@@ -178,11 +195,16 @@ final class NetworkScanner: ObservableObject {
                 return
             }
 
-            scanStatusMessage = "Discovering services (Bonjour + UPnP)..."
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { await self.discoverBonjourServices() }
-                group.addTask { await self.discoverSSDPDevices() }
-            }
+            // Start long-lived Bonjour browsers now and keep them running for
+            // the full scan. Results accumulate in `bonjourCollected` until we
+            // resolve them near the end. This fixes two problems:
+            //   1. iOS's Local Network permission prompt can eat the first few
+            //      seconds of Bonjour discovery on the first scan of a session.
+            //   2. Some services announce themselves only after a short delay.
+            startBonjourBrowsers()
+
+            scanStatusMessage = "Discovering SSDP/UPnP devices..."
+            await discoverSSDPDevices()
 
             if !ssdpByIP.isEmpty {
                 scanStatusMessage = "Fetching device details..."
@@ -196,7 +218,10 @@ final class NetworkScanner: ObservableObject {
 
             scanStatusMessage = "Scanning \(totalHosts) addresses..."
 
-            let batchSize = 20
+            // Smaller batches keep simultaneous NWConnections under iOS's
+            // silent connection cap. 10 hosts × 21 ports = 210 parallel probes
+            // per batch instead of 420, which avoids dropped SYN packets.
+            let batchSize = 10
             for batchStart in stride(from: 0, to: totalHosts, by: batchSize) {
                 if Task.isCancelled { break }
 
@@ -239,7 +264,7 @@ final class NetworkScanner: ObservableObject {
                                 let device = DiscoveredDevice(
                                     id: foundIP,
                                     ipAddress: foundIP,
-                                    hostname: nil,
+                                    hostname: bonjourHostByIP[foundIP],
                                     bonjourName: bonjourNames?.first ?? ssdpName,
                                     services: allServices,
                                     deviceType: deviceType,
@@ -261,6 +286,13 @@ final class NetworkScanner: ObservableObject {
                 scanStatusMessage = "Scanned \(scannedCount)/\(totalHosts) — Found \(devices.count) device\(devices.count == 1 ? "" : "s")"
             }
 
+            scanStatusMessage = "Resolving discovered services..."
+            stopBonjourBrowsers()
+            await resolveCollectedBonjourServices()
+
+            // Now that Bonjour has resolved, backfill names on already-listed devices.
+            applyBonjourMetadataToExistingDevices()
+
             scanStatusMessage = "Adding discovered-only devices..."
             addBonjourOnlyDevices(localIP: ip, gatewayIP: gatewayIP)
             addSSDPOnlyDevices(localIP: ip, gatewayIP: gatewayIP)
@@ -278,6 +310,7 @@ final class NetworkScanner: ObservableObject {
 
     func stopScan() {
         scanTask?.cancel()
+        stopBonjourBrowsers()
         isScanning = false
         scanStatusMessage = devices.isEmpty ? "Scan stopped" : "Scan stopped — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
     }
@@ -294,141 +327,123 @@ final class NetworkScanner: ObservableObject {
         }
     }
 
-    // MARK: - Bonjour Discovery (resolves to IPs)
+    // MARK: - Bonjour Discovery (long-lived browsers + NetService resolution)
 
-    private func discoverBonjourServices() async {
-        let serviceTypes = [
-            "_http._tcp", "_airplay._tcp", "_raop._tcp",
-            "_smb._tcp", "_afpovertcp._tcp", "_ipp._tcp", "_printer._tcp",
-            "_googlecast._tcp", "_spotify-connect._tcp",
-            "_homekit._tcp", "_hap._tcp",
-            "_device-info._tcp", "_companion-link._tcp",
-            "_sleep-proxy._udp", "_rdlink._tcp", "_rfb._tcp",
-            "_amzn-wplay._tcp",
-            "_apple-mobdev2._tcp",
-            "_touch-able._tcp"
-        ]
+    private static let bonjourServiceTypes = [
+        "_http._tcp", "_airplay._tcp", "_raop._tcp",
+        "_smb._tcp", "_afpovertcp._tcp", "_ipp._tcp", "_printer._tcp",
+        "_googlecast._tcp", "_spotify-connect._tcp",
+        "_homekit._tcp", "_hap._tcp",
+        "_device-info._tcp", "_companion-link._tcp",
+        "_sleep-proxy._udp", "_rdlink._tcp", "_rfb._tcp",
+        "_amzn-wplay._tcp",
+        "_apple-mobdev2._tcp",
+        "_touch-able._tcp"
+    ]
 
-        var collectedEndpoints: [(name: String, service: String, endpoint: NWEndpoint)] = []
-
-        await withTaskGroup(of: [(name: String, service: String, endpoint: NWEndpoint)].self) { group in
-            for serviceType in serviceTypes {
-                group.addTask { [weak self] in
-                    guard self != nil else { return [] }
-                    return await self?.browseServiceType(serviceType) ?? []
-                }
-            }
-
-            for await results in group {
-                collectedEndpoints.append(contentsOf: results)
-            }
-        }
-
-        scanStatusMessage = "Resolving \(collectedEndpoints.count) services..."
-
-        await withTaskGroup(of: (String, String, String)?.self) { group in
-            for item in collectedEndpoints {
-                group.addTask { [weak self] in
-                    guard let self else { return nil }
-                    guard let ip = await self.resolveServiceEndpoint(item.endpoint) else { return nil }
-                    return (ip, item.name, item.service)
-                }
-            }
-
-            for await result in group {
-                if let (ip, name, service) = result {
-                    var entries = bonjourByIP[ip] ?? []
-                    if !entries.contains(where: { $0.name == name && $0.service == service }) {
-                        entries.append((name: name, service: service))
-                    }
-                    bonjourByIP[ip] = entries
-                }
-            }
-        }
-    }
-
-    private func browseServiceType(_ serviceType: String) async -> [(name: String, service: String, endpoint: NWEndpoint)] {
-        await withCheckedContinuation { continuation in
-            var results: [(name: String, service: String, endpoint: NWEndpoint)] = []
-            let lock = NSLock()
-            var hasResumed = false
-
+    /// Starts NWBrowsers for every tracked service type and keeps them
+    /// running until `stopBonjourBrowsers()` is called. Results are collected
+    /// into `bonjourCollector` on a background queue.
+    private func startBonjourBrowsers() {
+        var browsers: [NWBrowser] = []
+        let collector = bonjourCollector
+        for serviceType in Self.bonjourServiceTypes {
             let params = NWParameters()
             params.includePeerToPeer = true
             let browser = NWBrowser(for: .bonjour(type: serviceType, domain: nil), using: params)
 
             browser.browseResultsChangedHandler = { browseResults, _ in
-                lock.lock()
                 for result in browseResults {
-                    if case let .service(name, type, _, _) = result.endpoint {
-                        let friendly = Self.friendlyServiceName(type)
-                        if !results.contains(where: { $0.endpoint == result.endpoint }) {
-                            results.append((name: name, service: friendly, endpoint: result.endpoint))
-                        }
+                    if case let .service(name, type, domain, _) = result.endpoint {
+                        collector.insertIfMissing(
+                            endpoint: result.endpoint,
+                            name: name,
+                            service: Self.friendlyServiceName(type),
+                            type: type,
+                            domain: domain
+                        )
                     }
                 }
-                lock.unlock()
             }
 
             browser.stateUpdateHandler = { _ in }
             browser.start(queue: DispatchQueue.global(qos: .userInitiated))
+            browsers.append(browser)
+        }
+        activeBonjourBrowsers = browsers
+    }
 
-            DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) {
-                browser.cancel()
-                lock.lock()
-                guard !hasResumed else { lock.unlock(); return }
-                hasResumed = true
-                let snapshot = results
-                lock.unlock()
-                continuation.resume(returning: snapshot)
+    private func stopBonjourBrowsers() {
+        for browser in activeBonjourBrowsers {
+            browser.cancel()
+        }
+        activeBonjourBrowsers.removeAll()
+    }
+
+    /// Resolves every Bonjour endpoint we've seen so far using Foundation's
+    /// `NetService` API, which returns both the Bonjour hostname and one or
+    /// more resolved IP addresses in a single delegate callback. This is far
+    /// more reliable than the prior `NWConnection` approach, which dropped
+    /// results whenever the advertised service port was firewalled.
+    private func resolveCollectedBonjourServices() async {
+        let snapshot = bonjourCollector.snapshot()
+
+        guard !snapshot.isEmpty else { return }
+
+        scanStatusMessage = "Resolving \(snapshot.count) services..."
+
+        await withTaskGroup(of: (name: String, service: String, ips: [String], hostName: String?)?.self) { group in
+            for item in snapshot {
+                group.addTask {
+                    let resolved = await BonjourResolver.resolve(
+                        name: item.name,
+                        type: item.type,
+                        domain: item.domain.isEmpty ? "local." : item.domain,
+                        timeout: 4.0
+                    )
+                    guard let resolved, !resolved.ips.isEmpty else { return nil }
+                    return (name: item.name, service: item.service, ips: resolved.ips, hostName: resolved.hostName)
+                }
+            }
+
+            for await result in group {
+                guard let result else { continue }
+                for ip in result.ips {
+                    var entries = bonjourByIP[ip] ?? []
+                    if !entries.contains(where: { $0.name == result.name && $0.service == result.service }) {
+                        entries.append((name: result.name, service: result.service))
+                    }
+                    bonjourByIP[ip] = entries
+
+                    if let host = result.hostName, !host.isEmpty,
+                       bonjourHostByIP[ip] == nil {
+                        bonjourHostByIP[ip] = host
+                    }
+                }
             }
         }
     }
 
-    private func resolveServiceEndpoint(_ endpoint: NWEndpoint) async -> String? {
-        await withCheckedContinuation { continuation in
-            let connection = NWConnection(to: endpoint, using: .tcp)
-            var hasResumed = false
-            let lock = NSLock()
-
-            func extractIPv4() -> String? {
-                guard let path = connection.currentPath,
-                      let remoteEndpoint = path.remoteEndpoint,
-                      case let .hostPort(host, _) = remoteEndpoint else { return nil }
-                if case .ipv4(let addr) = host { return "\(addr)" }
-                return nil
-            }
-
-            func finish(_ value: String?) {
-                lock.lock()
-                guard !hasResumed else { lock.unlock(); return }
-                hasResumed = true
-                lock.unlock()
-                connection.cancel()
-                continuation.resume(returning: value)
-            }
-
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    finish(extractIPv4())
-                case .failed:
-                    finish(extractIPv4())
-                case .waiting:
-                    finish(extractIPv4())
-                case .cancelled:
-                    break
-                default:
-                    break
+    /// Applies newly-resolved Bonjour metadata (names/hostnames/services) to
+    /// devices that were already added to the list via the port scan. Without
+    /// this step, the port scan runs ahead of Bonjour resolution and devices
+    /// end up with no display name even though Bonjour later identifies them.
+    private func applyBonjourMetadataToExistingDevices() {
+        for i in devices.indices {
+            let ip = devices[i].ipAddress
+            if let entries = bonjourByIP[ip], !entries.isEmpty {
+                if devices[i].bonjourName == nil {
+                    devices[i].bonjourName = entries.map(\.name).first
                 }
+                let existing = Set(devices[i].services)
+                let merged = existing.union(Set(entries.map(\.service)))
+                devices[i].services = Array(merged)
             }
-
-            probeQueue.asyncAfter(deadline: .now() + 2.0) {
-                finish(extractIPv4())
+            if devices[i].hostname == nil, let host = bonjourHostByIP[ip] {
+                devices[i].hostname = host
             }
-
-            connection.start(queue: probeQueue)
         }
+        sortDevices()
     }
 
     private nonisolated static func friendlyServiceName(_ raw: String) -> String {
@@ -480,7 +495,7 @@ final class NetworkScanner: ObservableObject {
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
-                hostname: nil,
+                hostname: bonjourHostByIP[ip],
                 bonjourName: bonjourNames.first ?? ssdpName,
                 services: allServices,
                 deviceType: deviceType,
@@ -1407,5 +1422,159 @@ final class NetworkScanner: ObservableObject {
         let parts = localIP.split(separator: ".")
         guard parts.count == 4 else { return "192.168.0.1" }
         return "\(parts[0]).\(parts[1]).\(parts[2]).1"
+    }
+}
+
+// MARK: - BonjourCollector
+//
+// Thread-safe, nonisolated container for Bonjour browse results. Used to
+// bridge NWBrowser's background-queue callbacks into the main-actor-isolated
+// NetworkScanner without contaminating the scanner's isolation domain.
+final class BonjourCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [NWEndpoint: (name: String, service: String, type: String, domain: String)] = [:]
+
+    func insertIfMissing(
+        endpoint: NWEndpoint,
+        name: String,
+        service: String,
+        type: String,
+        domain: String
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+        if storage[endpoint] == nil {
+            storage[endpoint] = (name: name, service: service, type: type, domain: domain)
+        }
+    }
+
+    func snapshot() -> [(name: String, service: String, type: String, domain: String)] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(storage.values)
+    }
+
+    func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        storage.removeAll()
+    }
+}
+
+// MARK: - BonjourResolver
+//
+// Resolves a single Bonjour service via Foundation's `NetService`. Unlike the
+// previous `NWConnection`-based approach, this returns the resolved IPv4
+// addresses AND the advertised Bonjour hostname in a single delegate
+// callback, regardless of whether the advertised service port is firewalled.
+// That makes Bonjour-driven device name discovery reliable on iOS.
+final class BonjourResolver: NSObject, NetServiceDelegate {
+    /// Resolves a Bonjour service and returns its IPv4 addresses + hostname.
+    /// Returns nil on timeout or resolution failure.
+    static func resolve(
+        name: String,
+        type: String,
+        domain: String,
+        timeout: TimeInterval
+    ) async -> (ips: [String], hostName: String?)? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<(ips: [String], hostName: String?)?, Never>) in
+            let service = NetService(domain: domain, type: type, name: name)
+            let resolver = BonjourResolver(service: service, continuation: continuation)
+            resolver.start(timeout: timeout)
+        }
+    }
+
+    private let service: NetService
+    private let continuation: CheckedContinuation<(ips: [String], hostName: String?)?, Never>
+    private let lock = NSLock()
+    private var finished = false
+    // Strong self reference retains the delegate until resolution completes.
+    // NetService's `delegate` is a weak reference; without this retain cycle
+    // the resolver could be deallocated before the callback fires.
+    private var selfRetain: BonjourResolver?
+
+    private init(
+        service: NetService,
+        continuation: CheckedContinuation<(ips: [String], hostName: String?)?, Never>
+    ) {
+        self.service = service
+        self.continuation = continuation
+        super.init()
+        self.service.delegate = self
+    }
+
+    private func start(timeout: TimeInterval) {
+        selfRetain = self
+        // NetService delivers delegate callbacks on the scheduled run loop.
+        // The main run loop is always active on iOS apps, so use it.
+        DispatchQueue.main.async { [service] in
+            service.schedule(in: RunLoop.main, forMode: .default)
+            service.resolve(withTimeout: timeout)
+        }
+        // Belt-and-suspenders timeout: NetService should call didNotResolve
+        // on timeout, but occasionally gets wedged. Force a resolution after
+        // timeout + 1s no matter what.
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout + 1.0) { [weak self] in
+            self?.finish(nil)
+        }
+    }
+
+    private func finish(_ result: (ips: [String], hostName: String?)?) {
+        lock.lock()
+        if finished {
+            lock.unlock()
+            return
+        }
+        finished = true
+        lock.unlock()
+
+        let svc = self.service
+        DispatchQueue.main.async {
+            svc.stop()
+            svc.remove(from: RunLoop.main, forMode: .default)
+            svc.delegate = nil
+        }
+        continuation.resume(returning: result)
+        // Release the strong self-reference so the resolver can deallocate.
+        selfRetain = nil
+    }
+
+    // MARK: NetServiceDelegate
+
+    func netServiceDidResolveAddress(_ sender: NetService) {
+        let ips = BonjourResolver.extractIPv4Addresses(from: sender.addresses ?? [])
+        var host = sender.hostName
+        if var h = host {
+            // NetService hostnames typically include a trailing "." — trim it.
+            while h.hasSuffix(".") { h.removeLast() }
+            host = h.isEmpty ? nil : h
+        }
+        finish((ips: ips, hostName: host))
+    }
+
+    func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
+        finish(nil)
+    }
+
+    private static func extractIPv4Addresses(from datas: [Data]) -> [String] {
+        var result: [String] = []
+        for data in datas {
+            data.withUnsafeBytes { raw in
+                guard let base = raw.baseAddress else { return }
+                let sa = base.assumingMemoryBound(to: sockaddr.self)
+                if sa.pointee.sa_family == sa_family_t(AF_INET) {
+                    let sin = base.assumingMemoryBound(to: sockaddr_in.self)
+                    var addr = sin.pointee.sin_addr
+                    var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                    if inet_ntop(AF_INET, &addr, &buf, socklen_t(INET_ADDRSTRLEN)) != nil {
+                        let ipStr = String(cString: buf)
+                        if !ipStr.isEmpty && !result.contains(ipStr) {
+                            result.append(ipStr)
+                        }
+                    }
+                }
+            }
+        }
+        return result
     }
 }
