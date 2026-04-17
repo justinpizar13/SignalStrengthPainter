@@ -12,11 +12,33 @@ The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPain
 
 ### App Icon
 
-Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via a Python/Pillow script to exactly match `AppLogoView`: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with round caps, a red center dot, and three 4-pointed white sparkle accents in the upper-right corner. The Wi-Fi symbol center sits at **68%** of the canvas height (`cy = height * 0.68`), shifted down from the original 55% to give the sparkles clear breathing room above the outer arc. The icon was regenerated (third iteration) to fix sparkle/arc overlap. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via `scripts/generate_app_icon.py` (Pillow) to exactly match `AppLogoView`.
+
+**Current design (Apple-glass iteration):**
+- **Pure black background** (full-bleed; iOS applies its own squircle mask at runtime).
+- **Wi-Fi glyph** — three concentric arcs + a center dot, filled with a subtle iridescent "Apple glass" material: a silvery-white base (`≈80%`) with very muted pastel hints of pink / lavender / mint / peach distributed via a bilinear 4-corner tint (`TINT_STRENGTH = 0.85` against `BASE_SILVER = (230, 230, 234)`). A diagonal white sheen band (peaking around `u+v ≈ 0.85`, ~59% white) is composited on top of the material for a glass specular highlight. Inspired by the Apple TV app icon — not a rainbow, but a shimmery silver with faint color swells.
+- **Geometry** — `cx = width/2`, `cy = height * 0.575`. Outer/middle/inner arcs use bbox radii `0.355 / 0.255 / 0.155` and stroke thickness `0.080` (all fractions of canvas width). PIL `arc(width=w)` draws the stroke band inward from the bbox radius, so round-cap disks are stamped at the stroke centerline `r_outer - w/2` (not at `r_outer`) to avoid bulbous ends. Dot radius `0.055`.
+- **Sparkles** — three 4-pointed stars in the upper-right (`(0.810, 0.185, 0.082)`, `(0.905, 0.295, 0.050)`, `(0.705, 0.095, 0.042)` — `x frac, y frac, arm frac`) rendered in the same iridescent material at slightly reduced alpha (`0.9`) for a softer read.
+- **Rendering** — drawn at 4× supersampling (`4096×4096`) and downsampled with LANCZOS to 1024×1024 for crisp anti-aliased edges. Masks are slightly Gaussian-blurred (`radius = SCALE * 0.3–0.4`) before compositing to avoid aliasing on the curved strokes.
+
+The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+
+**Prior design (archived):** blue-to-cyan vertical gradient background with traffic-light colored arcs (green/yellow/orange) + red dot + white sparkles, `cy = 0.68`. Replaced in favor of the black + Apple-glass look.
 
 ### In-App Branding (`AppLogoView.swift`)
 
-Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. The arc center is at `cy = height * 0.68` (lowered from 0.55 to separate arcs from sparkles). Uses `.round` line caps for polished arc ends. Includes **sparkle accents** — three 4-pointed star shapes drawn in the upper-right area of the canvas, matching the app icon's sparkle design. Sparkles scale proportionally with the logo size.
+Reusable `AppLogoView` SwiftUI view that draws the branded logo programmatically using `Canvas`. **Renders on a transparent background** (no black tile) so it composites cleanly over themed cards and headers — the black squircle is reserved for the home-screen app icon PNG. Three layers composed in order:
+
+1. **Wi-Fi glyph** — three arcs + dot stroked/filled with an iridescent diagonal `linearGradient` shading (stops: pink → warm silver → peach → mint → lavender → cool silver, going top-left → bottom-right). Round caps via `StrokeStyle(lineCap: .round)`. Matching geometry to the 1024×1024 PNG (`cy = 0.575`, radii `0.355/0.255/0.155`, thickness `0.080`, dot `0.055`).
+2. **Glass sheen** — a diagonal sheen band (`0.0 → sheenAlpha → 0.0`, going top-right → bottom-left) clipped to the combined glyph path via `GraphicsContext.clip(to:)` so the specular reads only on the Wi-Fi shapes, not the whole canvas.
+3. **Sparkles** — three 4-pointed stars in the upper-right at the same fractional positions as the PNG, using the iridescent gradient with a `dim` factor of `0.9` (attenuates RGB via `Color.dimmed(by:)` which extracts channels through `UIColor`).
+
+**Palette is color-scheme aware** via `IridescentPalette.resolved(for: colorScheme)`:
+
+- **Dark palette** (matches the home-screen icon) — silvery-white base with pale pink / peach / mint / lavender tints (all luminance ≈ 0.90–0.97). Sheen is pure white at 55% alpha. Used on the dark theme where cards are `white @ 4% alpha` over near-black.
+- **Light palette** — same hue rotation but inverted to a dark slate base with muted pink / peach / mint / lavender tints (luminance ≈ 0.20–0.35). Sheen is a soft warm off-white at 35% alpha. Keeps the glyph legible against `cardFill = Color.white` in light mode without losing the Apple-glass character.
+
+Accepts a `size` parameter; every element scales proportionally so the logo holds up from 26pt (compact survey header) to 100pt (paywall hero).
 
 The logo+sparkle is used consistently across all tabs:
 - **`DashboardView.swift`** — Speed tab header shows `AppLogoView(size: 44)` + "Wi-Fi Buddy" title.
