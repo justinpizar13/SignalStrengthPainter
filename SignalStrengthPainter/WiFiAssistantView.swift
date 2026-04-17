@@ -524,14 +524,18 @@ enum WiFiAssistantEngine {
     static let thinkingPhrases: [String] = [
         "Crunching the bytes",
         "Sniffing the packets",
-        "Tuning the antenna",
+        "Tuning my antenna",
         "Scanning the spectrum",
         "Decoding the signal",
         "Checking the airwaves",
         "Measuring the throughput",
         "Consulting the router",
         "Polling the access points",
-        "Diagnosing the network"
+        "Diagnosing the network",
+        "Booting up my brain",
+        "Recalibrating my dish",
+        "Listening to the SSIDs",
+        "Squinting at the waveform"
     ]
 
     static func randomThinkingPhrase() -> String {
@@ -564,13 +568,13 @@ struct WiFiAssistantView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            AppLogoView(size: 34)
+            KlausMascotView(size: 44)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Wi-Fi Buddy Assistant")
+                Text("Klaus")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(theme.primaryText)
-                Text("Answers for common Wi-Fi questions")
+                Text("Your Wi-Fi Buddy sidekick")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.tertiaryText)
             }
@@ -686,11 +690,15 @@ struct WiFiAssistantView: View {
         ZStack {
             Circle()
                 .fill(Color.blue.opacity(0.12))
-                .frame(width: 30, height: 30)
-            Image(systemName: "wifi")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.blue)
+                .frame(width: 34, height: 34)
+                .overlay(
+                    Circle().stroke(Color.blue.opacity(0.22), lineWidth: 1)
+                )
+            KlausMascotView(size: 30)
+                .offset(y: 1)
         }
+        .frame(width: 34, height: 34)
+        .clipShape(Circle())
     }
 
     // MARK: Suggested chips
@@ -725,7 +733,7 @@ struct WiFiAssistantView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField("Ask about your Wi-Fi...", text: $inputText, axis: .vertical)
+            TextField("Ask Klaus about your Wi-Fi...", text: $inputText, axis: .vertical)
                 .font(.system(size: 15))
                 .foregroundStyle(theme.primaryText)
                 .lineLimit(1...4)
@@ -810,7 +818,7 @@ struct WiFiAssistantView: View {
                 let suggestions = WiFiAssistantEngine.fallbackSuggestions()
                 reply = AssistantMessage(
                     role: .assistant,
-                    text: "I'm not sure I caught that one. Here are some common questions I can help with — tap one to see my take.",
+                    text: "Hmm, my little antenna didn't quite pick that one up. Here's what I *definitely* know about — tap a question to pick my brain.",
                     relatedQuestions: suggestions
                 )
             }
@@ -828,7 +836,7 @@ struct WiFiAssistantView: View {
         messages.append(
             AssistantMessage(
                 role: .assistant,
-                text: "Hi! I'm your Wi-Fi Buddy assistant. Tap a question below or type your own — I've got tips for common home Wi-Fi issues.",
+                text: "Beep boop — hi there! I'm Klaus, your Wi-Fi Buddy. I live in your router's packets and I know *way* too much about Wi-Fi. Tap a question below or ask me anything.",
                 relatedQuestions: WiFiAssistantEngine.starterQuestions
             )
         )

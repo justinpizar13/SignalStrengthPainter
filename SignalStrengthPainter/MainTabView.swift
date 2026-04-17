@@ -164,17 +164,21 @@ struct SignalDetailView: View {
                 ZStack {
                     Circle()
                         .fill(Color.white.opacity(0.18))
-                        .frame(width: 38, height: 38)
-                    Image(systemName: "message.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            Circle().stroke(Color.white.opacity(0.30), lineWidth: 1)
+                        )
+                    KlausMascotView(size: 40)
+                        .offset(y: 1)
                 }
+                .frame(width: 46, height: 46)
+                .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ask Wi-Fi Buddy")
+                    Text("Chat with Klaus")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
-                    Text("Common Wi-Fi questions, answered")
+                    Text("Your Wi-Fi sidekick, always on call")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.white.opacity(0.8))
                 }
