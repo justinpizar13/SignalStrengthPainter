@@ -1,21 +1,30 @@
 """Generate the Wi-Fi Buddy app icon (1024x1024).
 
-Design goals (matching the "Apple TV" glass-rebrand icon):
-- Pure black squircle background (iOS applies its own corner mask at runtime).
-- Wi-Fi glyph visually **centered** and sized to fill the icon the way the
-  "tv" letters fill the Apple TV icon background.
-- **Subtle rainbow** iridescent material across the glyph: a silvery base
-  with pale but visible hints of pink / mint / lavender / peach distributed
-  as a bilinear 4-corner tint. Keeps the "shimmery silver" read, not neon.
-- Strong glass 3D depth: the top of the glyph is brightened (highlight) and
-  the bottom is slightly darkened (shadow), mimicking a form lit from above.
-- A concentrated diagonal specular sheen across the upper-left of the glyph
-  to read as polished glass.
-- Three 4-pointed sparkles in the upper-right painted with the same
-  material (slightly dimmed) so they shimmer without pulling focus.
+The coloring here is kept in lockstep with the in-app ``AppLogoView`` SwiftUI
+view (`SignalStrengthPainter/AppLogoView.swift`). The in-app logo is the
+design-of-record, and this icon must render with visually identical coloring
+so the home-screen icon and the in-app branding read as the same mark.
 
-Renders at 4x supersampling and downsamples to 1024x1024 with LANCZOS for
-crisp anti-aliased edges.
+Key properties mirrored from ``AppLogoView``:
+
+- **Diagonal iridescent gradient**, 6 stops running top-left → bottom-right.
+  Palette matches ``IridescentPalette.dark``: pink → silverWarm → peach →
+  mint → lavender → silverCool. (The app icon always sits on black, so we
+  use the dark palette — the same one the in-app logo uses in dark mode.)
+- **No vertical "3D depth" shading.** Earlier iterations of this script
+  brightened the top of the glyph and darkened the bottom to emulate a lit
+  form; the in-app logo intentionally omits that so the rainbow reads
+  evenly. Removing it here makes the PNG and the SwiftUI view match.
+- **Diagonal glass sheen** clipped to the glyph, peaking at gradient
+  location ≈ 0.39 (``u + v ≈ 0.78``). The SwiftUI view draws the same
+  band at the same location.
+- **Sparkle positions** match ``AppLogoView.drawSparkles`` (y fractions
+  0.185 / 0.295 / 0.095) and are tinted with the same gradient, RGB-dimmed
+  by 0.9 — again matching the SwiftUI dim path.
+
+Rendered at 4× supersampling and downsampled to 1024×1024 with LANCZOS for
+crisp anti-aliased edges. The icon ships as opaque RGB (App Store requires
+no alpha channel); the iOS runtime applies its own squircle mask.
 """
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -27,10 +36,8 @@ SCALE = 4
 SIZE = FINAL_SIZE * SCALE  # 4096
 
 # --- Glyph geometry ---------------------------------------------------------
-# Previously cy=0.575 with r_outer=0.355 placed the glyph high in the icon
-# leaving a lot of empty black below. The Apple TV icon fills ~70% of the
-# canvas vertically and centers visually. We shift cy lower and grow the
-# arcs so the glyph spans roughly y ∈ [0.26, 0.72] — centered around 0.49.
+# Shared with ``AppLogoView`` so the in-app logo and the PNG line up pixel-
+# for-pixel (at any scale).
 
 GLYPH_CY_FRAC = 0.635
 OUTER_R_FRAC = 0.425
@@ -39,117 +46,105 @@ INNER_R_FRAC = 0.180
 STROKE_W_FRAC = 0.096
 DOT_R_FRAC = 0.064
 
-GLYPH_TOP_FRAC = GLYPH_CY_FRAC - OUTER_R_FRAC    # ~0.26
-GLYPH_BOTTOM_FRAC = GLYPH_CY_FRAC + DOT_R_FRAC   # ~0.72
-
 
 def lerp(a, b, t):
     return a + (b - a) * t
 
 
 # --- Iridescent material ----------------------------------------------------
-# Silvery base with four pastel corner tints. Saturation is intentionally
-# moderate — the hues should *hint* of a rainbow, not shout. Corners are
-# arranged pink (TL) → mint (TR) → lavender (BR) → peach (BL) so the glyph
-# picks up a soft top-left pink wash, a mint/cyan shoulder on the top-right,
-# and a warm amber kiss at the bottom — the same vibe as Apple's rainbow
-# apple on the TV icon but toned down.
+# Six-stop diagonal gradient that mirrors ``IridescentPalette.dark`` in
+# ``AppLogoView.swift``. Stop locations match SwiftUI's Gradient(stops:)
+# array exactly so the color distribution is identical.
+#
+# SwiftUI colors are 0..1 RGB; converted to 0..255 here.
 
-BASE_SILVER = (220, 220, 228)
+GRADIENT_STOPS = [
+    # (location 0..1, (r, g, b) 0..255)
+    (0.00, (255, 184, 214)),   # pink         Color(1.00, 0.72, 0.84)
+    (0.20, (240, 232, 237)),   # silverWarm   Color(0.94, 0.91, 0.93)
+    (0.40, (255, 212, 166)),   # peach        Color(1.00, 0.83, 0.65)
+    (0.60, (189, 237, 224)),   # mint         Color(0.74, 0.93, 0.88)
+    (0.80, (204, 186, 250)),   # lavender     Color(0.80, 0.73, 0.98)
+    (1.00, (230, 232, 237)),   # silverCool   Color(0.90, 0.91, 0.93)
+]
 
-TINT_TL = (255, 138, 190)   # pink / magenta
-TINT_TR = (132, 228, 208)   # mint / cyan
-TINT_BR = (170, 150, 252)   # lavender / violet
-TINT_BL = (255, 188, 128)   # warm peach / amber
 
-TINT_STRENGTH = 0.92  # 0 = pure silver, 1 = pure tint
-
-# Glass 3D depth: brighten the top of the glyph, darken the bottom.
-# Applied as a vertical multiplier over the iridescent layer; only the
-# glyph area is visible after masking, so the effect reads as per-glyph
-# top-lit shading. Kept modest so the underlying rainbow still reads
-# through the highlight (Apple TV reference stays saturated under its
-# top light because the underlying color is strong).
-TOP_HIGHLIGHT_GAIN = 0.14    # +14% brightness at top of glyph
-BOTTOM_SHADOW_GAIN = -0.22   # -22% brightness at bottom of glyph
+def sample_gradient(t: float) -> tuple:
+    """Interpolate the 6-stop gradient at parameter ``t`` in [0, 1]."""
+    if t <= GRADIENT_STOPS[0][0]:
+        return GRADIENT_STOPS[0][1]
+    if t >= GRADIENT_STOPS[-1][0]:
+        return GRADIENT_STOPS[-1][1]
+    for i in range(len(GRADIENT_STOPS) - 1):
+        loc0, c0 = GRADIENT_STOPS[i]
+        loc1, c1 = GRADIENT_STOPS[i + 1]
+        if loc0 <= t <= loc1:
+            span = max(loc1 - loc0, 1e-9)
+            u = (t - loc0) / span
+            return (
+                lerp(c0[0], c1[0], u),
+                lerp(c0[1], c1[1], u),
+                lerp(c0[2], c1[2], u),
+            )
+    return GRADIENT_STOPS[-1][1]
 
 
 def build_iridescent_layer(size: int) -> Image.Image:
-    """Build an RGBA image of the iridescent material with vertical 3D shading."""
+    """RGBA image of the iridescent material.
+
+    The gradient runs from the top-left corner to the bottom-right corner,
+    matching SwiftUI's ``startPoint: (0, 0), endPoint: (size, size)``. For a
+    square canvas the gradient parameter at pixel ``(x, y)`` reduces to
+    ``(u + v) / 2`` where ``u = x/(size-1)`` and ``v = y/(size-1)``.
+    """
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     px = img.load()
 
-    top_y = GLYPH_TOP_FRAC
-    bot_y = GLYPH_BOTTOM_FRAC
-    span = max(bot_y - top_y, 1e-6)
-
+    inv = 1.0 / (size - 1)
     for y in range(size):
-        v = y / (size - 1)
-        # Vertical depth multiplier, clamped outside the glyph band so a
-        # single ambient tone is used above/below (it's masked out anyway,
-        # but sparkles above the glyph should stay neutral-bright).
-        if v <= top_y:
-            depth = 1.0 + TOP_HIGHLIGHT_GAIN
-        elif v >= bot_y:
-            depth = 1.0 + BOTTOM_SHADOW_GAIN
-        else:
-            t = (v - top_y) / span
-            depth = lerp(1.0 + TOP_HIGHLIGHT_GAIN, 1.0 + BOTTOM_SHADOW_GAIN, t)
-
+        v = y * inv
         for x in range(size):
-            u = x / (size - 1)
-            # Bilinear 4-corner tint.
-            w_tl = (1 - u) * (1 - v)
-            w_tr = u * (1 - v)
-            w_br = u * v
-            w_bl = (1 - u) * v
-            tr = (
-                TINT_TL[0] * w_tl + TINT_TR[0] * w_tr
-                + TINT_BR[0] * w_br + TINT_BL[0] * w_bl
-            )
-            tg = (
-                TINT_TL[1] * w_tl + TINT_TR[1] * w_tr
-                + TINT_BR[1] * w_br + TINT_BL[1] * w_bl
-            )
-            tb = (
-                TINT_TL[2] * w_tl + TINT_TR[2] * w_tr
-                + TINT_BR[2] * w_br + TINT_BL[2] * w_bl
-            )
-            r = BASE_SILVER[0] * (1 - TINT_STRENGTH) + tr * TINT_STRENGTH
-            g = BASE_SILVER[1] * (1 - TINT_STRENGTH) + tg * TINT_STRENGTH
-            b = BASE_SILVER[2] * (1 - TINT_STRENGTH) + tb * TINT_STRENGTH
-            r = max(0.0, min(255.0, r * depth))
-            g = max(0.0, min(255.0, g * depth))
-            b = max(0.0, min(255.0, b * depth))
+            u = x * inv
+            t = (u + v) * 0.5
+            r, g, b = sample_gradient(t)
             px[x, y] = (int(round(r)), int(round(g)), int(round(b)), 255)
     return img
 
 
 def add_highlight_sheen(img: Image.Image) -> None:
-    """Paint a concentrated diagonal specular band across the upper-left of the
-    glyph. The band is aimed so its hot-spot falls just inside the top of the
-    outer Wi-Fi arc, giving a polished-glass read once masked to the glyph.
+    """Paint a concentrated diagonal specular band across the upper-left of
+    the glyph, matching the sheen in ``AppLogoView.drawSheen``.
+
+    ``AppLogoView`` uses a linear gradient with a single non-transparent stop
+    at location 0.39 (peak alpha) fading to 0 at 0.26 and 0.52. Along a
+    TL→BR linear gradient on a square, ``loc = (u + v) / 2``. So the peak
+    sits at ``u + v = 0.78``, with the band width determined by the
+    transparent stops (0.26 and 0.52 → ``u + v`` of 0.52 and 1.04). That
+    corresponds to a band half-width of ~0.26 in ``u + v`` space.
     """
     size = img.size[0]
     sheen = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     spx = sheen.load()
 
-    # Glyph top-center ≈ (0.5, 0.26). A narrow diagonal ridge at u+v ≈ 0.78
-    # passes through the upper-left shoulder of the outer arc and the top-
-    # center crown. Kept tight so the specular reads as a polished glass
-    # highlight rather than a wash — preserves the rainbow underneath.
-    band_center = 0.78
-    band_width = 0.17
-    peak_alpha = 205  # ~80% white at the very center of the band
+    # SwiftUI sheen: white at 0.70 alpha peak, with symmetric transparent
+    # stops 0.13 gradient units away (locations 0.26 and 0.52 vs peak 0.39).
+    peak_loc = 0.39
+    half_width = 0.13
+    peak_alpha = int(round(0.70 * 255))  # ≈ 178
 
+    inv = 1.0 / (size - 1)
     for y in range(size):
+        v = y * inv
         for x in range(size):
-            u = x / (size - 1)
-            v = y / (size - 1)
-            band = abs((u + v) - band_center)
-            intensity = max(0.0, 1.0 - band / band_width)
-            intensity = intensity ** 2.2
-            alpha = int(peak_alpha * intensity)
+            u = x * inv
+            loc = (u + v) * 0.5
+            dist = abs(loc - peak_loc)
+            if dist >= half_width:
+                continue
+            # Triangular falloff matches SwiftUI's linear gradient interpolation
+            # between the peak stop and the adjacent transparent stops.
+            intensity = 1.0 - dist / half_width
+            alpha = int(round(peak_alpha * intensity))
             if alpha > 0:
                 spx[x, y] = (255, 255, 255, alpha)
     img.alpha_composite(sheen)
@@ -207,14 +202,18 @@ def build_wifi_mask(size: int) -> Image.Image:
 
 
 def build_sparkles_mask(size: int) -> Image.Image:
-    """Grayscale mask for three 4-pointed sparkle stars in the upper-right."""
+    """Grayscale mask for three 4-pointed sparkle stars in the upper-right.
+
+    Positions match ``AppLogoView.drawSparkles`` exactly so the sparkles
+    land in the same spot at any scale.
+    """
     mask = Image.new("L", (size, size), 0)
     d = ImageDraw.Draw(mask)
-    # (x_frac, y_frac, arm_frac)
+    # (x_frac, y_frac, arm_frac) — identical to AppLogoView.swift
     sparkles = [
-        (0.810, 0.175, 0.082),
-        (0.905, 0.285, 0.050),
-        (0.705, 0.090, 0.042),
+        (0.810, 0.185, 0.082),
+        (0.905, 0.295, 0.050),
+        (0.705, 0.095, 0.042),
     ]
     import math as _m
     for xf, yf, af in sparkles:
@@ -231,13 +230,34 @@ def build_sparkles_mask(size: int) -> Image.Image:
     return mask
 
 
+def dim_rgb(img: Image.Image, dim: float) -> Image.Image:
+    """Scale RGB channels by ``dim`` (leaving alpha untouched).
+
+    Matches ``Color.dimmed(by:)`` in AppLogoView.swift, which multiplies the
+    RGB components and clamps to [0, 1]. Used so sparkles are tinted with a
+    slightly muted version of the same gradient rather than a gradient with
+    reduced alpha.
+    """
+    if dim >= 0.9999:
+        return img.copy()
+    r, g, b, a = img.split()
+    scale = max(0.0, min(1.0, dim))
+    lut = [int(round(i * scale)) for i in range(256)]
+    r = r.point(lut)
+    g = g.point(lut)
+    b = b.point(lut)
+    return Image.merge("RGBA", (r, g, b, a))
+
+
 # --- Compose ----------------------------------------------------------------
 
 def generate_icon(out_path: str) -> None:
     # Black background (full bleed; iOS masks the squircle on device).
     bg = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
 
-    # Iridescent material + glass sheen.
+    # Iridescent material + glass sheen (applied before masking so the
+    # sheen's diagonal iso-lines read through the glyph identically to the
+    # SwiftUI view's "clip to glyph, then draw sheen" pipeline).
     iridescent = build_iridescent_layer(SIZE)
     add_highlight_sheen(iridescent)
 
@@ -246,10 +266,9 @@ def generate_icon(out_path: str) -> None:
     wifi_mask = wifi_mask.filter(ImageFilter.GaussianBlur(radius=SCALE * 0.4))
     bg.paste(iridescent, (0, 0), wifi_mask)
 
-    # Sparkles use the same material dimmed slightly for a softer read.
-    sparkle_material = iridescent.copy()
-    alpha = sparkle_material.getchannel("A").point(lambda a: int(a * 0.92))
-    sparkle_material.putalpha(alpha)
+    # Sparkles use the same material with RGB dimmed to 0.9, matching
+    # ``iridescentShading(..., dim: 0.9)`` in the SwiftUI view.
+    sparkle_material = dim_rgb(iridescent, 0.9)
     sparkles_mask = build_sparkles_mask(SIZE)
     sparkles_mask = sparkles_mask.filter(ImageFilter.GaussianBlur(radius=SCALE * 0.3))
     bg.paste(sparkle_material, (0, 0), sparkles_mask)
