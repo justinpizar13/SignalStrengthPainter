@@ -22,6 +22,7 @@
 		A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123B2 /* NetworkScanner.swift */; };
 		A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */; };
 		A1B2C3D401234567890123D1 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123D2 /* AppTheme.swift */; };
+		A1B2C3D401234567890123F1 /* AppLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890123F2 /* AppLogoView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		A1B2C3D401234567890123B2 /* NetworkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkScanner.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscoveryView.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123D2 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		A1B2C3D401234567890123F2 /* AppLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogoView.swift; sourceTree = "<group>"; };
 		A1B2C3D401234567890123E2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -80,6 +82,7 @@
 				A1B2C3D401234567890123B2 /* NetworkScanner.swift */,
 				A1B2C3D401234567890123C2 /* DeviceDiscoveryView.swift */,
 				A1B2C3D401234567890123D2 /* AppTheme.swift */,
+				A1B2C3D401234567890123F2 /* AppLogoView.swift */,
 				A1B2C3D401234567890123E2 /* Assets.xcassets */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 			);
@@ -177,6 +180,7 @@
 				A1B2C3D401234567890123B1 /* NetworkScanner.swift in Sources */,
 				A1B2C3D401234567890123C1 /* DeviceDiscoveryView.swift in Sources */,
 				A1B2C3D401234567890123D1 /* AppTheme.swift in Sources */,
+				A1B2C3D401234567890123F1 /* AppLogoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

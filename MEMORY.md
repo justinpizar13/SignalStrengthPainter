@@ -12,13 +12,20 @@ The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPain
 
 ### App Icon
 
-Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Design: blue-to-cyan vertical gradient background, white Wi-Fi arcs + dot, subtle sparkle accents in the upper-right corner. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Design: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with a red center dot, and subtle sparkle accents in the upper-right corner. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+
+### In-App Branding (`AppLogoView.swift`)
+
+Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. Uses `.round` line caps for polished arc ends. Used in:
+- **`DashboardView.swift`** — Speed tab header shows `AppLogoView(size: 34)` + "Wi-Fi Buddy" title (replacing the old plain SF Symbol wifi icon + "Wi-Fi" text).
+- **`PaywallView.swift`** — Feature icon section shows `AppLogoView(size: 80)` (replacing the old wifi + gear SF Symbol composite).
 
 ## Current architecture (high level)
 
 | Layer | Role |
 |--------|------|
 | **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. Applies `.withAppTheme()` for centralized theming. |
+| **`AppLogoView.swift`** | Reusable branded logo drawn with `Canvas` — signal-strength colored Wi-Fi arcs (green/yellow/orange) + red dot. Accepts `size` parameter for flexible rendering. Used in DashboardView header and PaywallView. |
 | **`AppTheme.swift`** | Centralized theming: `AppearanceMode` enum (system/light/dark), `AppTheme` struct with semantic colors for both modes, `EnvironmentKey` injection, `ThemedRootModifier`. User preference persisted via `@AppStorage("appearanceMode")`. |
 | **`MainTabView.swift`** | **Tab-based UI** with 5 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Devices** (network device discovery), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `AppearanceToggle` and `SignalDetailView` (Signal tab). |
 | **`DashboardView.swift`** | **Speed tab**: WiFiman/Speedtest-inspired dashboard with **network topology** visualization (ISP → Router → Device), **speed test** (download + upload via Cloudflare with live sparkline, ping/jitter), **speed report** (post-test contextual report rating connection for Netflix/streaming, gaming, video calls, home office, and browsing), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), **survey quick-action card**, and **appearance toggle** (light/dark/system) in the Wi-Fi header. |

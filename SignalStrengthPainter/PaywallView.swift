@@ -194,24 +194,8 @@ struct PaywallView: View {
     // MARK: - Feature icon
 
     private var featureIcon: some View {
-        ZStack {
-            Image(systemName: "wifi")
-                .font(.system(size: 42, weight: .medium))
-                .foregroundStyle(
-                    LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom)
-                )
-
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.purple)
-                .offset(x: 22, y: 16)
-
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.purple.opacity(0.7))
-                .offset(x: 14, y: 24)
-        }
-        .padding(.vertical, 4)
+        AppLogoView(size: 80)
+            .padding(.vertical, 4)
     }
 
     // MARK: - Tagline

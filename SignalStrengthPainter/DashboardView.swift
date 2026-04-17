@@ -64,15 +64,12 @@ struct DashboardView: View {
 
     private var wifiHeader: some View {
         ZStack {
-            VStack(spacing: 4) {
-                Image(systemName: "wifi")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.blue)
-                Text("Wi-Fi")
-                    .font(.system(size: 16, weight: .semibold))
+            HStack(spacing: 8) {
+                AppLogoView(size: 34)
+                Text("Wi-Fi Buddy")
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(theme.primaryText)
             }
-            .frame(maxWidth: .infinity)
 
             HStack {
                 Spacer()
