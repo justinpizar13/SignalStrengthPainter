@@ -28,6 +28,12 @@ struct DiscoveredDevice: Identifiable {
     let firstSeen: Date
     var isCurrentDevice: Bool
     var isTrusted: Bool
+    /// User-assigned nickname persisted in `UserDefaults`. When set, this
+    /// takes priority over every auto-detected label (Bonjour name,
+    /// hostname, vendor, device type) in both the list row and the detail
+    /// sheet. Lets users keep track of devices that otherwise show up with
+    /// no hostname/DNS — e.g., "Kitchen Roku", "Kid's iPad".
+    var customName: String?
 
     var displayHostname: String? {
         if let name = bonjourName, !name.isEmpty { return name }
@@ -162,6 +168,11 @@ final class NetworkScanner: ObservableObject {
     private var upnpDescriptions: [String: (friendlyName: String, manufacturer: String?, modelName: String?)] = [:]
 
     private static let trustedKey = "trustedDeviceIPs"
+    private static let customNamesKey = "customDeviceNames"
+
+    /// Maximum characters allowed in a user-assigned device nickname.
+    /// Keeps UI rows from overflowing and bounds the stored data.
+    private static let customNameMaxLength = 40
 
     private static let probePorts: [UInt16] = [
         80, 443, 62078, 548, 445, 7000, 8080,
@@ -179,8 +190,73 @@ final class NetworkScanner: ObservableObject {
         UserDefaults.standard.set(Array(current), forKey: Self.trustedKey)
         if let idx = devices.firstIndex(where: { $0.ipAddress == ip }) {
             devices[idx].isTrusted = trusted
+            // If the user un-trusts a device, drop their custom name too so
+            // a device they no longer recognize stops carrying a nickname
+            // that implies they know it.
+            if !trusted {
+                devices[idx].customName = nil
+                removeStoredCustomName(for: ip)
+            }
         }
         objectWillChange.send()
+    }
+
+    /// Persisted map of IP → user-assigned nickname. Read lazily from
+    /// `UserDefaults` so we stay in sync with changes across app launches.
+    var customNames: [String: String] {
+        UserDefaults.standard.dictionary(forKey: Self.customNamesKey) as? [String: String] ?? [:]
+    }
+
+    /// Assigns (or clears) a custom nickname for a device. The name is
+    /// sanitized: trimmed of whitespace/control characters and capped to
+    /// `customNameMaxLength`. Passing `nil` or an empty string removes the
+    /// stored nickname. Only allowed for trusted devices — renaming an
+    /// unknown host would give the user a false sense of recognition.
+    func setCustomName(_ ip: String, name: String?) {
+        guard let idx = devices.firstIndex(where: { $0.ipAddress == ip }) else { return }
+        guard devices[idx].isTrusted else { return }
+
+        let sanitized = Self.sanitizeCustomName(name)
+        if let sanitized {
+            var current = customNames
+            current[ip] = sanitized
+            UserDefaults.standard.set(current, forKey: Self.customNamesKey)
+            devices[idx].customName = sanitized
+        } else {
+            removeStoredCustomName(for: ip)
+            devices[idx].customName = nil
+        }
+        objectWillChange.send()
+    }
+
+    private func removeStoredCustomName(for ip: String) {
+        var current = customNames
+        if current.removeValue(forKey: ip) != nil {
+            UserDefaults.standard.set(current, forKey: Self.customNamesKey)
+        }
+    }
+
+    /// Allow-list style sanitization: strip control characters and newlines,
+    /// collapse whitespace, trim, and cap length. Returns `nil` when the
+    /// result is empty so callers can treat "clear the name" as a single
+    /// code path.
+    private static func sanitizeCustomName(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let stripped = raw.unicodeScalars.filter { scalar in
+            !CharacterSet.controlCharacters.contains(scalar) &&
+            !CharacterSet.newlines.contains(scalar)
+        }
+        var cleaned = String(String.UnicodeScalarView(stripped))
+        while cleaned.contains("  ") {
+            cleaned = cleaned.replacingOccurrences(of: "  ", with: " ")
+        }
+        cleaned = cleaned.trimmingCharacters(in: .whitespaces)
+        if cleaned.isEmpty { return nil }
+        if cleaned.count > customNameMaxLength {
+            cleaned = String(cleaned.prefix(customNameMaxLength))
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return cleaned.isEmpty ? nil : cleaned
     }
 
     func startScan() {
@@ -288,7 +364,8 @@ final class NetworkScanner: ObservableObject {
                                     hasRandomizedMAC: false,
                                     firstSeen: Date(),
                                     isCurrentDevice: isSelf,
-                                    isTrusted: trustedIPs.contains(foundIP)
+                                    isTrusted: trustedIPs.contains(foundIP),
+                                    customName: customNames[foundIP]
                                 )
                                 devices.append(device)
                                 sortDevices()
@@ -661,7 +738,8 @@ final class NetworkScanner: ObservableObject {
                 hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
-                isTrusted: trustedIPs.contains(ip)
+                isTrusted: trustedIPs.contains(ip),
+                customName: customNames[ip]
             )
             devices.append(device)
         }
@@ -797,7 +875,8 @@ final class NetworkScanner: ObservableObject {
                 hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
-                isTrusted: trustedIPs.contains(ip)
+                isTrusted: trustedIPs.contains(ip),
+                customName: customNames[ip]
             )
             devices.append(device)
         }

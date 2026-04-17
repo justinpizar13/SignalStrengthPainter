@@ -391,6 +391,20 @@ The Survey tab was restyled to match this language (previously used system butto
   - Detail sheet is now wrapped in a `ScrollView` so the tips card never gets clipped on small phones.
   - Security assessment no longer counts devices with a known vendor (or a randomized-MAC flag) as "mystery unknowns" — knowing the hardware vendor is enough context for the user to recognize the device.
 
+### Custom device names (rename after trusting)
+- **Purpose:** Let users keep track of devices that don't advertise a hostname/Bonjour name/DNS — headless IoT gadgets, smart plugs, no-name cameras — by assigning a nickname (e.g., "Kitchen Roku", "Kid's iPad"). Without this, a trusted-but-unlabeled device comes back as "Made by TP-Link" or bare "Device" on every scan and the user has no way to tell which of their trusted devices is which.
+- **Model changes (`NetworkScanner.swift`):**
+  - `DiscoveredDevice.customName: String?` — nickname that wins over every auto-detected label in display.
+  - `NetworkScanner.customNames` — computed `[String: String]` backed by `UserDefaults` under key `customDeviceNames` (IP → nickname), read lazily to stay in sync across launches.
+  - `NetworkScanner.setCustomName(_:name:)` — sanitizes input (strips control characters/newlines, collapses whitespace, trims, caps at 40 chars), persists to `UserDefaults`, and updates the live `devices` array. **Only allowed on trusted devices** (guarded by `devices[idx].isTrusted`) — renaming an unvetted device would give the user a false sense of recognition.
+  - `setTrusted(_:trusted:)` now clears the stored custom name when a device is un-trusted, so a device the user no longer recognizes stops carrying a nickname that implies they know it.
+  - All three `DiscoveredDevice` construction paths (port-scan, Bonjour-only, SSDP-only) populate `customName: customNames[ip]` so nicknames survive rescans.
+- **UI (`DeviceDiscoveryView.swift`):**
+  - `deviceDisplayName` (list row) and `DeviceDetailSheet.displayName` both check `customName` first, ahead of `isCurrentDevice`/router/Bonjour/hostname/vendor fallbacks.
+  - Detail sheet adds a **"Name This Device" / "Rename Device"** button below the existing Trust button, shown **only when `device.isTrusted`**. The Trust button is kept as the only CTA for untrusted devices.
+  - Tapping it opens an `.alert` with a SwiftUI `TextField` pre-filled with the current nickname, `.textInputAutocapitalization(.words)`, autocorrection disabled, and a live 40-char cap via `.onChange` (mirrors the scanner's `customNameMaxLength` so the UI can't outrun persistence). Actions: **Save**, **Clear Name** (destructive, only when a name already exists), **Cancel**.
+  - After Save/Clear, the sheet dismisses — same UX pattern as the trust toggle.
+
 ### Randomized-MAC wording ("Private Wi-Fi Address")
 - **Problem:** Devices that couldn't be categorized and had randomized MACs displayed as `"Private <ShortName>"` (e.g., "Private Phone / Tablet", "Private Device"). The bare word **Private** as a prefix reads as "hidden / suspicious" to a non-technical user and created anxiety about devices that are almost always the user's own iPhone or Android. The subtitle "Randomized MAC (privacy mode)" reinforced the same uneasy framing.
 - **Fix (`DeviceDiscoveryView.swift`):**

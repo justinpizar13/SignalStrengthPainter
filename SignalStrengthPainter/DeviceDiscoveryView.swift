@@ -49,9 +49,15 @@ struct DeviceDiscoveryView: View {
         }
         .background(theme.background.ignoresSafeArea())
         .sheet(item: $selectedDevice) { device in
-            DeviceDetailSheet(device: device) { ip, trusted in
-                scanner.setTrusted(ip, trusted: trusted)
-            }
+            DeviceDetailSheet(
+                device: device,
+                onToggleTrust: { ip, trusted in
+                    scanner.setTrusted(ip, trusted: trusted)
+                },
+                onRename: { ip, name in
+                    scanner.setCustomName(ip, name: name)
+                }
+            )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
@@ -480,6 +486,10 @@ struct DeviceDiscoveryView: View {
     // MARK: - Helpers
 
     private func deviceDisplayName(_ device: DiscoveredDevice) -> String {
+        // User-assigned nickname wins over every auto-detected label. This
+        // is the whole point of the rename feature: devices with no
+        // hostname/DNS can still be tracked by whatever the user calls them.
+        if let custom = device.customName, !custom.isEmpty { return custom }
         if device.isCurrentDevice { return "This iPhone" }
         if device.deviceType == .router { return "Router / Gateway" }
         if let name = device.bonjourName, !name.isEmpty { return name }
@@ -582,10 +592,20 @@ struct DeviceDiscoveryView: View {
 struct DeviceDetailSheet: View {
     let device: DiscoveredDevice
     var onToggleTrust: ((String, Bool) -> Void)?
+    /// Called when the user saves a new nickname (or clears it by passing
+    /// `nil`). The scanner owns sanitization and persistence — this sheet
+    /// just forwards the raw text the user typed.
+    var onRename: ((String, String?) -> Void)?
 
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var showTrustConfirmation = false
+    @State private var showRenameAlert = false
+    @State private var renameText = ""
+
+    /// Mirror the scanner's cap so the UI doesn't let the user type more
+    /// characters than we'll actually persist.
+    private let customNameMaxLength = 40
 
     var body: some View {
         VStack(spacing: 0) {
@@ -684,8 +704,13 @@ struct DeviceDetailSheet: View {
                     }
 
                     if !device.isCurrentDevice {
-                        trustButton
-                            .padding(.horizontal, 20)
+                        VStack(spacing: 10) {
+                            trustButton
+                            if device.isTrusted {
+                                renameButton
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
                 }
                 .padding(.top, 24)
@@ -693,6 +718,30 @@ struct DeviceDetailSheet: View {
             }
         }
         .background(theme.background.ignoresSafeArea())
+        .alert(device.customName == nil ? "Name This Device" : "Rename Device", isPresented: $showRenameAlert) {
+            TextField("e.g. Kitchen Roku", text: $renameText)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled(true)
+                .onChange(of: renameText) { _, newValue in
+                    if newValue.count > customNameMaxLength {
+                        renameText = String(newValue.prefix(customNameMaxLength))
+                    }
+                }
+            Button("Save") {
+                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                onRename?(device.ipAddress, trimmed.isEmpty ? nil : trimmed)
+                dismiss()
+            }
+            if device.customName != nil {
+                Button("Clear Name", role: .destructive) {
+                    onRename?(device.ipAddress, nil)
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Give this device a nickname so you can spot it on future scans — even if it doesn't have a hostname. Up to \(customNameMaxLength) characters.")
+        }
         .confirmationDialog(
             device.isTrusted ? "Remove trust for this device?" : "Trust this device?",
             isPresented: $showTrustConfirmation,
@@ -778,6 +827,34 @@ struct DeviceDetailSheet: View {
         return tips
     }
 
+    /// Opens an alert with a text field pre-filled with the device's
+    /// current nickname (if any). Shown only for trusted devices so the
+    /// user can't give a false sense of recognition to a device they
+    /// haven't vetted yet.
+    private var renameButton: some View {
+        Button {
+            renameText = device.customName ?? ""
+            showRenameAlert = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "pencil")
+                Text(device.customName == nil ? "Name This Device" : "Rename Device")
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.blue)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.blue.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+    }
+
     private var trustButton: some View {
         Button {
             showTrustConfirmation = true
@@ -820,6 +897,8 @@ struct DeviceDetailSheet: View {
     }
 
     private var displayName: String {
+        // User-assigned nickname wins (same priority as list-row display).
+        if let custom = device.customName, !custom.isEmpty { return custom }
         if device.isCurrentDevice { return "This iPhone" }
         if device.deviceType == .router { return "Router / Gateway" }
         if let name = device.bonjourName, !name.isEmpty { return name }
