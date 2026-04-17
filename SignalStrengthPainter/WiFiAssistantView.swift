@@ -568,7 +568,8 @@ struct WiFiAssistantView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            KlausMascotView(size: 44)
+            KlausMascotView(size: 44, mode: .portrait)
+                .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Klaus")
@@ -694,8 +695,7 @@ struct WiFiAssistantView: View {
                 .overlay(
                     Circle().stroke(Color.blue.opacity(0.22), lineWidth: 1)
                 )
-            KlausMascotView(size: 30)
-                .offset(y: 1)
+            KlausMascotView(size: 34, mode: .portrait)
         }
         .frame(width: 34, height: 34)
         .clipShape(Circle())

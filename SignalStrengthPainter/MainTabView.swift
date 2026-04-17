@@ -168,8 +168,7 @@ struct SignalDetailView: View {
                         .overlay(
                             Circle().stroke(Color.white.opacity(0.30), lineWidth: 1)
                         )
-                    KlausMascotView(size: 40)
-                        .offset(y: 1)
+                    KlausMascotView(size: 46, mode: .portrait)
                 }
                 .frame(width: 46, height: 46)
                 .clipShape(Circle())
