@@ -6,7 +6,7 @@ struct AppLogoView: View {
     var body: some View {
         Canvas { context, canvasSize in
             let cx = canvasSize.width / 2
-            let cy = canvasSize.height * 0.55
+            let cy = canvasSize.height * 0.68
 
             let arcs: [(CGFloat, Color)] = [
                 (0.42, Color(red: 76/255, green: 217/255, blue: 100/255)),

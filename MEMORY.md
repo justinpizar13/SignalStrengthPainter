@@ -12,11 +12,11 @@ The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPain
 
 ### App Icon
 
-Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via a Python/Pillow script to exactly match `AppLogoView`: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with round caps, a red center dot, and three 4-pointed white sparkle accents in the upper-right corner. The icon was regenerated (second iteration) to include the sparkles and match the updated in-app logo. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
+Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via a Python/Pillow script to exactly match `AppLogoView`: blue-to-cyan vertical gradient background, signal-strength colored Wi-Fi arcs (green outer → yellow middle → orange inner) with round caps, a red center dot, and three 4-pointed white sparkle accents in the upper-right corner. The Wi-Fi symbol center sits at **68%** of the canvas height (`cy = height * 0.68`), shifted down from the original 55% to give the sparkles clear breathing room above the outer arc. The icon was regenerated (third iteration) to fix sparkle/arc overlap. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
 
 ### In-App Branding (`AppLogoView.swift`)
 
-Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. Uses `.round` line caps for polished arc ends. Includes **sparkle accents** — three 4-pointed star shapes drawn in the upper-right area of the canvas, matching the app icon's sparkle design. Sparkles scale proportionally with the logo size.
+Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. The arc center is at `cy = height * 0.68` (lowered from 0.55 to separate arcs from sparkles). Uses `.round` line caps for polished arc ends. Includes **sparkle accents** — three 4-pointed star shapes drawn in the upper-right area of the canvas, matching the app icon's sparkle design. Sparkles scale proportionally with the logo size.
 
 The logo+sparkle is used consistently across all tabs:
 - **`DashboardView.swift`** — Speed tab header shows `AppLogoView(size: 44)` + "Wi-Fi Buddy" title.
