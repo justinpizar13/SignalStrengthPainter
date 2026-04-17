@@ -22,13 +22,14 @@ struct AssistantMessage: Identifiable, Equatable {
     let role: Role
     let text: String
     let relatedQuestions: [String]
+    var isThinking: Bool = false
 
     static func == (lhs: AssistantMessage, rhs: AssistantMessage) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-// MARK: - Canned Knowledge Base
+// MARK: - Knowledge Base
 
 enum WiFiAssistantKnowledge {
     static let entries: [AssistantQA] = [
@@ -214,6 +215,230 @@ How to do it right: unplug the router (and modem if separate) for a full 60 seco
 Don't confuse this with a factory reset — you only want the power cycle. A factory reset wipes all your settings.
 """,
             category: "Reliability"
+        ),
+        AssistantQA(
+            question: "Why is my Wi-Fi slower than what I pay for?",
+            keywords: ["slower", "plan", "paying", "pay", "isp", "promised", "advertised", "subscription", "mbps", "gigabit", "gbps"],
+            answer: """
+ISP plans advertise wired speeds — what you see over Wi-Fi is almost always lower. Here's why, and what to check:
+
+• Wi-Fi overhead eats 20–40% of raw speed, even with a strong signal.
+• Test with a device plugged directly into the router via Ethernet — that tells you what your ISP is actually delivering.
+• If wired speed is close to your plan but Wi-Fi is far below it, the router or signal is the bottleneck, not the ISP.
+• Older phones and laptops (Wi-Fi 4 / 802.11n) max out around 100 Mbps no matter how fast your plan is.
+• Run the speed test in the Speed tab a few times across the day — if wired speed is consistently much lower than advertised, call your ISP.
+""",
+            category: "Speed"
+        ),
+        AssistantQA(
+            question: "Is Wi-Fi 6 or Wi-Fi 7 worth upgrading to?",
+            keywords: ["wifi6", "wifi7", "wi-fi6", "wi-fi7", "upgrade", "upgrading", "new", "router", "worth", "802.11ax", "802.11be", "generation"],
+            answer: """
+Whether an upgrade helps depends on your devices:
+
+• Wi-Fi 6 (802.11ax) — great if you have 15+ connected devices, a busy smart home, or a recent phone/laptop. Handles crowded networks much better than Wi-Fi 5.
+• Wi-Fi 6E — adds the 6 GHz band. Nice if your gear supports it (iPhone 15 Pro+, recent Androids, newer MacBooks), but useless if it doesn't.
+• Wi-Fi 7 (802.11be) — still early. Real-world gains are modest unless you have Wi-Fi 7 client devices, which are rare.
+
+If your current router is 5+ years old and you have fast internet (500 Mbps+), a Wi-Fi 6 or 6E router is usually a clear win. Otherwise, placement and mesh upgrades matter more than the Wi-Fi generation.
+""",
+            category: "Setup"
+        ),
+        AssistantQA(
+            question: "Why won't my device connect to Wi-Fi?",
+            keywords: ["wont", "cant", "can't", "won't", "connect", "connecting", "join", "joining", "refuses", "stuck", "authenticating", "incorrect"],
+            answer: """
+If a device refuses to join, try these in order:
+
+• Double-check the password — case matters, and 0 vs O / 1 vs l trip people up.
+• On the device, "forget this network," then re-enter the password fresh.
+• Reboot just that device — toggle airplane mode on iPhone/Android, or restart the laptop.
+• Reboot the router (unplug 60 seconds).
+• Move closer to the router — weak signal can show up as "incorrect password."
+• Check if other devices can connect. If none can, the router's Wi-Fi radio may have crashed.
+• Some routers have a device limit or MAC filter — log into the admin page to check.
+""",
+            category: "Reliability"
+        ),
+        AssistantQA(
+            question: "Can my neighbors use my Wi-Fi?",
+            keywords: ["neighbor", "neighbors", "neighbour", "stranger", "someone", "else", "leeching", "freeloading", "stealing", "using"],
+            answer: """
+If your Wi-Fi has a strong password (WPA2 or WPA3), neighbors can't just hop on. But let's make sure:
+
+• Wi-Fi security: should be WPA2 or WPA3 — never "Open." Check in your router's admin page.
+• Password strength: long and random is better than clever. 12+ characters.
+• Change it if you ever shared it with someone and don't want them connected anymore.
+• Open the Devices tab — anything on your network you don't recognize? Start by unplugging or turning off your own devices one at a time; anything left is worth investigating.
+
+If you ever find an unknown device and can't identify it, change your Wi-Fi password — every device will need to reconnect with the new one.
+""",
+            category: "Security"
+        ),
+        AssistantQA(
+            question: "What's the difference between a modem and a router?",
+            keywords: ["modem", "router", "difference", "between", "vs", "versus", "gateway", "combo", "separate"],
+            answer: """
+They do different jobs, even when they're in the same box:
+
+• Modem — translates your ISP's signal (coax, fiber, DSL) into regular internet. One cable in, one cable out. No Wi-Fi.
+• Router — takes the modem's internet and shares it with your devices, does Wi-Fi, assigns addresses, handles the firewall.
+• Gateway / combo unit — one device that does both. Common with rentals from the ISP.
+
+Separate units usually beat the combo box because you can upgrade the router independently. If your ISP rents you a combo for $10–15/month, buying your own modem + router often pays for itself within a year.
+""",
+            category: "Setup"
+        ),
+        AssistantQA(
+            question: "How do I make video calls less choppy?",
+            keywords: ["zoom", "teams", "facetime", "meet", "webex", "call", "video", "choppy", "freezing", "frozen", "quality", "meeting", "glitching"],
+            answer: """
+Video calls need stable upload, low latency, and no competing traffic. Try:
+
+• Get close to the router, on 5 GHz. Weak signal kills video calls first.
+• If your setup is permanent (home office), plug into Ethernet — even $20 worth of cable changes everything.
+• Pause cloud backups (iCloud, Dropbox, OneDrive) during important meetings.
+• Turn off other devices that might be streaming 4K or downloading.
+• Close browser tabs you aren't using — some (video sites, social media feeds) quietly pull a lot of bandwidth.
+• Check the Speed tab — you want at least 3–5 Mbps upload and ping under 60 ms for smooth HD video calls.
+""",
+            category: "Streaming"
+        ),
+        AssistantQA(
+            question: "Should I change my DNS to Google or Cloudflare?",
+            keywords: ["dns", "cloudflare", "google", "1.1.1.1", "8.8.8.8", "change", "server", "opendns", "faster"],
+            answer: """
+Changing DNS can help in a few specific ways:
+
+• Speed — public DNS like Cloudflare (1.1.1.1) or Google (8.8.8.8) is often faster than your ISP's, especially when your ISP's is overloaded.
+• Privacy — Cloudflare and Quad9 don't log browsing the way some ISP DNS does.
+• Reliability — public DNS rarely goes down; ISP DNS occasionally does.
+
+Set it once on the router and every device on your Wi-Fi uses it. Or set it per-device if you only want it on your phone/laptop.
+
+Realistically, the speed boost is usually tens of milliseconds, not a game-changer. But privacy-wise, it's a nice free win.
+""",
+            category: "Setup"
+        ),
+        AssistantQA(
+            question: "How do I set up parental controls?",
+            keywords: ["parental", "kids", "children", "block", "blocking", "filter", "filtering", "schedule", "bedtime", "limit", "limits", "content"],
+            answer: """
+You've got a few layers to work with:
+
+• Router-level controls — most modern routers (Eero, Nest, Orbi, ASUS, TP-Link) have built-in parental controls in their app. You can pause Wi-Fi per device, set bedtimes, and filter categories.
+• DNS filtering — switching to OpenDNS FamilyShield (208.67.222.123) or Cloudflare Families (1.1.1.3) blocks adult and malicious sites network-wide.
+• Device-level — iOS Screen Time and Google Family Link give you app limits, downtime, and site filters that follow the device off Wi-Fi too.
+
+Best setup is usually router-level bedtime/pause + on-device Screen Time. The combo is tough to bypass.
+""",
+            category: "Security"
+        ),
+        AssistantQA(
+            question: "Do smart home devices make my Wi-Fi slow?",
+            keywords: ["smart", "iot", "home", "bulbs", "plugs", "camera", "cameras", "alexa", "echo", "many", "too", "devices", "overload"],
+            answer: """
+Individually, no. As a pile, sometimes yes:
+
+• Most smart plugs, bulbs, and sensors use tiny amounts of bandwidth — they just sit idle.
+• The real cost is connection count. Older routers start struggling above ~20–30 simultaneous clients.
+• Smart cameras are the exception — 1080p cameras streaming to the cloud can use 1–2 Mbps each, 24/7.
+• Many IoT devices only speak 2.4 GHz, which crowds that band fast.
+• Check the Devices tab — if you have 30+ IoT gadgets, a mesh system or Wi-Fi 6 router will handle them far better than a 5-year-old single unit.
+
+Bonus: put IoT stuff on a guest network so a hacked smart bulb can't reach your laptop.
+""",
+            category: "Security"
+        ),
+        AssistantQA(
+            question: "Why is my Wi-Fi fine in some rooms but not others?",
+            keywords: ["rooms", "room", "corners", "upstairs", "downstairs", "basement", "garage", "outside", "backyard", "deadzone", "dead", "weak"],
+            answer: """
+That's classic signal drop — Wi-Fi doesn't pass through materials evenly:
+
+• Concrete, brick, and stone walls block a lot of signal.
+• Metal (filing cabinets, fridges, mirrors) reflects it.
+• Floors with rebar or radiant heating kill vertical coverage.
+• Water (aquariums, water heaters) absorbs 2.4 GHz.
+
+What to do:
+
+• Move the router more centrally, higher up, and out of enclosures.
+• Run the Survey tab — it literally shows you where your weak spots are on a floor plan.
+• If a dead zone persists after good placement, a mesh node (or a second router in access-point mode) in that area fixes it.
+• One far corner only? A single extender may do, but expect it to feel slower.
+""",
+            category: "Coverage"
+        ),
+        AssistantQA(
+            question: "Should I use a VPN on my home Wi-Fi?",
+            keywords: ["vpn", "privacy", "private", "tunnel", "encrypt", "encryption", "nordvpn", "expressvpn", "proton", "hide"],
+            answer: """
+On your own home Wi-Fi, a VPN is usually optional — your traffic is already encrypted between you and the router, and between your device and any HTTPS site. What a VPN changes:
+
+• Hides your traffic from your ISP. Useful if you don't want them logging what you browse.
+• Masks your IP from the sites you visit.
+• Lets you pretend to be in another country for streaming.
+
+What it costs:
+
+• Most VPNs noticeably slow down your connection (especially upload).
+• Ping goes up — bad for gaming and video calls.
+• Some services (banking, streaming) block known VPN IPs.
+
+On public Wi-Fi (cafés, airports), a VPN is more useful. At home, it's a privacy choice, not a security must.
+""",
+            category: "Security"
+        ),
+        AssistantQA(
+            question: "Should I hide my Wi-Fi network name?",
+            keywords: ["hide", "hidden", "ssid", "broadcast", "invisible", "stealth", "name"],
+            answer: """
+Short answer: don't bother. "Hiding" the SSID (turning off broadcast) feels like a security win, but it isn't:
+
+• Anyone with a free Wi-Fi scanning app can still see hidden networks — they just don't show the name.
+• Your phone has to shout the hidden name everywhere it goes looking for it, which is actually worse for privacy.
+• Some devices (printers, smart gadgets) have trouble joining hidden networks.
+
+Real security comes from: a strong password, WPA2/WPA3 encryption, updated firmware, and turning off WPS. Those protect you. Hiding the name doesn't.
+""",
+            category: "Security"
+        ),
+        AssistantQA(
+            question: "How do I port forward for a game or server?",
+            keywords: ["port", "forward", "forwarding", "nat", "open", "host", "server", "minecraft", "strict", "moderate"],
+            answer: """
+Port forwarding lets incoming connections reach a specific device on your network. Rough steps:
+
+• Give the device a static local IP (in the router's DHCP reservation page), so the forwarding rule keeps pointing at the right machine.
+• In the router admin page, find "Port Forwarding" (sometimes under "NAT" or "Firewall").
+• Add a rule: external port(s) → internal IP → internal port(s) → protocol (TCP, UDP, or both).
+• Save, then test with a tool like canyouseeme.org or the game's own network test.
+
+Safer alternatives:
+
+• UPnP — many games/apps open ports automatically. Works if enabled on the router.
+• For game consoles showing "strict NAT," enabling UPnP usually fixes it without manual port forwarding.
+• Only forward what you need — every open port is exposed to the internet.
+""",
+            category: "Setup"
+        ),
+        AssistantQA(
+            question: "What do download and upload speeds actually mean?",
+            keywords: ["download", "upload", "speed", "mbps", "bandwidth", "definition", "meaning", "explain", "what", "difference"],
+            answer: """
+Download is data coming to you (streaming, loading web pages, game downloads). Upload is data leaving you (sending email, uploading photos, video calls, live streaming).
+
+Rough numbers that matter:
+
+• 25 Mbps download — enough for one 4K stream or a household of basic browsing.
+• 100+ Mbps download — comfortable for multiple 4K streams and busy households.
+• 5 Mbps upload — enough for HD video calls.
+• 25+ Mbps upload — helpful if you stream, upload big files, or have cloud backups.
+
+Speeds are in megabits per second (Mbps). File sizes are in megabytes (MB). 1 MB = 8 Mb, so a 100 Mbps connection downloads roughly 12 MB per second, not 100.
+""",
+            category: "Speed"
         )
     ]
 }
@@ -295,6 +520,23 @@ enum WiFiAssistantEngine {
         "Why is my streaming buffering?",
         "Is my network secure?"
     ]
+
+    static let thinkingPhrases: [String] = [
+        "Crunching the bytes",
+        "Sniffing the packets",
+        "Tuning the antenna",
+        "Scanning the spectrum",
+        "Decoding the signal",
+        "Checking the airwaves",
+        "Measuring the throughput",
+        "Consulting the router",
+        "Polling the access points",
+        "Diagnosing the network"
+    ]
+
+    static func randomThinkingPhrase() -> String {
+        thinkingPhrases.randomElement() ?? "Thinking"
+    }
 }
 
 // MARK: - Chat View
@@ -328,7 +570,7 @@ struct WiFiAssistantView: View {
                 Text("Wi-Fi Buddy Assistant")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(theme.primaryText)
-                Text("Canned answers for common Wi-Fi questions")
+                Text("Answers for common Wi-Fi questions")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.tertiaryText)
             }
@@ -403,20 +645,32 @@ struct WiFiAssistantView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 10) {
                     assistantAvatar
-                    Text(message.text)
-                        .font(.system(size: 15))
-                        .foregroundStyle(theme.primaryText)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(theme.cardFill)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(theme.cardStroke, lineWidth: 1)
-                                )
-                        )
-                        .fixedSize(horizontal: false, vertical: true)
+                    if message.isThinking {
+                        ThinkingBubble(phrase: message.text)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(theme.cardFill)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(theme.cardStroke, lineWidth: 1)
+                                    )
+                            )
+                    } else {
+                        Text(message.text)
+                            .font(.system(size: 15))
+                            .foregroundStyle(theme.primaryText)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(theme.cardFill)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(theme.cardStroke, lineWidth: 1)
+                                    )
+                            )
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Spacer(minLength: 20)
                 }
 
@@ -534,20 +788,38 @@ struct WiFiAssistantView: View {
             AssistantMessage(role: .user, text: cleaned, relatedQuestions: [])
         )
 
-        if let match = WiFiAssistantEngine.findBestAnswer(for: cleaned) {
-            let follow = WiFiAssistantEngine.relatedQuestions(for: match)
-            messages.append(
-                AssistantMessage(role: .assistant, text: match.answer, relatedQuestions: follow)
-            )
-        } else {
-            let suggestions = WiFiAssistantEngine.fallbackSuggestions()
-            messages.append(
-                AssistantMessage(
+        let thinkingMessage = AssistantMessage(
+            role: .assistant,
+            text: WiFiAssistantEngine.randomThinkingPhrase(),
+            relatedQuestions: [],
+            isThinking: true
+        )
+        let thinkingID = thinkingMessage.id
+        messages.append(thinkingMessage)
+
+        let delay = Double.random(in: 1.4...2.2)
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+
+            let reply: AssistantMessage
+            if let match = WiFiAssistantEngine.findBestAnswer(for: cleaned) {
+                let follow = WiFiAssistantEngine.relatedQuestions(for: match)
+                reply = AssistantMessage(role: .assistant, text: match.answer, relatedQuestions: follow)
+            } else {
+                let suggestions = WiFiAssistantEngine.fallbackSuggestions()
+                reply = AssistantMessage(
                     role: .assistant,
-                    text: "I'm not sure I caught that one. Here are some common questions I can help with — tap one to get a canned answer.",
+                    text: "I'm not sure I caught that one. Here are some common questions I can help with — tap one to see my take.",
                     relatedQuestions: suggestions
                 )
-            )
+            }
+
+            if let idx = messages.firstIndex(where: { $0.id == thinkingID }) {
+                messages[idx] = reply
+            } else {
+                messages.append(reply)
+            }
         }
     }
 
@@ -556,10 +828,46 @@ struct WiFiAssistantView: View {
         messages.append(
             AssistantMessage(
                 role: .assistant,
-                text: "Hi! I'm your Wi-Fi Buddy assistant. Tap a question below or type your own — I've got canned tips for common home Wi-Fi issues.",
+                text: "Hi! I'm your Wi-Fi Buddy assistant. Tap a question below or type your own — I've got tips for common home Wi-Fi issues.",
                 relatedQuestions: WiFiAssistantEngine.starterQuestions
             )
         )
+    }
+}
+
+// MARK: - Thinking Bubble
+
+private struct ThinkingBubble: View {
+    @Environment(\.theme) private var theme
+
+    let phrase: String
+
+    @State private var dotPhase: Int = 0
+
+    private let timer = Timer.publish(every: 0.45, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(phrase)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(theme.secondaryText)
+            Text(dotString)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(theme.secondaryText)
+                .frame(width: 18, alignment: .leading)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .fixedSize(horizontal: false, vertical: true)
+        .onReceive(timer) { _ in
+            dotPhase = (dotPhase + 1) % 4
+        }
+        .accessibilityLabel("\(phrase)…")
+    }
+
+    private var dotString: String {
+        String(repeating: ".", count: dotPhase)
     }
 }
 
