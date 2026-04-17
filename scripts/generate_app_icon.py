@@ -8,16 +8,21 @@ so the home-screen icon and the in-app branding read as the same mark.
 Key properties mirrored from ``AppLogoView``:
 
 - **Diagonal iridescent gradient**, 6 stops running top-left → bottom-right.
-  Palette matches ``IridescentPalette.dark``: pink → silverWarm → peach →
-  mint → lavender → silverCool. (The app icon always sits on black, so we
-  use the dark palette — the same one the in-app logo uses in dark mode.)
+  Palette matches ``IridescentPalette.earthy`` — the unified earthy palette
+  used in both light and dark mode in-app: burgundy → slate → warm brown →
+  forest green → plum → slate. Darker, muted tones so the rainbow reads
+  without the candy-pastel look of the earlier "Apple glass" palette.
+- **Light cream background.** Earlier icon iterations used a pure black
+  background with bright pastel arcs; the earthy palette's darker tones
+  would disappear on black, so the icon now uses a light cream squircle
+  that matches the background color the in-app logo renders over.
 - **No vertical "3D depth" shading.** Earlier iterations of this script
   brightened the top of the glyph and darkened the bottom to emulate a lit
   form; the in-app logo intentionally omits that so the rainbow reads
   evenly. Removing it here makes the PNG and the SwiftUI view match.
 - **Diagonal glass sheen** clipped to the glyph, peaking at gradient
   location ≈ 0.39 (``u + v ≈ 0.78``). The SwiftUI view draws the same
-  band at the same location.
+  band at the same location, using a soft warm off-white at 0.40 alpha.
 - **Sparkle positions** match ``AppLogoView.drawSparkles`` (y fractions
   0.185 / 0.295 / 0.095) and are tinted with the same gradient, RGB-dimmed
   by 0.9 — again matching the SwiftUI dim path.
@@ -52,21 +57,29 @@ def lerp(a, b, t):
 
 
 # --- Iridescent material ----------------------------------------------------
-# Six-stop diagonal gradient that mirrors ``IridescentPalette.dark`` in
-# ``AppLogoView.swift``. Stop locations match SwiftUI's Gradient(stops:)
-# array exactly so the color distribution is identical.
+# Six-stop diagonal gradient that mirrors ``IridescentPalette.earthy`` in
+# ``AppLogoView.swift`` — the single shared palette used in both light and
+# dark mode. Stop locations match SwiftUI's Gradient(stops:) array exactly
+# so the color distribution is identical.
 #
-# SwiftUI colors are 0..1 RGB; converted to 0..255 here.
+# SwiftUI colors are 0..1 RGB; converted to 0..255 here (rounded).
 
 GRADIENT_STOPS = [
     # (location 0..1, (r, g, b) 0..255)
-    (0.00, (255, 184, 214)),   # pink         Color(1.00, 0.72, 0.84)
-    (0.20, (240, 232, 237)),   # silverWarm   Color(0.94, 0.91, 0.93)
-    (0.40, (255, 212, 166)),   # peach        Color(1.00, 0.83, 0.65)
-    (0.60, (189, 237, 224)),   # mint         Color(0.74, 0.93, 0.88)
-    (0.80, (204, 186, 250)),   # lavender     Color(0.80, 0.73, 0.98)
-    (1.00, (230, 232, 237)),   # silverCool   Color(0.90, 0.91, 0.93)
+    (0.00, (122,  56,  87)),   # pink (burgundy)  Color(0.48, 0.22, 0.34)
+    (0.20, ( 69,  64,  71)),   # silverWarm       Color(0.27, 0.25, 0.28)
+    (0.40, (115,  82,  51)),   # peach (warm brown) Color(0.45, 0.32, 0.20)
+    (0.60, ( 51,  92,  77)),   # mint (forest)    Color(0.20, 0.36, 0.30)
+    (0.80, ( 71,  59, 117)),   # lavender (plum)  Color(0.28, 0.23, 0.46)
+    (1.00, ( 64,  66,  71)),   # silverCool       Color(0.25, 0.26, 0.28)
 ]
+
+# --- Background -------------------------------------------------------------
+# Light cream squircle background so the earthy glyph reads with contrast.
+# Matches the off-white seen when the in-app logo renders over the light
+# theme's `cardFill` (near-white). iOS applies its squircle mask on device.
+
+BACKGROUND_RGB = (242, 241, 246)
 
 
 def sample_gradient(t: float) -> tuple:
@@ -121,16 +134,22 @@ def add_highlight_sheen(img: Image.Image) -> None:
     sits at ``u + v = 0.78``, with the band width determined by the
     transparent stops (0.26 and 0.52 → ``u + v`` of 0.52 and 1.04). That
     corresponds to a band half-width of ~0.26 in ``u + v`` space.
+
+    Sheen color/alpha matches ``IridescentPalette.earthy``: a soft warm
+    off-white at 0.40 alpha peak so the darker earthy base is lifted
+    without blowing out.
     """
     size = img.size[0]
     sheen = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     spx = sheen.load()
 
-    # SwiftUI sheen: white at 0.70 alpha peak, with symmetric transparent
-    # stops 0.13 gradient units away (locations 0.26 and 0.52 vs peak 0.39).
+    # SwiftUI sheen: warm off-white at 0.40 alpha peak, with symmetric
+    # transparent stops 0.13 gradient units away (locations 0.26 and 0.52
+    # vs peak 0.39). Color matches ``sheenColor = Color(1.0, 0.98, 0.96)``.
     peak_loc = 0.39
     half_width = 0.13
-    peak_alpha = int(round(0.70 * 255))  # ≈ 178
+    peak_alpha = int(round(0.40 * 255))  # ≈ 102
+    sheen_rgb = (255, 250, 245)
 
     inv = 1.0 / (size - 1)
     for y in range(size):
@@ -146,7 +165,7 @@ def add_highlight_sheen(img: Image.Image) -> None:
             intensity = 1.0 - dist / half_width
             alpha = int(round(peak_alpha * intensity))
             if alpha > 0:
-                spx[x, y] = (255, 255, 255, alpha)
+                spx[x, y] = (*sheen_rgb, alpha)
     img.alpha_composite(sheen)
 
 
@@ -252,8 +271,8 @@ def dim_rgb(img: Image.Image, dim: float) -> Image.Image:
 # --- Compose ----------------------------------------------------------------
 
 def generate_icon(out_path: str) -> None:
-    # Black background (full bleed; iOS masks the squircle on device).
-    bg = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
+    # Light cream background (full bleed; iOS masks the squircle on device).
+    bg = Image.new("RGBA", (SIZE, SIZE), (*BACKGROUND_RGB, 255))
 
     # Iridescent material + glass sheen (applied before masking so the
     # sheen's diagonal iso-lines read through the glyph identically to the
@@ -275,8 +294,9 @@ def generate_icon(out_path: str) -> None:
 
     # Downsample for final PNG.
     final = bg.resize((FINAL_SIZE, FINAL_SIZE), Image.LANCZOS)
-    # Icon must be opaque RGB for App Store.
-    final_rgb = Image.new("RGB", final.size, (0, 0, 0))
+    # Icon must be opaque RGB for App Store. Flatten onto the cream bg so
+    # any residual alpha from downsampling resolves to the icon background.
+    final_rgb = Image.new("RGB", final.size, BACKGROUND_RGB)
     final_rgb.paste(final, mask=final.getchannel("A"))
     final_rgb.save(out_path, format="PNG", optimize=True)
 

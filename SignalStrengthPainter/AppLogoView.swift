@@ -2,17 +2,22 @@ import SwiftUI
 
 /// Wi-Fi Buddy branded logo.
 ///
-/// Renders the Wi-Fi glyph on a **transparent** background in a subtle
-/// iridescent "Apple glass" material: a predominantly silvery-white base with
-/// very muted pastel hints of pink / lavender / mint / peach, plus a gentle
-/// diagonal white sheen for glassiness. Three small 4-pointed sparkles sit in
-/// the upper-right. Sized via the `size` parameter; every element scales
-/// proportionally so the logo reads well from 26pt up to 100pt+.
+/// Renders the Wi-Fi glyph on a **transparent** background in a muted earthy
+/// iridescent material: deep burgundy / olive / slate-brown / forest-green /
+/// plum tones that read as a subtly shifting rainbow without the candy-pastel
+/// look of the earlier "Apple glass" palette. A gentle warm off-white sheen
+/// across the glyph keeps the surface legible as polished material. Three
+/// small 4-pointed sparkles sit in the upper-right. Sized via the `size`
+/// parameter; every element scales proportionally so the logo reads well
+/// from 26pt up to 100pt+.
+///
+/// The palette is **not** color-scheme dependent — the same earthy tones are
+/// used in light and dark mode so the brand reads identically everywhere.
 ///
 /// The home-screen app icon (`AppIcon.appiconset/icon_1024x1024.png`) uses
-/// the same iridescent material on a solid black squircle. In-app this view
-/// is drawn transparently so it composites cleanly over themed cards and
-/// headers.
+/// the same earthy gradient on a light cream squircle, matching this view's
+/// coloring exactly. In-app this view is drawn transparently so it
+/// composites cleanly over themed cards and headers.
 struct AppLogoView: View {
     var size: CGFloat = 60
 
@@ -191,10 +196,13 @@ struct AppLogoView: View {
 
 // MARK: - Palette
 
-/// Color palette for the iridescent Wi-Fi glyph. The `light` variant swaps in
-/// darker pastel tones so the glyph retains contrast against white card
-/// backgrounds; the `dark` variant uses the silvery-white "Apple glass" tones
-/// that match the home-screen app icon.
+/// Color palette for the iridescent Wi-Fi glyph. A single earthy palette is
+/// used for both light and dark color schemes so the brand reads identically
+/// everywhere. Preserves the same hue rotation as the earlier pastel palette
+/// (pink → slate → peach → mint → lavender → slate) but at a lower
+/// luminance with muted saturation — producing burgundy / olive / slate-
+/// brown / forest-green / plum tones that remain legible on both white and
+/// near-black card surfaces.
 struct IridescentPalette {
     let pink: Color
     let silverWarm: Color
@@ -203,9 +211,8 @@ struct IridescentPalette {
     let lavender: Color
     let silverCool: Color
 
-    /// Color used for the diagonal specular highlight. White on the dark
-    /// palette reads as a bright glass sheen; a slightly warm off-white on
-    /// the light palette lifts the darker glyph without washing it out.
+    /// Color used for the diagonal specular highlight. A soft warm off-white
+    /// at reduced intensity lifts the darker base without blowing it out.
     let sheenColor: Color
     let sheenAlpha: Double
 
@@ -221,41 +228,24 @@ struct IridescentPalette {
         ]
     }
 
+    /// Returns the unified earthy palette regardless of color scheme — kept
+    /// as a function to preserve the call site API in case we reintroduce
+    /// scheme-specific palettes later.
     static func resolved(for colorScheme: ColorScheme) -> IridescentPalette {
-        colorScheme == .light ? .light : .dark
+        .earthy
     }
 
-    /// Silvery-white palette matching the app icon. Designed to read well on
-    /// the dark theme's card surfaces (`cardFill = white @ 4% alpha` over a
-    /// near-black background). Saturation is bumped slightly above a pure
-    /// silver so the pink / mint / lavender / peach rainbow reads subtly
-    /// through the glass sheen — matching the iridescent corners used in
-    /// `scripts/generate_app_icon.py`.
-    static let dark = IridescentPalette(
-        pink:        Color(red: 1.00, green: 0.72, blue: 0.84),
-        silverWarm:  Color(red: 0.94, green: 0.91, blue: 0.93),
-        peach:       Color(red: 1.00, green: 0.83, blue: 0.65),
-        mint:        Color(red: 0.74, green: 0.93, blue: 0.88),
-        lavender:    Color(red: 0.80, green: 0.73, blue: 0.98),
-        silverCool:  Color(red: 0.90, green: 0.91, blue: 0.93),
-        sheenColor:  .white,
-        sheenAlpha:  0.70
-    )
-
-    /// Darker slate palette for light mode. Preserves the same hue rotation
-    /// (pink → silver → peach → mint → lavender → silver) but at a lower
-    /// luminance so the glyph stays visible on white card fills. Slightly
-    /// more saturated than a pure slate so the rainbow still reads subtly
-    /// on a white background.
-    static let light = IridescentPalette(
+    /// The single shared earthy palette used in both light and dark mode,
+    /// and mirrored in `scripts/generate_app_icon.py` for the home-screen
+    /// icon. Six stops running top-left → bottom-right:
+    /// burgundy → slate → warm brown → forest green → plum → slate.
+    static let earthy = IridescentPalette(
         pink:        Color(red: 0.48, green: 0.22, blue: 0.34),
         silverWarm:  Color(red: 0.27, green: 0.25, blue: 0.28),
         peach:       Color(red: 0.45, green: 0.32, blue: 0.20),
         mint:        Color(red: 0.20, green: 0.36, blue: 0.30),
         lavender:    Color(red: 0.28, green: 0.23, blue: 0.46),
         silverCool:  Color(red: 0.25, green: 0.26, blue: 0.28),
-        // A soft warm off-white sheen at reduced intensity keeps the glass
-        // highlight legible without blowing out the darker base.
         sheenColor:  Color(red: 1.0, green: 0.98, blue: 0.96),
         sheenAlpha:  0.40
     )
