@@ -30,20 +30,23 @@ struct AppLogoView: View {
 
     // MARK: - Layers
 
+    // Geometry shared with `scripts/generate_app_icon.py` so the in-app
+    // logo matches the home-screen icon PNG pixel-for-pixel (at any scale).
+    private static let glyphCYFrac: CGFloat = 0.635
+    private static let arcFracs: [(CGFloat, CGFloat)] = [
+        (0.425, 0.096),
+        (0.302, 0.096),
+        (0.180, 0.096),
+    ]
+    private static let dotRFrac: CGFloat = 0.064
+
     private func drawWifiGlyph(context: GraphicsContext, size: CGSize, palette: IridescentPalette) {
         let cx = size.width / 2
-        let cy = size.height * 0.575
-
-        // (outer bbox radius fraction, thickness fraction)
-        let arcs: [(CGFloat, CGFloat)] = [
-            (0.355, 0.080),
-            (0.255, 0.080),
-            (0.155, 0.080),
-        ]
+        let cy = size.height * Self.glyphCYFrac
 
         let shading = iridescentShading(size: size, palette: palette)
 
-        for (rFrac, wFrac) in arcs {
+        for (rFrac, wFrac) in Self.arcFracs {
             let rOuter = size.width * rFrac
             let lineW = size.width * wFrac
             let rCenter = rOuter - lineW / 2
@@ -63,7 +66,7 @@ struct AppLogoView: View {
             )
         }
 
-        let dotR = size.width * 0.055
+        let dotR = size.width * Self.dotRFrac
         let dotRect = CGRect(
             x: cx - dotR,
             y: cy - dotR,
@@ -74,20 +77,14 @@ struct AppLogoView: View {
     }
 
     private func drawSheen(context: GraphicsContext, size: CGSize, palette: IridescentPalette) {
-        // A soft diagonal white band concentrated over the upper-left of the
-        // glyph, masked to the Wi-Fi glyph shapes so it reads as glass
-        // specular rather than a full-canvas wash.
+        // A tight diagonal specular band concentrated over the upper-left of
+        // the glyph, clipped to the Wi-Fi glyph so the highlight reads as
+        // polished glass rather than a full-canvas wash.
         let cx = size.width / 2
-        let cy = size.height * 0.575
-
-        let arcs: [(CGFloat, CGFloat)] = [
-            (0.355, 0.080),
-            (0.255, 0.080),
-            (0.155, 0.080),
-        ]
+        let cy = size.height * Self.glyphCYFrac
 
         var glyphPath = Path()
-        for (rFrac, wFrac) in arcs {
+        for (rFrac, wFrac) in Self.arcFracs {
             let rOuter = size.width * rFrac
             let lineW = size.width * wFrac
             let rCenter = rOuter - lineW / 2
@@ -105,7 +102,7 @@ struct AppLogoView: View {
                 )
             )
         }
-        let dotR = size.width * 0.055
+        let dotR = size.width * Self.dotRFrac
         glyphPath.addEllipse(
             in: CGRect(
                 x: cx - dotR,
@@ -115,22 +112,24 @@ struct AppLogoView: View {
             )
         )
 
-        // Clip to the glyph, then fill a diagonal white band gradient across
-        // the whole canvas. Only the glyph-intersecting portion renders.
+        // Clip to the glyph, then fill a tight diagonal specular band across
+        // the upper-left of the canvas. The gradient runs TL → BR so its
+        // iso-lines are parallel to u+v=const — matching the PNG sheen
+        // geometry (peak at u+v ≈ 0.78, i.e. gradient location ≈ 0.39).
         var clipped = context
         clipped.clip(to: glyphPath)
 
         let sheenColor = palette.sheenColor
         let sheen: GraphicsContext.Shading = .linearGradient(
             Gradient(stops: [
-                .init(color: sheenColor.opacity(0.0), location: 0.0),
-                .init(color: sheenColor.opacity(0.0), location: 0.30),
-                .init(color: sheenColor.opacity(palette.sheenAlpha), location: 0.50),
-                .init(color: sheenColor.opacity(0.0), location: 0.70),
-                .init(color: sheenColor.opacity(0.0), location: 1.0),
+                .init(color: sheenColor.opacity(0.0), location: 0.00),
+                .init(color: sheenColor.opacity(0.0), location: 0.26),
+                .init(color: sheenColor.opacity(palette.sheenAlpha), location: 0.39),
+                .init(color: sheenColor.opacity(0.0), location: 0.52),
+                .init(color: sheenColor.opacity(0.0), location: 1.00),
             ]),
-            startPoint: CGPoint(x: size.width, y: 0),
-            endPoint: CGPoint(x: 0, y: size.height)
+            startPoint: CGPoint(x: 0, y: 0),
+            endPoint: CGPoint(x: size.width, y: size.height)
         )
         clipped.fill(Path(CGRect(origin: .zero, size: size)), with: sheen)
     }
@@ -228,32 +227,37 @@ struct IridescentPalette {
 
     /// Silvery-white palette matching the app icon. Designed to read well on
     /// the dark theme's card surfaces (`cardFill = white @ 4% alpha` over a
-    /// near-black background).
+    /// near-black background). Saturation is bumped slightly above a pure
+    /// silver so the pink / mint / lavender / peach rainbow reads subtly
+    /// through the glass sheen — matching the iridescent corners used in
+    /// `scripts/generate_app_icon.py`.
     static let dark = IridescentPalette(
-        pink:        Color(red: 0.972, green: 0.831, blue: 0.894),
-        silverWarm:  Color(red: 0.929, green: 0.918, blue: 0.941),
-        peach:       Color(red: 0.972, green: 0.953, blue: 0.906),
-        mint:        Color(red: 0.906, green: 0.941, blue: 0.914),
-        lavender:    Color(red: 0.906, green: 0.890, blue: 0.965),
-        silverCool:  Color(red: 0.929, green: 0.933, blue: 0.937),
+        pink:        Color(red: 1.00, green: 0.72, blue: 0.84),
+        silverWarm:  Color(red: 0.94, green: 0.91, blue: 0.93),
+        peach:       Color(red: 1.00, green: 0.83, blue: 0.65),
+        mint:        Color(red: 0.74, green: 0.93, blue: 0.88),
+        lavender:    Color(red: 0.80, green: 0.73, blue: 0.98),
+        silverCool:  Color(red: 0.90, green: 0.91, blue: 0.93),
         sheenColor:  .white,
-        sheenAlpha:  0.55
+        sheenAlpha:  0.70
     )
 
     /// Darker slate palette for light mode. Preserves the same hue rotation
     /// (pink → silver → peach → mint → lavender → silver) but at a lower
-    /// luminance so the glyph stays visible on white card fills.
+    /// luminance so the glyph stays visible on white card fills. Slightly
+    /// more saturated than a pure slate so the rainbow still reads subtly
+    /// on a white background.
     static let light = IridescentPalette(
-        pink:        Color(red: 0.345, green: 0.200, blue: 0.275),
-        silverWarm:  Color(red: 0.235, green: 0.230, blue: 0.255),
-        peach:       Color(red: 0.330, green: 0.280, blue: 0.215),
-        mint:        Color(red: 0.210, green: 0.275, blue: 0.230),
-        lavender:    Color(red: 0.225, green: 0.210, blue: 0.330),
-        silverCool:  Color(red: 0.230, green: 0.235, blue: 0.250),
+        pink:        Color(red: 0.48, green: 0.22, blue: 0.34),
+        silverWarm:  Color(red: 0.27, green: 0.25, blue: 0.28),
+        peach:       Color(red: 0.45, green: 0.32, blue: 0.20),
+        mint:        Color(red: 0.20, green: 0.36, blue: 0.30),
+        lavender:    Color(red: 0.28, green: 0.23, blue: 0.46),
+        silverCool:  Color(red: 0.25, green: 0.26, blue: 0.28),
         // A soft warm off-white sheen at reduced intensity keeps the glass
         // highlight legible without blowing out the darker base.
         sheenColor:  Color(red: 1.0, green: 0.98, blue: 0.96),
-        sheenAlpha:  0.35
+        sheenAlpha:  0.40
     )
 }
 

@@ -14,12 +14,18 @@ The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPain
 
 Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Generated programmatically via `scripts/generate_app_icon.py` (Pillow) to exactly match `AppLogoView`.
 
-**Current design (Apple-glass iteration):**
+**Current design (Apple-TV-glass iteration):**
 - **Pure black background** (full-bleed; iOS applies its own squircle mask at runtime).
-- **Wi-Fi glyph** — three concentric arcs + a center dot, filled with a subtle iridescent "Apple glass" material: a silvery-white base (`≈80%`) with very muted pastel hints of pink / lavender / mint / peach distributed via a bilinear 4-corner tint (`TINT_STRENGTH = 0.85` against `BASE_SILVER = (230, 230, 234)`). A diagonal white sheen band (peaking around `u+v ≈ 0.85`, ~59% white) is composited on top of the material for a glass specular highlight. Inspired by the Apple TV app icon — not a rainbow, but a shimmery silver with faint color swells.
-- **Geometry** — `cx = width/2`, `cy = height * 0.575`. Outer/middle/inner arcs use bbox radii `0.355 / 0.255 / 0.155` and stroke thickness `0.080` (all fractions of canvas width). PIL `arc(width=w)` draws the stroke band inward from the bbox radius, so round-cap disks are stamped at the stroke centerline `r_outer - w/2` (not at `r_outer`) to avoid bulbous ends. Dot radius `0.055`.
-- **Sparkles** — three 4-pointed stars in the upper-right (`(0.810, 0.185, 0.082)`, `(0.905, 0.295, 0.050)`, `(0.705, 0.095, 0.042)` — `x frac, y frac, arm frac`) rendered in the same iridescent material at slightly reduced alpha (`0.9`) for a softer read.
+- **Wi-Fi glyph** — three concentric arcs + a center dot, filled with an iridescent "Apple glass" material: a silvery base (`BASE_SILVER = (220, 220, 228)`) mixed with a **subtle saturated rainbow** via bilinear 4-corner tint — pink (`TL = (255, 138, 190)`), mint (`TR = (132, 228, 208)`), lavender (`BR = (170, 150, 252)`), peach (`BL = (255, 188, 128)`), at `TINT_STRENGTH = 0.92`. Colors are visible but toned down so the overall read is "glass with rainbow kisses," not neon.
+- **Glass 3D depth** — a vertical brightness ramp inside the glyph band: `+14%` brighten at the top (`GLYPH_TOP_FRAC ≈ 0.22`) fading to `−22%` at the bottom (`GLYPH_BOTTOM_FRAC ≈ 0.70`). Reads as a form lit from above so the top arc looks like a bright crown and the dot sits in shadow.
+- **Specular sheen** — a tight diagonal white band peaking at `u + v ≈ 0.78` (`band_width = 0.17`, `peak_alpha = 205 ≈ 80%` white). Runs through the upper-left shoulder and top-center crown of the glyph for a concentrated polished-glass highlight.
+- **Geometry (grown to match Apple TV "tv" fill)** — `cx = width/2`, `cy = height * 0.635`. Outer/middle/inner arcs use bbox radii `0.425 / 0.302 / 0.180` and stroke thickness `0.096`; dot radius `0.064`. The glyph spans `y ∈ [0.21, 0.70]` (centered around 0.46) so it fills the black squircle like the "tv" letters do on the Apple TV icon. PIL `arc(width=w)` draws the stroke band inward from the bbox radius, so round-cap disks are stamped at the stroke centerline `r_outer − w/2` to avoid bulbous ends.
+- **Sparkles** — three 4-pointed stars in the upper-right (`(0.810, 0.175, 0.082)`, `(0.905, 0.285, 0.050)`, `(0.705, 0.090, 0.042)` — `x frac, y frac, arm frac`) rendered in the same iridescent material at slightly reduced alpha (`0.92`) so they shimmer without pulling focus. Mint/cyan tint reads clearly since they sit in the upper-right corner of the bilinear gradient.
 - **Rendering** — drawn at 4× supersampling (`4096×4096`) and downsampled with LANCZOS to 1024×1024 for crisp anti-aliased edges. Masks are slightly Gaussian-blurred (`radius = SCALE * 0.3–0.4`) before compositing to avoid aliasing on the curved strokes.
+
+**Design history of this iteration:**
+- v1 (Apple-glass, pale): silver-white dominated with barely-visible pastel hints, glyph at `cy = 0.575` with `r_outer = 0.355`. User feedback: too pale, rainbow colors gone, not centered/sized to fill the icon.
+- v2 (current): grew radii, shifted `cy` down to visually center, bumped tint saturation + strength, added vertical 3D depth shading, tightened the sheen band for a distinct specular highlight. Still intentionally subtle — a shimmery rainbow, not a literal one.
 
 The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
 
@@ -29,14 +35,14 @@ The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER
 
 Reusable `AppLogoView` SwiftUI view that draws the branded logo programmatically using `Canvas`. **Renders on a transparent background** (no black tile) so it composites cleanly over themed cards and headers — the black squircle is reserved for the home-screen app icon PNG. Three layers composed in order:
 
-1. **Wi-Fi glyph** — three arcs + dot stroked/filled with an iridescent diagonal `linearGradient` shading (stops: pink → warm silver → peach → mint → lavender → cool silver, going top-left → bottom-right). Round caps via `StrokeStyle(lineCap: .round)`. Matching geometry to the 1024×1024 PNG (`cy = 0.575`, radii `0.355/0.255/0.155`, thickness `0.080`, dot `0.055`).
-2. **Glass sheen** — a diagonal sheen band (`0.0 → sheenAlpha → 0.0`, going top-right → bottom-left) clipped to the combined glyph path via `GraphicsContext.clip(to:)` so the specular reads only on the Wi-Fi shapes, not the whole canvas.
+1. **Wi-Fi glyph** — three arcs + dot stroked/filled with an iridescent diagonal `linearGradient` (stops: pink → warm silver → peach → mint → lavender → cool silver, top-left → bottom-right). Round caps via `StrokeStyle(lineCap: .round)`. **Geometry matches the 1024×1024 PNG** (`cy = 0.635`, radii `0.425 / 0.302 / 0.180`, thickness `0.096`, dot `0.064`) — stored as static constants so the in-app logo and home-screen icon stay visually identical at any scale.
+2. **Glass sheen** — a tight diagonal sheen clipped to the glyph path. Gradient runs **top-left → bottom-right** with stops at `(0.00, 0.26, 0.39, 0.52, 1.00)` — only the `0.39` stop carries the sheen color at `palette.sheenAlpha`; the rest are transparent. This gives iso-lines parallel to `u+v = const`, matching the PNG's sheen geometry (peak at `u+v ≈ 0.78`).
 3. **Sparkles** — three 4-pointed stars in the upper-right at the same fractional positions as the PNG, using the iridescent gradient with a `dim` factor of `0.9` (attenuates RGB via `Color.dimmed(by:)` which extracts channels through `UIColor`).
 
 **Palette is color-scheme aware** via `IridescentPalette.resolved(for: colorScheme)`:
 
-- **Dark palette** (matches the home-screen icon) — silvery-white base with pale pink / peach / mint / lavender tints (all luminance ≈ 0.90–0.97). Sheen is pure white at 55% alpha. Used on the dark theme where cards are `white @ 4% alpha` over near-black.
-- **Light palette** — same hue rotation but inverted to a dark slate base with muted pink / peach / mint / lavender tints (luminance ≈ 0.20–0.35). Sheen is a soft warm off-white at 35% alpha. Keeps the glyph legible against `cardFill = Color.white` in light mode without losing the Apple-glass character.
+- **Dark palette** (matches the home-screen icon) — near-silver base with **moderately saturated** pink / peach / mint / lavender stops (RGB components ranging `0.62–1.00`) so the rainbow reads subtly on dark card fills. Sheen is pure white at `0.70` alpha — a brighter specular than before so the glass look holds up against `cardFill = white @ 4% alpha`.
+- **Light palette** — same hue rotation but inverted to dark slate tones (luminance `0.20–0.46`) so the glyph stays legible on `cardFill = Color.white` in light mode. Slightly bumped saturation so the rainbow still reads against white. Sheen is a soft warm off-white at `0.40` alpha.
 
 Accepts a `size` parameter; every element scales proportionally so the logo holds up from 26pt (compact survey header) to 100pt (paywall hero).
 
