@@ -65,7 +65,7 @@ struct DashboardView: View {
     private var wifiHeader: some View {
         ZStack {
             HStack(spacing: 8) {
-                AppLogoView(size: 34)
+                AppLogoView(size: 44)
                 Text("Wi-Fi Buddy")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(theme.primaryText)

@@ -119,9 +119,7 @@ struct ContentView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "map.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.blue)
+                AppLogoView(size: 34)
                 Text("Walk The Space")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(theme.primaryText)
@@ -138,9 +136,7 @@ struct ContentView: View {
 
     private var compactSurveyHeader: some View {
         HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "map.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.blue)
+            AppLogoView(size: 26)
             Text("Walk The Space")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(theme.primaryText)

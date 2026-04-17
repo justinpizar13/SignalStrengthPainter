@@ -194,7 +194,7 @@ struct PaywallView: View {
     // MARK: - Feature icon
 
     private var featureIcon: some View {
-        AppLogoView(size: 80)
+        AppLogoView(size: 100)
             .padding(.vertical, 4)
     }
 

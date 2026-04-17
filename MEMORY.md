@@ -16,16 +16,21 @@ Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 102
 
 ### In-App Branding (`AppLogoView.swift`)
 
-Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. Uses `.round` line caps for polished arc ends. Used in:
-- **`DashboardView.swift`** — Speed tab header shows `AppLogoView(size: 34)` + "Wi-Fi Buddy" title (replacing the old plain SF Symbol wifi icon + "Wi-Fi" text).
-- **`PaywallView.swift`** — Feature icon section shows `AppLogoView(size: 80)` (replacing the old wifi + gear SF Symbol composite).
+Reusable `AppLogoView` SwiftUI view that draws the branded Wi-Fi logo programmatically using `Canvas`. Renders the same signal-strength colored arcs (green/yellow/orange) + red dot at any size via a `size` parameter. Uses `.round` line caps for polished arc ends. Includes **sparkle accents** — three 4-pointed star shapes drawn in the upper-right area of the canvas, matching the app icon's sparkle design. Sparkles scale proportionally with the logo size.
+
+The logo+sparkle is used consistently across all tabs:
+- **`DashboardView.swift`** — Speed tab header shows `AppLogoView(size: 44)` + "Wi-Fi Buddy" title.
+- **`PaywallView.swift`** — Feature icon section shows `AppLogoView(size: 100)`.
+- **`MainTabView.swift` (`SignalDetailView`)** — Signal tab header shows `AppLogoView(size: 44)` above the "Signal Strength" heading.
+- **`DeviceDiscoveryView.swift`** — Devices tab header shows `AppLogoView(size: 44)` above the "Device Discovery" heading.
+- **`ContentView.swift`** — Survey tab calibration header shows `AppLogoView(size: 34)`; compact/expanded survey header shows `AppLogoView(size: 26)`. Replaces the previous SF Symbol `map.fill` icon in both layouts.
 
 ## Current architecture (high level)
 
 | Layer | Role |
 |--------|------|
 | **`SignalStrengthPainterApp.swift`** | App entry point. Shows **`MainTabView`** as the root view. Applies `.withAppTheme()` for centralized theming. |
-| **`AppLogoView.swift`** | Reusable branded logo drawn with `Canvas` — signal-strength colored Wi-Fi arcs (green/yellow/orange) + red dot. Accepts `size` parameter for flexible rendering. Used in DashboardView header and PaywallView. |
+| **`AppLogoView.swift`** | Reusable branded logo drawn with `Canvas` — signal-strength colored Wi-Fi arcs (green/yellow/orange) + red dot + sparkle accents (three 4-pointed stars in upper-right). Accepts `size` parameter for flexible rendering. Used across all tab headers: DashboardView, SignalDetailView, DeviceDiscoveryView, ContentView (Survey), and PaywallView. |
 | **`AppTheme.swift`** | Centralized theming: `AppearanceMode` enum (system/light/dark), `AppTheme` struct with semantic colors for both modes, `EnvironmentKey` injection, `ThemedRootModifier`. User preference persisted via `@AppStorage("appearanceMode")`. |
 | **`MainTabView.swift`** | **Tab-based UI** with 5 tabs: **Speed** (dashboard), **Survey** (AR walk), **Signal** (connection quality), **Devices** (network device discovery), **Pro** (paywall — hidden for pro users). Uses `@AppStorage("isProUser")` to gate Pro tab visibility. Also contains `AppearanceToggle` and `SignalDetailView` (Signal tab). |
 | **`DashboardView.swift`** | **Speed tab**: WiFiman/Speedtest-inspired dashboard with **network topology** visualization (ISP → Router → Device), **speed test** (download + upload via Cloudflare with live sparkline, ping/jitter), **speed report** (post-test contextual report rating connection for Netflix/streaming, gaming, video calls, home office, and browsing), **service latency grid** (Google DNS, Cloudflare, OpenDNS, Gateway), **survey quick-action card**, and **appearance toggle** (light/dark/system) in the Wi-Fi header. |

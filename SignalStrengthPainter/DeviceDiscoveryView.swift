@@ -61,6 +61,7 @@ struct DeviceDiscoveryView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
+            AppLogoView(size: 44)
             Text("Device Discovery")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)

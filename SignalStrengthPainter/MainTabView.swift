@@ -149,6 +149,7 @@ struct SignalDetailView: View {
 
     private var signalHeader: some View {
         VStack(spacing: 6) {
+            AppLogoView(size: 44)
             Text("Signal Strength")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)
