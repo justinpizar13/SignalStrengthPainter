@@ -16,17 +16,46 @@ import UniformTypeIdentifiers
 /// the layer (`magnificationFilter = .nearest`) so the chunky pixels stay
 /// chunky when the mascot is drawn at bubble/avatar sizes.
 struct KlausMascotView: View {
-    /// Target side length in points. The mascot has a 336 × 446 frame, so
-    /// the view computes a proportional height internally.
+    /// Target bounding-box side length in points. The mascot sprite is taller
+    /// than it is wide (336 × 446), so the view fits the sprite inside a
+    /// `size × size` square: height becomes `size` and width is derived from
+    /// the aspect ratio. This lets callers size Klaus against the container
+    /// he sits in (e.g. a 46 pt avatar circle) without him overflowing.
     var size: CGFloat
     /// When `true` the animation loops; when `false` only the first frame
     /// is shown (used for static avatars where motion would be distracting).
     var isAnimating: Bool = true
+    /// When `true` the RGB channels of every animation frame are inverted
+    /// at render time via `colorInvert()`. Alpha is preserved, so transparent
+    /// pixels stay transparent — only the mascot's body colors flip. This is
+    /// a pure presentation-layer transform; the underlying `KlausMascot` GIF
+    /// asset is untouched, so toggling it off restores the original palette.
+    var invertColors: Bool = true
 
     var body: some View {
-        KlausAnimatedImage(targetWidth: size, isAnimating: isAnimating)
-            .frame(width: size, height: size * KlausMascotAssets.aspectHeightOverWidth)
+        let height = size
+        let width = size / KlausMascotAssets.aspectHeightOverWidth
+        KlausAnimatedImage(targetWidth: width, isAnimating: isAnimating)
+            .frame(width: width, height: height)
+            .modifier(KlausColorModifier(invertColors: invertColors))
             .accessibilityLabel("Klaus, the Wi-Fi Buddy mascot")
+    }
+}
+
+/// Applies the optional color-inversion treatment to the mascot. Split into
+/// its own `ViewModifier` (rather than an inline `if invertColors` branch)
+/// so the same `UIImageView`-backed representable instance is reused across
+/// renders — the modifier only wraps the rendered output, it doesn't swap
+/// the underlying view identity, which would throw away the animation state.
+private struct KlausColorModifier: ViewModifier {
+    var invertColors: Bool
+
+    func body(content: Content) -> some View {
+        if invertColors {
+            content.colorInvert()
+        } else {
+            content
+        }
     }
 }
 
