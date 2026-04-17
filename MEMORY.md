@@ -8,7 +8,11 @@ An iOS SwiftUI app that feels closer to tools like **NetSpot**: walk a space, se
 
 ## Branding
 
-The app is called **Wifi Buddy** (project/repo name remains `SignalStrengthPainter`). The premium tier is **Wifi Buddy Pro**.
+The app is called **Wi-Fi Buddy** (project/repo name remains `SignalStrengthPainter`). The premium tier is **Wi-Fi Buddy Pro**. `CFBundleDisplayName` in `Info.plist` is set to "Wi-Fi Buddy" so that name appears under the icon on the iOS home screen.
+
+### App Icon
+
+Custom app icon stored in `Assets.xcassets/AppIcon.appiconset/` — a single 1024x1024 PNG (iOS 17+ universal format). Design: blue-to-cyan vertical gradient background, white Wi-Fi arcs + dot, subtle sparkle accents in the upper-right corner. The asset catalog is registered in `project.pbxproj` with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`.
 
 ## Current architecture (high level)
 

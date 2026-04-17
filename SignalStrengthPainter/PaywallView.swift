@@ -182,7 +182,7 @@ struct PaywallView: View {
 
     private var titleSection: some View {
         HStack(spacing: 0) {
-            Text("Unlock Wifi Buddy ")
+            Text("Unlock Wi-Fi Buddy ")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)
             Text("Pro")
