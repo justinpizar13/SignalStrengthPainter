@@ -10,7 +10,7 @@ struct PaywallView: View {
     private let pageCount = 3
 
     enum Plan {
-        case monthly, lifetime
+        case monthly, yearly
     }
 
     var body: some View {
@@ -234,15 +234,15 @@ struct PaywallView: View {
                 plan: .monthly,
                 title: "Monthly",
                 subtitle: "Billed every month",
-                price: "$1.99",
+                price: "$2.99",
                 badge: nil,
                 crossedOutPrice: nil
             )
 
             pricingOption(
-                plan: .lifetime,
-                title: "Lifetime",
-                subtitle: "Pay once, use forever",
+                plan: .yearly,
+                title: "Yearly",
+                subtitle: "Billed once a year",
                 price: "$9.99",
                 badge: "Best Deal",
                 crossedOutPrice: "$19.99"
