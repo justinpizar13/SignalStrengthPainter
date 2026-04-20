@@ -50,15 +50,37 @@ PADDING = 8
 # to one of these two colors based on luminance.
 WHITE = (255, 255, 255)
 FOREST_GREEN = (34, 100, 55)
-# Pixels at or above this luminance become white; below become forest green.
-# The source has dark outlines / eyes / antenna stem (low luminance), bright
-# body panels / face screen (very high luminance), and mid-tone details such
-# as pink cheek blush, red accent squares, and the orange antenna tip
-# (luminance ~150-190). A low threshold (e.g. 130) collapses those mid-tone
-# details into white and flattens the face; raising it to 195 keeps only the
-# brightest body / face-screen pixels white while pushing all the colored
-# detail pixels into forest green so the face reads with its full expression.
-LUMINANCE_THRESHOLD = 195
+# Two-tone recolor rules.
+#
+# A naive single luminance threshold cannot separate the face-screen
+# background from the face details in the source palette:
+#
+#   face screen  (153, 194, 219)  cool light blue,  luminance 185
+#   pink cheeks  (230, 163, 163)  warm pink,        luminance 183
+#   body panels  (223, 237, 237)  near-neutral,     luminance 233
+#   eyes/outline ( 32,  27,  35)  near-black,       luminance  29
+#   red accent   (245,  79,  79)  saturated warm,   luminance 129
+#
+# With threshold 130 the pink cheeks and face-screen light blue both go
+# white (face looks featureless); with threshold 195 the face-screen light
+# blue goes forest green along with all the details (face reads as a
+# uniform green blob with no contrast).
+#
+# Splitting by *both* luminance and chroma/hue solves it:
+#
+#   * Dark pixels (luminance < DARK_THRESHOLD) → forest green. Catches
+#     outlines, eyes, mouth dot, antenna stem.
+#   * Warm pixels (R is the largest channel AND R - min(G, B) > WARM_CHROMA)
+#     → forest green. Catches pink cheeks, red accent square, orange
+#     antenna tip — all of which have luminance similar to the face
+#     screen but are clearly colored rather than neutral/cool.
+#   * Everything else → white. Catches body panels (near-neutral light)
+#     and the cool light-blue face screen.
+#
+# The result: the face screen reads white, the cheeks and eyes read
+# forest green, and the face's full expression is preserved.
+DARK_THRESHOLD = 100
+WARM_CHROMA = 30
 
 # Head-crop extent, measured from Klaus's top-most non-transparent pixel
 # on each frame. The source animation includes a "jump" cycle that shifts
@@ -139,10 +161,12 @@ def recolor_frame(frame: Image.Image, bg_rgb) -> Image.Image:
                 continue
 
             luminance = 0.299 * r + 0.587 * g + 0.114 * b
-            if luminance >= LUMINANCE_THRESHOLD:
-                pixels[x, y] = (*WHITE, a)
-            else:
+            is_dark = luminance < DARK_THRESHOLD
+            is_warm = r > g and r > b and (r - min(g, b)) > WARM_CHROMA
+            if is_dark or is_warm:
                 pixels[x, y] = (*FOREST_GREEN, a)
+            else:
+                pixels[x, y] = (*WHITE, a)
     return frame
 
 
