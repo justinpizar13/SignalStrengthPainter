@@ -2,9 +2,11 @@
 """
 Extract animated frames from the Klaus mascot GIF, crop to the robot bounding
 box, knock out the brownish backdrop so the mascot sits on transparent pixels,
-recolor every remaining pixel to a two-tone white + forest green palette, and
-emit both a full-body animated GIF and a head-cropped portrait GIF for the
-SwiftUI KlausMascotView.
+and emit both a full-body animated GIF and a head-cropped portrait GIF for
+the SwiftUI KlausMascotView. Source palette (cream body, light-blue face
+screen, pink cheeks, red accent square, orange antenna tip, dark outlines)
+is preserved as-is — earlier iterations remapped to a two-tone white +
+forest-green palette but that lost facial detail.
 
 Outputs:
     SignalStrengthPainter/Assets.xcassets/KlausMascot.dataset/klaus.gif
@@ -44,43 +46,6 @@ HEAD_OUT_GIF = HEAD_DATASET_DIR / "klaus_head.gif"
 BG_TOLERANCE = 18
 # Extra pixels of padding around the detected robot bounding box.
 PADDING = 8
-
-# Two-tone palette. The user wants Klaus rendered in pure white + forest green
-# (no brown), so after the backdrop knockout we remap every remaining pixel
-# to one of these two colors based on luminance.
-WHITE = (255, 255, 255)
-FOREST_GREEN = (34, 100, 55)
-# Two-tone recolor rules.
-#
-# A naive single luminance threshold cannot separate the face-screen
-# background from the face details in the source palette:
-#
-#   face screen  (153, 194, 219)  cool light blue,  luminance 185
-#   pink cheeks  (230, 163, 163)  warm pink,        luminance 183
-#   body panels  (223, 237, 237)  near-neutral,     luminance 233
-#   eyes/outline ( 32,  27,  35)  near-black,       luminance  29
-#   red accent   (245,  79,  79)  saturated warm,   luminance 129
-#
-# With threshold 130 the pink cheeks and face-screen light blue both go
-# white (face looks featureless); with threshold 195 the face-screen light
-# blue goes forest green along with all the details (face reads as a
-# uniform green blob with no contrast).
-#
-# Splitting by *both* luminance and chroma/hue solves it:
-#
-#   * Dark pixels (luminance < DARK_THRESHOLD) → forest green. Catches
-#     outlines, eyes, mouth dot, antenna stem.
-#   * Warm pixels (R is the largest channel AND R - min(G, B) > WARM_CHROMA)
-#     → forest green. Catches pink cheeks, red accent square, orange
-#     antenna tip — all of which have luminance similar to the face
-#     screen but are clearly colored rather than neutral/cool.
-#   * Everything else → white. Catches body panels (near-neutral light)
-#     and the cool light-blue face screen.
-#
-# The result: the face screen reads white, the cheeks and eyes read
-# forest green, and the face's full expression is preserved.
-DARK_THRESHOLD = 100
-WARM_CHROMA = 30
 
 # Head-crop extent, measured from Klaus's top-most non-transparent pixel
 # on each frame. The source animation includes a "jump" cycle that shifts
@@ -135,17 +100,12 @@ def bbox_over_all_frames(frames) -> tuple[int, int, int, int]:
 
 
 def recolor_frame(frame: Image.Image, bg_rgb) -> Image.Image:
-    """Knock out backdrop pixels and remap the robot to white + forest green.
+    """Knock out backdrop pixels, leaving the robot's source palette intact.
 
-    Every pixel falls into one of three buckets:
-
-    * Close to the brown backdrop → fully transparent.
-    * Dark robot pixel (outlines, eyes, antenna stem) → forest green.
-    * Light robot pixel (body fills, TV screen, highlights) → white.
-
-    This replaces the source palette (cream body / blue face / brown
-    backdrop / red cheeks / orange antenna) with the two-color
-    white + forest green scheme Klaus is now branded with.
+    Every pixel close to the sampled brown backdrop becomes fully
+    transparent. All other pixels are kept exactly as they appear in
+    the source so Klaus renders with his original cream / light-blue /
+    pink / red / orange palette.
     """
     pixels = frame.load()
     w, h = frame.size
@@ -158,15 +118,6 @@ def recolor_frame(frame: Image.Image, bg_rgb) -> Image.Image:
                 and abs(b - bg_rgb[2]) <= BG_TOLERANCE
             ):
                 pixels[x, y] = (0, 0, 0, 0)
-                continue
-
-            luminance = 0.299 * r + 0.587 * g + 0.114 * b
-            is_dark = luminance < DARK_THRESHOLD
-            is_warm = r > g and r > b and (r - min(g, b)) > WARM_CHROMA
-            if is_dark or is_warm:
-                pixels[x, y] = (*FOREST_GREEN, a)
-            else:
-                pixels[x, y] = (*WHITE, a)
     return frame
 
 
@@ -250,9 +201,9 @@ def main() -> None:
     bg_pixel = source_frames[0][0].getpixel((0, 0))
     bg_rgb = bg_pixel[:3]
 
-    # First pass: knock out the backdrop and remap to the two-tone palette.
-    # Doing this first lets the bbox scan below key on alpha=0 and ignore
-    # GIF dither noise that would otherwise inflate the bounding box.
+    # First pass: knock out the backdrop. Doing this first lets the bbox
+    # scan below key on alpha=0 and ignore GIF dither noise that would
+    # otherwise inflate the bounding box.
     recolored_frames: list[Image.Image] = []
     durations: list[int] = []
     for frame, dur in source_frames:
