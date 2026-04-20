@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct DashboardView: View {
     var onStartSurvey: (() -> Void)?
@@ -9,6 +12,12 @@ struct DashboardView: View {
     // isn't on Wi-Fi. Speed tests still work over cellular but the user
     // needs to know the numbers aren't measuring their Wi-Fi.
     @ObservedObject private var networkMonitor = NetworkInterfaceMonitor.shared
+    // Drives the live ISP → Router → Device topology card at the top
+    // of the tab. Before this existed, the card was a purely static
+    // graphic with hardcoded labels ("Available", "192.168.0.1",
+    // "Your iPhone / Connected") that never reflected the actual
+    // state of the network.
+    @StateObject private var topology = NetworkTopologyMonitor()
 
     @State private var serviceLatencies: [String: Double] = [:]
 
@@ -63,9 +72,15 @@ struct DashboardView: View {
             }
         }
         .background(theme.background.ignoresSafeArea())
+        .onAppear { topology.start() }
+        .onDisappear { topology.stop() }
         .onChange(of: speedTest.phase) { newPhase in
             if newPhase == .complete {
                 testServiceLatencies()
+                // After a speed test we also know ping/jitter — trigger
+                // a fresh topology read so the card reflects what the
+                // user just saw, rather than a ~6s-old sample.
+                Task { await topology.refresh() }
             }
         }
     }
@@ -160,34 +175,51 @@ struct DashboardView: View {
     }
 
     // MARK: - Network Topology
+    //
+    // Live "ISP → Router → Your Device" diagram. Every piece of this
+    // card is driven by `NetworkTopologyMonitor`:
+    //
+    // - ISP node:   status + latency come from a live TCP ping to
+    //               8.8.8.8:53 (same probe used throughout the app).
+    // - Router node: IP is inferred from the device's actual `en0`
+    //               address and the latency badge is a live TCP
+    //               ping to the gateway.
+    // - Device node: local IPv4 + current interface (Wi-Fi /
+    //               Cellular / Offline) come from the OS.
+    //
+    // The connectors animate when the hop is actually carrying
+    // traffic and fall back to a muted static line when it isn't —
+    // which is the part that was missing when the card looked like a
+    // logo.
 
     private var topologyCard: some View {
         HStack(spacing: 0) {
             topologyNode(
                 icon: "globe",
-                iconColor: .blue,
+                iconColor: colorForHealth(topology.wanHealth),
                 label: "ISP",
-                detail: "Internet",
-                status: ("Available", Color(red: 0.25, green: 0.86, blue: 0.43))
+                detail: ispDetailText,
+                status: ispStatusBadge
             )
 
-            topologyConnector
+            topologyConnector(health: topology.wanHealth)
 
             topologyNode(
                 icon: "wifi.router",
-                iconColor: theme.secondaryText,
+                iconColor: colorForHealth(topology.lanHealth),
                 label: "Router",
-                detail: "192.168.0.1"
+                detail: topology.gatewayIP ?? "—",
+                status: gatewayStatusBadge
             )
 
-            topologyConnector
+            topologyConnector(health: topology.lanHealth)
 
             topologyNode(
-                icon: "iphone",
-                iconColor: Color(red: 0.25, green: 0.86, blue: 0.43),
-                label: "Your iPhone",
-                detail: "Connected",
-                status: nil
+                icon: deviceIconName,
+                iconColor: deviceIconColor,
+                label: topology.deviceLabel,
+                detail: deviceDetailText,
+                status: deviceStatusBadge
             )
         }
         .padding(.vertical, 20)
@@ -200,6 +232,105 @@ struct DashboardView: View {
                         .stroke(theme.subtle, lineWidth: 1)
                 )
         )
+        .animation(.easeInOut(duration: 0.25), value: topology.gatewayLatencyMs)
+        .animation(.easeInOut(duration: 0.25), value: topology.ispLatencyMs)
+    }
+
+    // MARK: - Topology copy helpers
+
+    private var ispDetailText: String {
+        switch topology.wanHealth {
+        case .good, .fair, .poor:
+            if let ms = topology.ispLatencyMs {
+                return "\(Int(ms.rounded())) ms"
+            }
+            return "Internet"
+        case .offline:
+            return networkMonitor.status.isOnline ? "No route" : "Offline"
+        case .unknown:
+            return "Checking…"
+        }
+    }
+
+    private var ispStatusBadge: (String, Color)? {
+        switch topology.wanHealth {
+        case .good: return ("Online", statusGreen)
+        case .fair: return ("Slow", statusAmber)
+        case .poor: return ("Degraded", statusRed)
+        case .offline: return ("Unreachable", statusRed)
+        case .unknown: return nil
+        }
+    }
+
+    private var gatewayStatusBadge: (String, Color)? {
+        switch topology.lanHealth {
+        case .good: return (latencyBadge(topology.gatewayLatencyMs), statusGreen)
+        case .fair: return (latencyBadge(topology.gatewayLatencyMs), statusAmber)
+        case .poor: return (latencyBadge(topology.gatewayLatencyMs), statusRed)
+        case .offline: return ("No reply", statusRed)
+        case .unknown:
+            // On cellular there's no local gateway to ping — show a
+            // neutral hint instead of a red "unreachable" badge that
+            // would misrepresent the situation.
+            if networkMonitor.status == .cellular { return ("N/A", theme.tertiaryText) }
+            return nil
+        }
+    }
+
+    private var deviceDetailText: String {
+        topology.localIP ?? "No IP"
+    }
+
+    private var deviceStatusBadge: (String, Color)? {
+        switch networkMonitor.status {
+        case .wifi: return ("Wi-Fi", statusGreen)
+        case .wired: return ("Wired", .blue)
+        case .cellular: return ("Cellular", statusAmber)
+        case .offline: return ("Offline", statusRed)
+        case .unknown: return ("Checking…", theme.tertiaryText)
+        }
+    }
+
+    private var deviceIconName: String {
+        #if canImport(UIKit)
+        switch UIDevice.current.userInterfaceIdiom {
+        case .pad: return "ipad"
+        case .mac: return "laptopcomputer"
+        default: return "iphone"
+        }
+        #else
+        return "iphone"
+        #endif
+    }
+
+    private var deviceIconColor: Color {
+        switch networkMonitor.status {
+        case .wifi, .wired: return statusGreen
+        case .cellular: return statusAmber
+        case .offline: return statusRed
+        case .unknown: return theme.secondaryText
+        }
+    }
+
+    private func latencyBadge(_ ms: Double?) -> String {
+        guard let ms else { return "—" }
+        return "\(Int(ms.rounded())) ms"
+    }
+
+    // Semantic status colors are identical across the app; pulling
+    // them from the same constants keeps the topology card in sync
+    // with the service-latency tiles and speed report.
+    private var statusGreen: Color { Color(red: 0.25, green: 0.86, blue: 0.43) }
+    private var statusAmber: Color { Color(red: 0.98, green: 0.78, blue: 0.28) }
+    private var statusRed:   Color { Color(red: 0.98, green: 0.39, blue: 0.34) }
+
+    private func colorForHealth(_ health: NetworkTopologyMonitor.LinkHealth) -> Color {
+        switch health {
+        case .good: return statusGreen
+        case .fair: return statusAmber
+        case .poor, .offline: return statusRed
+        case .unknown: return theme.secondaryText
+        }
     }
 
     private func topologyNode(
@@ -228,39 +359,38 @@ struct DashboardView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(theme.tertiaryText)
                 .lineLimit(1)
+                .monospacedDigit()
 
             if let status {
                 Text(status.0)
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(status.1)
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity)
     }
 
-    private var topologyConnector: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [.blue.opacity(0.5), .blue.opacity(0.2)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+    /// Connector between two topology nodes. Color and whether it
+    /// animates are both driven by the link's measured health, so a
+    /// healthy hop shows a subtle flow of packets while a broken hop
+    /// sits as a muted static line.
+    private func topologyConnector(health: NetworkTopologyMonitor.LinkHealth) -> some View {
+        let tint = colorForHealth(health)
+        return Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [tint.opacity(0.55), tint.opacity(0.15)],
+                    startPoint: .leading,
+                    endPoint: .trailing
                 )
-                .frame(height: 2)
-                .overlay(
-                    HStack(spacing: 4) {
-                        ForEach(0..<3, id: \.self) { _ in
-                            Circle()
-                                .fill(.blue.opacity(0.6))
-                                .frame(width: 3, height: 3)
-                        }
-                    }
-                )
-        }
-        .frame(width: 36)
-        .offset(y: -12)
+            )
+            .frame(height: 2)
+            .overlay(
+                TopologyPacketFlow(color: tint, isActive: health.isCarryingTraffic)
+            )
+            .frame(width: 36)
+            .offset(y: -12)
     }
 
     // MARK: - Section Headers
@@ -446,11 +576,17 @@ struct DashboardView: View {
     // MARK: - Service Latency Grid
 
     private var serviceLatencyGrid: some View {
-        HStack(spacing: 10) {
+        // The Gateway tile uses the *actual* inferred gateway IP from
+        // the topology monitor so the reading matches the router row
+        // in the topology card. Falling back to 192.168.0.1 only
+        // happens when we can't read the local IP at all (simulator,
+        // no network).
+        let gatewayHost = topology.gatewayIP ?? "192.168.0.1"
+        return HStack(spacing: 10) {
             serviceLatencyTile(label: "Google", host: "8.8.8.8", icon: "magnifyingglass", iconBg: .blue)
             serviceLatencyTile(label: "Cloudflare", host: "1.1.1.1", icon: "shield.fill", iconBg: .orange)
             serviceLatencyTile(label: "OpenDNS", host: "208.67.222.222", icon: "server.rack", iconBg: .purple)
-            serviceLatencyTile(label: "Gateway", host: "192.168.0.1", icon: "wifi.router", iconBg: .green)
+            serviceLatencyTile(label: "Gateway", host: gatewayHost, icon: "wifi.router", iconBg: .green)
         }
     }
 
@@ -1033,11 +1169,16 @@ struct DashboardView: View {
     // MARK: - Test Logic
 
     private func testServiceLatencies() {
+        // Public DNS resolvers are fixed; the gateway target tracks
+        // whichever IP the topology monitor resolved this session so
+        // a user on 10.0.0.x or 192.168.1.x still gets a real reading
+        // in the grid instead of a probe fired at 192.168.0.1.
+        let gatewayHost = topology.gatewayIP ?? "192.168.0.1"
         let targets: [(String, UInt16)] = [
             ("8.8.8.8", 53),
             ("1.1.1.1", 53),
             ("208.67.222.222", 53),
-            ("192.168.0.1", 80),
+            (gatewayHost, 80),
         ]
 
         for (host, port) in targets {
@@ -1047,6 +1188,51 @@ struct DashboardView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - TopologyPacketFlow
+//
+// Small animated overlay drawn on top of each connector in the
+// topology card. When the link is healthy (`isActive == true`) three
+// tiny dots slide left-to-right to visualise packets in flight; when
+// the link is down they sit still at a muted opacity so the card
+// still *looks* connected but clearly isn't communicating.
+//
+// Using `TimelineView` rather than an SF Symbol `phase` animation
+// keeps the flow running smoothly without requiring explicit
+// `.animation(...)` on every ancestor, and pauses automatically when
+// the view goes off-screen.
+private struct TopologyPacketFlow: View {
+    let color: Color
+    let isActive: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { context in
+                let width = geo.size.width
+                // One full sweep every 1.4s; offsetting each dot by a
+                // third of the period creates the "train of packets"
+                // effect without needing per-dot state.
+                let period: TimeInterval = 1.4
+                let t = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: period) / period
+
+                ZStack {
+                    ForEach(0..<3, id: \.self) { i in
+                        let offset = (t + Double(i) / 3.0).truncatingRemainder(dividingBy: 1.0)
+                        Circle()
+                            .fill(color.opacity(isActive ? 0.9 : 0.35))
+                            .frame(width: 3, height: 3)
+                            .position(
+                                x: width * offset,
+                                y: geo.size.height / 2
+                            )
+                    }
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
