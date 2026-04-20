@@ -572,6 +572,11 @@ struct DashboardView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(theme.quaternaryText)
                 .multilineTextAlignment(.center)
+
+            if let info = speedTest.serverInfo {
+                serverInfoRow(info)
+                    .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
@@ -587,7 +592,9 @@ struct DashboardView: View {
                 Spacer()
             }
 
-            if speedTest.phase == .latency {
+            if speedTest.phase == .selectingServer {
+                serverSelectingView
+            } else if speedTest.phase == .latency {
                 VStack(spacing: 8) {
                     if speedTest.pingMs > 0 {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -631,6 +638,10 @@ struct DashboardView: View {
 
             ProgressView(value: speedTest.progress)
                 .tint(speedTestPhaseColor)
+
+            if let info = speedTest.serverInfo, speedTest.phase != .selectingServer {
+                serverInfoRow(info)
+            }
         }
     }
 
@@ -668,7 +679,87 @@ struct DashboardView: View {
                 speedStatBadge(label: "Jitter", value: "\(Int(speedTest.jitterMs)) ms")
                 Spacer()
             }
+
+            if let info = speedTest.serverInfo {
+                serverInfoRow(info)
+            }
         }
+    }
+
+    // MARK: - Server Info UI
+
+    /// Placeholder content shown during the short server-selection phase
+    /// at the top of each run. Once /meta resolves, the row swaps in under
+    /// the progress bar below.
+    private var serverSelectingView: some View {
+        VStack(spacing: 8) {
+            ProgressView()
+                .tint(theme.primaryText)
+                .scaleEffect(1.1)
+            Text("Finding the nearest test server…")
+                .font(.system(size: 13))
+                .foregroundStyle(theme.tertiaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+    }
+
+    /// Small info strip shown above and after a speed test run so the
+    /// user can verify that Cloudflare's Anycast routed their traffic to
+    /// a reasonable POP. If the detected distance is > 500 mi we surface a
+    /// subtle amber warning — that's the usual fingerprint of an ISP
+    /// routing problem (e.g. AZ traffic landing in DFW).
+    private func serverInfoRow(_ info: SpeedTestServerInfo) -> some View {
+        let suboptimal = info.isLikelySuboptimal
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(suboptimal ? Color(red: 0.98, green: 0.78, blue: 0.28) : theme.tertiaryText)
+                Text(info.displayLine)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(theme.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                if let distance = info.distanceText {
+                    Text(distance)
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.tertiaryText)
+                }
+            }
+
+            if suboptimal {
+                Text("Your ISP is routing this test far from you — real speeds to nearby services may be higher.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(red: 0.98, green: 0.78, blue: 0.28))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let isp = info.clientISP {
+                Text("Your ISP: \(isp)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.quaternaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(
+                    (suboptimal ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color.blue)
+                        .opacity(0.08)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(
+                            (suboptimal ? Color(red: 0.98, green: 0.78, blue: 0.28) : Color.blue)
+                                .opacity(0.18),
+                            lineWidth: 1
+                        )
+                )
+        )
     }
 
     private func speedResultTile(direction: String, icon: String, speed: Double, color: Color) -> some View {
@@ -798,7 +889,12 @@ struct DashboardView: View {
     // MARK: - Speed Test Phase UI
 
     private var speedTestPhaseIndicator: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 16) {
+            speedTestPhaseStep(
+                "Server",
+                isActive: speedTest.phase == .selectingServer,
+                isDone: speedTest.phase == .latency || speedTest.phase == .download || speedTest.phase == .upload || speedTest.phase == .complete
+            )
             speedTestPhaseStep(
                 "Ping",
                 isActive: speedTest.phase == .latency,
@@ -831,6 +927,10 @@ struct DashboardView: View {
     @ViewBuilder
     private var speedTestPhaseIcon: some View {
         switch speedTest.phase {
+        case .selectingServer:
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 14))
+                .foregroundStyle(speedTestPhaseColor)
         case .latency:
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.system(size: 14))
@@ -853,6 +953,7 @@ struct DashboardView: View {
     private var speedTestPhaseLabel: String {
         switch speedTest.phase {
         case .idle: return ""
+        case .selectingServer: return "Finding best server..."
         case .latency: return "Measuring Ping..."
         case .download: return "Downloading..."
         case .upload: return "Uploading..."
@@ -862,6 +963,7 @@ struct DashboardView: View {
 
     private var speedTestPhaseColor: Color {
         switch speedTest.phase {
+        case .selectingServer: return .blue
         case .latency: return .yellow
         case .download: return .cyan
         case .upload: return Color(red: 0.25, green: 0.86, blue: 0.43)
