@@ -3,6 +3,11 @@ import SwiftUI
 struct DeviceDiscoveryView: View {
     @Environment(\.theme) private var theme
     @StateObject private var scanner = NetworkScanner()
+    // Observe network interface so we can warn the user when they're on
+    // cellular or offline. Without this, tapping "Scan Network" while on
+    // cellular looked like a silent failure (no Wi-Fi IP → no subnet to
+    // scan → nothing happens).
+    @ObservedObject private var networkMonitor = NetworkInterfaceMonitor.shared
     @State private var selectedDevice: DiscoveredDevice?
     @State private var showTrustConfirm = false
     @State private var deviceToTrust: DiscoveredDevice?
@@ -12,6 +17,12 @@ struct DeviceDiscoveryView: View {
             VStack(spacing: 0) {
                 header
                     .padding(.top, 20)
+
+                if !networkMonitor.status.isWiFi {
+                    connectivityBanner
+                        .padding(.top, 16)
+                        .padding(.horizontal, 20)
+                }
 
                 networkInfoCard
                     .padding(.top, 20)
@@ -124,6 +135,14 @@ struct DeviceDiscoveryView: View {
 
     // MARK: - Scan Button
 
+    /// Scanning only works over Wi-Fi/Ethernet. On cellular or offline the
+    /// scanner has no LAN to enumerate, so we disable the button and show
+    /// explanatory copy rather than letting the user tap it and watch it
+    /// do nothing.
+    private var canScan: Bool {
+        networkMonitor.status == .wifi || networkMonitor.status == .wired
+    }
+
     private var scanButton: some View {
         Button {
             if scanner.isScanning {
@@ -133,7 +152,10 @@ struct DeviceDiscoveryView: View {
             }
         } label: {
             HStack(spacing: 8) {
-                if scanner.isScanning {
+                if !canScan {
+                    Image(systemName: "wifi.slash")
+                    Text(scanButtonBlockedTitle)
+                } else if scanner.isScanning {
                     Image(systemName: "stop.fill")
                     Text("Stop Scan")
                 } else if !scanner.devices.isEmpty {
@@ -152,14 +174,100 @@ struct DeviceDiscoveryView: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
-                            colors: scanner.isScanning
-                                ? [.red.opacity(0.7), .red.opacity(0.5)]
-                                : [.blue, .blue.opacity(0.85)],
+                            colors: scanButtonColors,
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
             )
+        }
+        .disabled(!canScan)
+    }
+
+    private var scanButtonBlockedTitle: String {
+        switch networkMonitor.status {
+        case .cellular: return "Wi-Fi Required"
+        case .offline: return "No Network"
+        default: return "Wi-Fi Required"
+        }
+    }
+
+    private var scanButtonColors: [Color] {
+        if !canScan {
+            return [Color.gray.opacity(0.55), Color.gray.opacity(0.4)]
+        }
+        if scanner.isScanning {
+            return [.red.opacity(0.7), .red.opacity(0.5)]
+        }
+        return [.blue, .blue.opacity(0.85)]
+    }
+
+    // MARK: - Connectivity Banner
+
+    /// Shown whenever the device isn't on Wi-Fi. Replaces the previous
+    /// silent-failure behavior where the scanner would simply report
+    /// "Could not determine local network" to itself and stop.
+    private var connectivityBanner: some View {
+        let (icon, title, message, tint) = connectivityBannerContent
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                Text(message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(tint.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(tint.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private var connectivityBannerContent: (String, String, String, Color) {
+        switch networkMonitor.status {
+        case .cellular:
+            return (
+                "antenna.radiowaves.left.and.right",
+                "You're on Cellular",
+                "Device discovery scans your local Wi-Fi network, which isn't available on cellular. Connect to Wi-Fi to see who's on your network.",
+                Color(red: 0.98, green: 0.78, blue: 0.28)
+            )
+        case .offline:
+            return (
+                "wifi.slash",
+                "No Network Connection",
+                "Connect to Wi-Fi to scan for devices on your local network.",
+                Color(red: 0.98, green: 0.39, blue: 0.34)
+            )
+        case .wired:
+            return (
+                "cable.connector",
+                "Wired Connection",
+                "Device discovery works best on Wi-Fi, but we'll scan the connected network.",
+                .blue
+            )
+        case .unknown:
+            return (
+                "questionmark.circle",
+                "Checking Connection",
+                "Waiting for a network connection before scanning.",
+                .gray
+            )
+        case .wifi:
+            return ("wifi", "", "", .blue)
         }
     }
 

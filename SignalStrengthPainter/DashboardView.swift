@@ -5,6 +5,10 @@ struct DashboardView: View {
 
     @Environment(\.theme) private var theme
     @StateObject private var speedTest = SpeedTestManager()
+    // Used to show a small "Testing over cellular" badge when the user
+    // isn't on Wi-Fi. Speed tests still work over cellular but the user
+    // needs to know the numbers aren't measuring their Wi-Fi.
+    @ObservedObject private var networkMonitor = NetworkInterfaceMonitor.shared
 
     @State private var serviceLatencies: [String: Double] = [:]
 
@@ -15,6 +19,12 @@ struct DashboardView: View {
             VStack(spacing: 0) {
                 wifiHeader
                     .padding(.top, 8)
+
+                if !networkMonitor.status.isWiFi {
+                    connectionStatusBanner
+                        .padding(.top, 12)
+                        .padding(.horizontal, 20)
+                }
 
                 topologyCard
                     .padding(.top, 16)
@@ -57,6 +67,76 @@ struct DashboardView: View {
             if newPhase == .complete {
                 testServiceLatencies()
             }
+        }
+    }
+
+    // MARK: - Connection Status Banner
+
+    /// Surfaces the active connection type whenever the user isn't on
+    /// Wi-Fi. Speed tests, latency probes, and the topology diagram all
+    /// assume Wi-Fi by default; without this banner a cellular result
+    /// looks indistinguishable from a Wi-Fi result.
+    private var connectionStatusBanner: some View {
+        let (icon, title, message, tint) = connectionBannerContent
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(tint.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(tint.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private var connectionBannerContent: (String, String, String, Color) {
+        switch networkMonitor.status {
+        case .cellular:
+            return (
+                "antenna.radiowaves.left.and.right",
+                "Testing on Cellular",
+                "You're off Wi-Fi — these results reflect your cellular connection, not your home network.",
+                Color(red: 0.98, green: 0.78, blue: 0.28)
+            )
+        case .offline:
+            return (
+                "wifi.slash",
+                "No Network",
+                "Connect to Wi-Fi or cellular to run network tests.",
+                Color(red: 0.98, green: 0.39, blue: 0.34)
+            )
+        case .wired:
+            return (
+                "cable.connector",
+                "Wired Connection",
+                "Measurements reflect your wired connection rather than Wi-Fi.",
+                .blue
+            )
+        case .unknown:
+            return (
+                "questionmark.circle",
+                "Checking Connection",
+                "Still figuring out your current network.",
+                .gray
+            )
+        case .wifi:
+            return ("wifi", "", "", .blue)
         }
     }
 

@@ -109,6 +109,11 @@ struct SignalDetailView: View {
     @State private var animateRings = false
     @State private var isMeasuring = false
     @State private var showAssistant = false
+    // "Signal Strength" is framed around Wi-Fi — on cellular the latency
+    // probe still works, but the Wi-Fi-specific copy ("Current WiFi
+    // connection quality", improvement tips, etc.) is misleading. Show a
+    // banner so the user understands what's being measured.
+    @ObservedObject private var networkMonitor = NetworkInterfaceMonitor.shared
 
     private let probe = LatencyProbe()
 
@@ -117,6 +122,12 @@ struct SignalDetailView: View {
             VStack(spacing: 0) {
                 signalHeader
                     .padding(.top, 20)
+
+                if !networkMonitor.status.isWiFi {
+                    signalConnectivityBanner
+                        .padding(.top, 16)
+                        .padding(.horizontal, 20)
+                }
 
                 signalVisualization
                     .padding(.top, 32)
@@ -209,9 +220,87 @@ struct SignalDetailView: View {
             Text("Signal Strength")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)
-            Text("Current WiFi connection quality")
+            Text(signalHeaderSubtitle)
                 .font(.system(size: 15))
                 .foregroundStyle(theme.tertiaryText)
+        }
+    }
+
+    private var signalHeaderSubtitle: String {
+        switch networkMonitor.status {
+        case .wifi: return "Current Wi-Fi connection quality"
+        case .cellular: return "Measuring your cellular connection"
+        case .wired: return "Current wired connection quality"
+        case .offline: return "No network connection"
+        case .unknown: return "Checking your connection"
+        }
+    }
+
+    /// Matches the banner used in Device Discovery and the Speed tab so
+    /// the copy about cellular vs. Wi-Fi reads consistently across the
+    /// app. Placed just under the header so it's visible before the user
+    /// tries to interpret any of the signal numbers.
+    private var signalConnectivityBanner: some View {
+        let (icon, title, message, tint) = signalBannerContent
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(tint.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(tint.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private var signalBannerContent: (String, String, String, Color) {
+        switch networkMonitor.status {
+        case .cellular:
+            return (
+                "antenna.radiowaves.left.and.right",
+                "On Cellular, Not Wi-Fi",
+                "Signal quality below is measured over your cellular connection. The Wi-Fi tips won't apply until you reconnect to Wi-Fi.",
+                Color(red: 0.98, green: 0.78, blue: 0.28)
+            )
+        case .offline:
+            return (
+                "wifi.slash",
+                "No Connection",
+                "Connect to Wi-Fi to measure your signal quality.",
+                Color(red: 0.98, green: 0.39, blue: 0.34)
+            )
+        case .wired:
+            return (
+                "cable.connector",
+                "Wired Connection",
+                "You're on a wired connection. Wi-Fi signal metrics don't apply.",
+                .blue
+            )
+        case .unknown:
+            return (
+                "questionmark.circle",
+                "Checking Connection",
+                "Figuring out which network you're using.",
+                .gray
+            )
+        case .wifi:
+            return ("wifi", "", "", .blue)
         }
     }
 
