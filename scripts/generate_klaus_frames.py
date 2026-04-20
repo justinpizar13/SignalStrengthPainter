@@ -51,10 +51,14 @@ PADDING = 8
 WHITE = (255, 255, 255)
 FOREST_GREEN = (34, 100, 55)
 # Pixels at or above this luminance become white; below become forest green.
-# The source has dark outlines / eyes / antenna stem (low luminance) and
-# light body panels / face screen (high luminance), so this split puts white
-# on the large body surfaces and forest green on the outlines + details.
-LUMINANCE_THRESHOLD = 130
+# The source has dark outlines / eyes / antenna stem (low luminance), bright
+# body panels / face screen (very high luminance), and mid-tone details such
+# as pink cheek blush, red accent squares, and the orange antenna tip
+# (luminance ~150-190). A low threshold (e.g. 130) collapses those mid-tone
+# details into white and flattens the face; raising it to 195 keeps only the
+# brightest body / face-screen pixels white while pushing all the colored
+# detail pixels into forest green so the face reads with its full expression.
+LUMINANCE_THRESHOLD = 195
 
 # Head-crop extent, measured from Klaus's top-most non-transparent pixel
 # on each frame. The source animation includes a "jump" cycle that shifts
