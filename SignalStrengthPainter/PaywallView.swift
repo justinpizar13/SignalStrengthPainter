@@ -1,17 +1,36 @@
 import SwiftUI
+import StoreKit
 
 struct PaywallView: View {
+    /// StoreKit 2 manager. Owns product loading, purchase, restore, and the
+    /// `isProUser` entitlement check. Injected by `MainTabView` so a single
+    /// instance lives for the whole app session.
+    @ObservedObject var store: ProStore
     @Binding var isPresented: Bool
-    var onPurchase: (() -> Void)?
     @Environment(\.theme) private var theme
     @State private var selectedPlan: Plan = .monthly
     @State private var currentPage = 0
+    @State private var showRestoreError: Bool = false
 
     private let pageCount = 3
 
     enum Plan {
         case monthly, yearly
+
+        var productID: String {
+            switch self {
+            case .monthly: return ProStore.monthlyProductID
+            case .yearly: return ProStore.yearlyProductID
+            }
+        }
     }
+
+    /// Hard-coded fallbacks used before StoreKit returns real products, or
+    /// if the product fetch fails (e.g. App Store unreachable). These must
+    /// stay in sync with the prices configured in App Store Connect.
+    private static let fallbackMonthlyPrice = "$2.99"
+    private static let fallbackYearlyPrice = "$9.99"
+    private static let fallbackYearlyCrossOut = "$19.99"
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -234,7 +253,8 @@ struct PaywallView: View {
                 plan: .monthly,
                 title: "Monthly",
                 subtitle: "Billed every month",
-                price: "$2.99",
+                price: store.product(for: ProStore.monthlyProductID)?.displayPrice
+                    ?? Self.fallbackMonthlyPrice,
                 badge: nil,
                 crossedOutPrice: nil
             )
@@ -243,9 +263,10 @@ struct PaywallView: View {
                 plan: .yearly,
                 title: "Yearly",
                 subtitle: "Billed once a year",
-                price: "$9.99",
+                price: store.product(for: ProStore.yearlyProductID)?.displayPrice
+                    ?? Self.fallbackYearlyPrice,
                 badge: "Best Deal",
-                crossedOutPrice: "$19.99"
+                crossedOutPrice: Self.fallbackYearlyCrossOut
             )
         }
         .padding(.top, 8)
@@ -334,29 +355,67 @@ struct PaywallView: View {
 
     private var buyButton: some View {
         Button {
-            onPurchase?()
-            isPresented = false
+            Task { await startPurchase() }
         } label: {
-            Text("Buy Now")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(theme.buttonText)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(Color.blue)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+            HStack(spacing: 10) {
+                if store.purchaseInFlight {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.9)
+                }
+                Text(store.purchaseInFlight ? "Processing..." : "Buy Now")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(theme.buttonText)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(Color.blue)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+        .disabled(store.purchaseInFlight || store.isRestoring)
+        .opacity((store.purchaseInFlight || store.isRestoring) ? 0.7 : 1)
         .padding(.top, 8)
+    }
+
+    private func startPurchase() async {
+        guard let product = store.product(for: selectedPlan.productID) else {
+            // Product metadata hasn't loaded (or the ID is wrong) — retry
+            // the fetch and surface a friendly error if it still fails.
+            await store.loadProducts()
+            if store.product(for: selectedPlan.productID) == nil {
+                store.lastError = "Couldn't load that subscription. Please try again."
+                showRestoreError = true
+            }
+            return
+        }
+
+        let succeeded = await store.purchase(product)
+        if succeeded {
+            isPresented = false
+        } else if store.lastError != nil {
+            showRestoreError = true
+        }
     }
 
     // MARK: - Bottom links
 
     private var bottomLinks: some View {
         HStack(spacing: 32) {
-            Button("Restore purchase") {
-                // StoreKit restore will go here
+            Button {
+                Task { await startRestore() }
+            } label: {
+                HStack(spacing: 6) {
+                    if store.isRestoring {
+                        ProgressView()
+                            .tint(.blue)
+                            .scaleEffect(0.7)
+                    }
+                    Text(store.isRestoring ? "Restoring..." : "Restore purchase")
+                }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.blue)
             }
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.blue)
+            .disabled(store.purchaseInFlight || store.isRestoring)
 
             Button("Not now") {
                 isPresented = false
@@ -365,6 +424,20 @@ struct PaywallView: View {
             .foregroundStyle(theme.tertiaryText)
         }
         .padding(.top, 4)
+        .alert("Wi-Fi Buddy Pro", isPresented: $showRestoreError, presenting: store.lastError) { _ in
+            Button("OK", role: .cancel) { store.lastError = nil }
+        } message: { text in
+            Text(text)
+        }
+    }
+
+    private func startRestore() async {
+        await store.restore()
+        if store.isProUser {
+            isPresented = false
+        } else if store.lastError != nil {
+            showRestoreError = true
+        }
     }
 
     // MARK: - Close button
@@ -384,6 +457,6 @@ struct PaywallView: View {
 }
 
 #Preview {
-    PaywallView(isPresented: .constant(true))
+    PaywallView(store: ProStore(), isPresented: .constant(true))
         .withAppTheme()
 }

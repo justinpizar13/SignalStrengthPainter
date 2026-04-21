@@ -1,7 +1,10 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @AppStorage("isProUser") private var isProUser = false
+    // Pro entitlement is derived from `Transaction.currentEntitlements`
+    // inside `ProStore` — there is no `@AppStorage("isProUser")` flag that
+    // a jailbroken user could flip to unlock Pro without paying.
+    @StateObject private var store = ProStore()
     @State private var selectedTab: Tab = .speed
 
     enum Tab: Int {
@@ -38,18 +41,15 @@ struct MainTabView: View {
                 }
                 .tag(Tab.devices)
 
-            if !isProUser {
+            if !store.isProUser {
                 PaywallView(
+                    store: store,
                     isPresented: Binding(
                         get: { selectedTab == .pro },
                         set: { newValue in
                             if !newValue { selectedTab = .speed }
                         }
-                    ),
-                    onPurchase: {
-                        isProUser = true
-                        selectedTab = .speed
-                    }
+                    )
                 )
                 .tabItem {
                     Image(systemName: "crown.fill")
@@ -59,7 +59,7 @@ struct MainTabView: View {
             }
         }
         .tint(.blue)
-        .onChange(of: isProUser) { _, newValue in
+        .onChange(of: store.isProUser) { _, newValue in
             if newValue && selectedTab == .pro {
                 selectedTab = .speed
             }

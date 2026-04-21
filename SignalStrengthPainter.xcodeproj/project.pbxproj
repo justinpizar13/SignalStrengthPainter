@@ -32,6 +32,7 @@
 		A1B2C3D40123456789012461 /* SurveyInsightsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012462 /* SurveyInsightsEngine.swift */; };
 		A1B2C3D40123456789012471 /* SurveyInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012472 /* SurveyInsightsView.swift */; };
 		A1B2C3D40123456789012481 /* FloorPlanTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012482 /* FloorPlanTemplate.swift */; };
+		A1B2C3D40123456789012491 /* ProStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012492 /* ProStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -62,6 +63,8 @@
 		A1B2C3D40123456789012462 /* SurveyInsightsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyInsightsEngine.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012472 /* SurveyInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyInsightsView.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012482 /* FloorPlanTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloorPlanTemplate.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012492 /* ProStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStore.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012493 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = file.storekit; path = Configuration.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D40123456789012347 /* SignalStrengthPainter */,
+				A1B2C3D40123456789012493 /* Configuration.storekit */,
 				A1B2C3D40123456789012348 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,6 +98,7 @@
 				A1B2C3D4012345678901234E /* LatencyProbe.swift */,
 				A1B2C3D4012345678901234F /* SignalTrailModels.swift */,
 				A1B2C3D40123456789012372 /* PaywallView.swift */,
+				A1B2C3D40123456789012492 /* ProStore.swift */,
 				A1B2C3D40123456789012382 /* MainTabView.swift */,
 				A1B2C3D40123456789012392 /* DashboardView.swift */,
 				A1B2C3D401234567890123A2 /* SpeedTestManager.swift */,
@@ -201,6 +206,7 @@
 				A1B2C3D40123456789012355 /* LatencyProbe.swift in Sources */,
 				A1B2C3D40123456789012356 /* SignalTrailModels.swift in Sources */,
 				A1B2C3D40123456789012371 /* PaywallView.swift in Sources */,
+				A1B2C3D40123456789012491 /* ProStore.swift in Sources */,
 				A1B2C3D40123456789012381 /* MainTabView.swift in Sources */,
 				A1B2C3D40123456789012391 /* DashboardView.swift in Sources */,
 				A1B2C3D401234567890123A1 /* SpeedTestManager.swift in Sources */,
