@@ -44,7 +44,11 @@ final class SignalMapViewModel: ObservableObject {
     private var lastReanchorMap: CGPoint = .zero
     private var lastReanchorAR = SIMD3<Double>(repeating: 0)
     private var hasRefinedRotationFromLandmark = false
-    private let pointsPerMeter: Double = 38.0
+    /// Map-units-per-meter used when projecting AR position onto the floor plan.
+    /// Exposed (read-only) so downstream analysis like `SurveyInsightsEngine`
+    /// can convert trail-point distances back into real-world meters without
+    /// duplicating the constant.
+    let pointsPerMeter: Double = 38.0
     private let minimumLandmarkSegmentPoints: CGFloat = 25
     private let minimumLandmarkARPixels: CGFloat = 15
     private let minimumSampleDistancePoints: CGFloat = 8

@@ -29,6 +29,8 @@
 		A1B2C3D40123456789012431 /* KlausMascotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012432 /* KlausMascotView.swift */; };
 		A1B2C3D40123456789012441 /* NetworkInterfaceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012442 /* NetworkInterfaceMonitor.swift */; };
 		A1B2C3D40123456789012451 /* NetworkTopologyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012452 /* NetworkTopologyMonitor.swift */; };
+		A1B2C3D40123456789012461 /* SurveyInsightsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012462 /* SurveyInsightsEngine.swift */; };
+		A1B2C3D40123456789012471 /* SurveyInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012472 /* SurveyInsightsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +58,8 @@
 		A1B2C3D40123456789012432 /* KlausMascotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KlausMascotView.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012442 /* NetworkInterfaceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterfaceMonitor.swift; sourceTree = "<group>"; };
 		A1B2C3D40123456789012452 /* NetworkTopologyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTopologyMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012462 /* SurveyInsightsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyInsightsEngine.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012472 /* SurveyInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyInsightsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,6 +105,8 @@
 				A1B2C3D40123456789012432 /* KlausMascotView.swift */,
 				A1B2C3D40123456789012442 /* NetworkInterfaceMonitor.swift */,
 				A1B2C3D40123456789012452 /* NetworkTopologyMonitor.swift */,
+				A1B2C3D40123456789012462 /* SurveyInsightsEngine.swift */,
+				A1B2C3D40123456789012472 /* SurveyInsightsView.swift */,
 				A1B2C3D401234567890123E2 /* Assets.xcassets */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 			);
@@ -205,6 +211,8 @@
 				A1B2C3D40123456789012431 /* KlausMascotView.swift in Sources */,
 				A1B2C3D40123456789012441 /* NetworkInterfaceMonitor.swift in Sources */,
 				A1B2C3D40123456789012451 /* NetworkTopologyMonitor.swift in Sources */,
+				A1B2C3D40123456789012461 /* SurveyInsightsEngine.swift in Sources */,
+				A1B2C3D40123456789012471 /* SurveyInsightsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -7,7 +7,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if viewModel.usesExpandedMapLayout {
+            if viewModel.calibrationStage == .finished {
+                finishedLayout
+            } else if viewModel.usesExpandedMapLayout {
                 expandedSurveyLayout
             } else {
                 calibrationLayout
@@ -96,6 +98,57 @@ struct ContentView: View {
                 .padding(.top, 10)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
+        }
+    }
+
+    // MARK: - Finished (Review) Layout
+
+    /// Scrollable post-survey review with the map pinned at a fixed height, a
+    /// full insights panel below it, and the same Stop/Reset/New Survey
+    /// controls at the bottom. Keeps the heatmap visible for context while the
+    /// user reads through what `SurveyInsightsEngine` found.
+    private var finishedLayout: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                compactSurveyHeader
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+
+                mapCanvas(contentScale: viewModel.mapContentScale)
+                    .frame(height: 300)
+                    .padding(.top, 10)
+                    .padding(.horizontal, 12)
+
+                compactScaleLegend
+                    .padding(.top, 10)
+                    .padding(.horizontal, 16)
+
+                insightsSection
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
+
+                controlButtons
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
+
+                compactFooter
+                    .padding(.top, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var insightsSection: some View {
+        if let report = SurveyInsightsEngine.generate(
+            trail: viewModel.trail,
+            pointsPerMeter: viewModel.pointsPerMeter
+        ) {
+            SurveyInsightsView(report: report)
+        } else {
+            let rated = viewModel.trail.filter { $0.latencyMs != nil }.count
+            SurveyInsightsPlaceholder(sampleCount: rated)
         }
     }
 
