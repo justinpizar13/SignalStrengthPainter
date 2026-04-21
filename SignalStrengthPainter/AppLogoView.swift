@@ -2,59 +2,70 @@ import SwiftUI
 
 /// Wi-Fi Buddy branded logo.
 ///
-/// Renders the Wi-Fi glyph on a **transparent** background in a muted earthy
-/// iridescent material: deep burgundy / olive / slate-brown / forest-green /
-/// plum tones that read as a subtly shifting rainbow without the candy-pastel
-/// look of the earlier "Apple glass" palette. A gentle warm off-white sheen
-/// across the glyph keeps the surface legible as polished material. Three
-/// small 4-pointed sparkles sit in the upper-right. Sized via the `size`
-/// parameter; every element scales proportionally so the logo reads well
-/// from 26pt up to 100pt+.
+/// Renders a classic "signal-strength" Wi-Fi glyph — three concentric arcs and
+/// a center dot — in a traffic-light palette (green → yellow → orange → red).
+/// The arcs are evenly spaced so the wave pattern reads cleanly at any size,
+/// and the full glyph is vertically centered so there is equal breathing room
+/// above the outer arc and below the dot.
 ///
-/// The palette is **not** color-scheme dependent — the same earthy tones are
-/// used in light and dark mode so the brand reads identically everywhere.
+/// The in-app logo renders on a **transparent** background so it composites
+/// cleanly over themed cards and headers. The home-screen app icon
+/// (`AppIcon.appiconset/icon_1024x1024.png`) uses the same glyph on a dark
+/// gray squircle; the geometry in this file and in
+/// `scripts/generate_app_icon.py` are kept in lockstep so both marks read
+/// identically.
 ///
-/// The home-screen app icon (`AppIcon.appiconset/icon_1024x1024.png`) uses
-/// the same earthy gradient on a light cream squircle, matching this view's
-/// coloring exactly. In-app this view is drawn transparently so it
-/// composites cleanly over themed cards and headers.
+/// Sized via the `size` parameter; every element scales proportionally so the
+/// logo holds up from 26pt (survey headers) to 100pt (paywall hero).
 struct AppLogoView: View {
     var size: CGFloat = 60
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         Canvas { context, canvasSize in
-            let palette = IridescentPalette.resolved(for: colorScheme)
-            drawWifiGlyph(context: context, size: canvasSize, palette: palette)
-            drawSheen(context: context, size: canvasSize, palette: palette)
-            drawSparkles(context: context, size: canvasSize, palette: palette)
+            drawWifiGlyph(context: context, size: canvasSize)
         }
         .frame(width: size, height: size)
     }
 
-    // MARK: - Layers
+    // MARK: - Geometry
 
     // Geometry shared with `scripts/generate_app_icon.py` so the in-app
     // logo matches the home-screen icon PNG pixel-for-pixel (at any scale).
-    private static let glyphCYFrac: CGFloat = 0.635
-    private static let arcFracs: [(CGFloat, CGFloat)] = [
-        (0.425, 0.096),
-        (0.302, 0.096),
-        (0.180, 0.096),
-    ]
-    private static let dotRFrac: CGFloat = 0.064
+    //
+    // Vertical placement: the glyph spans from `cy - outerR` at the top to
+    // `cy + dotR` at the bottom. With `outerR = 0.445`, `dotR = 0.055` and
+    // `cy = 0.695`, the bounding box is y ∈ [0.250, 0.750] — i.e. perfectly
+    // centered in the square canvas.
+    //
+    // Radial spacing: stroke width is 0.080 and each successive arc is
+    // inset by stroke + 0.050 from the previous, giving a consistent 0.050
+    // gap between neighboring strokes and between the inner arc and the
+    // dot. That even cadence is what makes the signal-wave pattern read.
+    static let glyphCYFrac: CGFloat = 0.695
+    static let strokeWFrac: CGFloat = 0.080
+    static let dotRFrac: CGFloat = 0.055
+    static let arcFracs: [CGFloat] = [0.445, 0.315, 0.185]
 
-    private func drawWifiGlyph(context: GraphicsContext, size: CGSize, palette: IridescentPalette) {
+    // Traffic-light palette used for the glyph. Outer arc is green, middle
+    // is yellow, inner is orange, and the center dot is red — a classic
+    // Wi-Fi "signal strength" cue. Colors are shared with
+    // `scripts/generate_app_icon.py`.
+    static let outerArcColor = Color(red: 0.30, green: 0.85, blue: 0.40)
+    static let middleArcColor = Color(red: 0.98, green: 0.82, blue: 0.22)
+    static let innerArcColor = Color(red: 0.98, green: 0.52, blue: 0.22)
+    static let dotColor = Color(red: 0.98, green: 0.32, blue: 0.32)
+
+    // MARK: - Drawing
+
+    private func drawWifiGlyph(context: GraphicsContext, size: CGSize) {
         let cx = size.width / 2
         let cy = size.height * Self.glyphCYFrac
+        let strokeW = size.width * Self.strokeWFrac
 
-        let shading = iridescentShading(size: size, palette: palette)
-
-        for (rFrac, wFrac) in Self.arcFracs {
+        let arcColors = [Self.outerArcColor, Self.middleArcColor, Self.innerArcColor]
+        for (rFrac, color) in zip(Self.arcFracs, arcColors) {
             let rOuter = size.width * rFrac
-            let lineW = size.width * wFrac
-            let rCenter = rOuter - lineW / 2
+            let rCenter = rOuter - strokeW / 2
 
             var path = Path()
             path.addArc(
@@ -66,8 +77,8 @@ struct AppLogoView: View {
             )
             context.stroke(
                 path,
-                with: shading,
-                style: StrokeStyle(lineWidth: lineW, lineCap: .round)
+                with: .color(color),
+                style: StrokeStyle(lineWidth: strokeW, lineCap: .round)
             )
         }
 
@@ -78,192 +89,7 @@ struct AppLogoView: View {
             width: dotR * 2,
             height: dotR * 2
         )
-        context.fill(Path(ellipseIn: dotRect), with: shading)
-    }
-
-    private func drawSheen(context: GraphicsContext, size: CGSize, palette: IridescentPalette) {
-        // A tight diagonal specular band concentrated over the upper-left of
-        // the glyph, clipped to the Wi-Fi glyph so the highlight reads as
-        // polished glass rather than a full-canvas wash.
-        let cx = size.width / 2
-        let cy = size.height * Self.glyphCYFrac
-
-        var glyphPath = Path()
-        for (rFrac, wFrac) in Self.arcFracs {
-            let rOuter = size.width * rFrac
-            let lineW = size.width * wFrac
-            let rCenter = rOuter - lineW / 2
-            var arcPath = Path()
-            arcPath.addArc(
-                center: CGPoint(x: cx, y: cy),
-                radius: rCenter,
-                startAngle: .degrees(225),
-                endAngle: .degrees(315),
-                clockwise: false
-            )
-            glyphPath.addPath(
-                arcPath.strokedPath(
-                    StrokeStyle(lineWidth: lineW, lineCap: .round)
-                )
-            )
-        }
-        let dotR = size.width * Self.dotRFrac
-        glyphPath.addEllipse(
-            in: CGRect(
-                x: cx - dotR,
-                y: cy - dotR,
-                width: dotR * 2,
-                height: dotR * 2
-            )
-        )
-
-        // Clip to the glyph, then fill a tight diagonal specular band across
-        // the upper-left of the canvas. The gradient runs TL → BR so its
-        // iso-lines are parallel to u+v=const — matching the PNG sheen
-        // geometry (peak at u+v ≈ 0.78, i.e. gradient location ≈ 0.39).
-        var clipped = context
-        clipped.clip(to: glyphPath)
-
-        let sheenColor = palette.sheenColor
-        let sheen: GraphicsContext.Shading = .linearGradient(
-            Gradient(stops: [
-                .init(color: sheenColor.opacity(0.0), location: 0.00),
-                .init(color: sheenColor.opacity(0.0), location: 0.26),
-                .init(color: sheenColor.opacity(palette.sheenAlpha), location: 0.39),
-                .init(color: sheenColor.opacity(0.0), location: 0.52),
-                .init(color: sheenColor.opacity(0.0), location: 1.00),
-            ]),
-            startPoint: CGPoint(x: 0, y: 0),
-            endPoint: CGPoint(x: size.width, y: size.height)
-        )
-        clipped.fill(Path(CGRect(origin: .zero, size: size)), with: sheen)
-    }
-
-    private func drawSparkles(context: GraphicsContext, size: CGSize, palette: IridescentPalette) {
-        // (x fraction, y fraction, arm-length fraction)
-        let sparkles: [(CGFloat, CGFloat, CGFloat)] = [
-            (0.810, 0.185, 0.082),
-            (0.905, 0.295, 0.050),
-            (0.705, 0.095, 0.042),
-        ]
-
-        let shading = iridescentShading(size: size, palette: palette, dim: 0.9)
-
-        for (xFrac, yFrac, armFrac) in sparkles {
-            let center = CGPoint(x: size.width * xFrac, y: size.height * yFrac)
-            let armLength = size.width * armFrac
-            let waist = armLength * 0.28
-
-            var star = Path()
-            let arms = 4
-            for i in 0..<(arms * 2) {
-                let angle = Angle.degrees(Double(i) * 45 - 90)
-                let r = i.isMultiple(of: 2) ? armLength : waist
-                let pt = CGPoint(
-                    x: center.x + CGFloat(cos(angle.radians)) * r,
-                    y: center.y + CGFloat(sin(angle.radians)) * r
-                )
-                if i == 0 {
-                    star.move(to: pt)
-                } else {
-                    star.addLine(to: pt)
-                }
-            }
-            star.closeSubpath()
-            context.fill(star, with: shading)
-        }
-    }
-
-    // MARK: - Iridescent shader
-
-    /// A diagonal iridescent gradient running from the upper-left toward the
-    /// lower-right of the canvas. Pastel stops stay very close to the palette
-    /// base color so the overall read is a shimmery material, not a rainbow.
-    /// The `dim` parameter slightly attenuates saturation (used for sparkles).
-    private func iridescentShading(
-        size: CGSize,
-        palette: IridescentPalette,
-        dim: CGFloat = 1.0
-    ) -> GraphicsContext.Shading {
-        let stops: [Gradient.Stop] = palette.gradientStops(dim: dim)
-        return .linearGradient(
-            Gradient(stops: stops),
-            startPoint: CGPoint(x: 0, y: 0),
-            endPoint: CGPoint(x: size.width, y: size.height)
-        )
-    }
-}
-
-// MARK: - Palette
-
-/// Color palette for the iridescent Wi-Fi glyph. A single earthy palette is
-/// used for both light and dark color schemes so the brand reads identically
-/// everywhere. Preserves the same hue rotation as the earlier pastel palette
-/// (pink → slate → peach → mint → lavender → slate) but at a lower
-/// luminance with muted saturation — producing burgundy / olive / slate-
-/// brown / forest-green / plum tones that remain legible on both white and
-/// near-black card surfaces.
-struct IridescentPalette {
-    let pink: Color
-    let silverWarm: Color
-    let peach: Color
-    let mint: Color
-    let lavender: Color
-    let silverCool: Color
-
-    /// Color used for the diagonal specular highlight. A soft warm off-white
-    /// at reduced intensity lifts the darker base without blowing it out.
-    let sheenColor: Color
-    let sheenAlpha: Double
-
-    func gradientStops(dim: CGFloat) -> [Gradient.Stop] {
-        func d(_ c: Color) -> Color { c.dimmed(by: dim) }
-        return [
-            .init(color: d(pink),        location: 0.00),
-            .init(color: d(silverWarm),  location: 0.20),
-            .init(color: d(peach),       location: 0.40),
-            .init(color: d(mint),        location: 0.60),
-            .init(color: d(lavender),    location: 0.80),
-            .init(color: d(silverCool),  location: 1.00),
-        ]
-    }
-
-    /// Returns the unified earthy palette regardless of color scheme — kept
-    /// as a function to preserve the call site API in case we reintroduce
-    /// scheme-specific palettes later.
-    static func resolved(for colorScheme: ColorScheme) -> IridescentPalette {
-        .earthy
-    }
-
-    /// The single shared earthy palette used in both light and dark mode,
-    /// and mirrored in `scripts/generate_app_icon.py` for the home-screen
-    /// icon. Six stops running top-left → bottom-right:
-    /// burgundy → slate → warm brown → forest green → plum → slate.
-    static let earthy = IridescentPalette(
-        pink:        Color(red: 0.48, green: 0.22, blue: 0.34),
-        silverWarm:  Color(red: 0.27, green: 0.25, blue: 0.28),
-        peach:       Color(red: 0.45, green: 0.32, blue: 0.20),
-        mint:        Color(red: 0.20, green: 0.36, blue: 0.30),
-        lavender:    Color(red: 0.28, green: 0.23, blue: 0.46),
-        silverCool:  Color(red: 0.25, green: 0.26, blue: 0.28),
-        sheenColor:  Color(red: 1.0, green: 0.98, blue: 0.96),
-        sheenAlpha:  0.40
-    )
-}
-
-private extension Color {
-    /// Scales the RGB components by `dim` without altering hue or alpha.
-    /// Values are clamped to `[0, 1]`. `dim == 1` returns the color unchanged.
-    func dimmed(by dim: CGFloat) -> Color {
-        guard dim < 0.9999 else { return self }
-        #if canImport(UIKit)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
-        let clamp: (CGFloat) -> Double = { Double(max(0, min(1, $0 * dim))) }
-        return Color(red: clamp(r), green: clamp(g), blue: clamp(b), opacity: Double(a))
-        #else
-        return self
-        #endif
+        context.fill(Path(ellipseIn: dotRect), with: .color(Self.dotColor))
     }
 }
 
