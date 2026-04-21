@@ -24,6 +24,16 @@ final class ProStore: ObservableObject {
     static let yearlyProductID = "com.wifibuddy.pro.yearly"
     static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
 
+    #if DEBUG
+    /// UserDefaults key used in DEBUG builds to force Pro entitlement on
+    /// without a real StoreKit transaction. Useful for testing Pro-gating
+    /// (e.g. "is the Survey tab blocked for free users?") without wiring
+    /// up `Configuration.storekit` or a Sandbox tester account. This flag
+    /// is read by `refreshEntitlements()` only; it can never turn Pro on
+    /// in a release build because the branch is compiled out.
+    static let debugForceProKey = "debug.forceProEntitlement"
+    #endif
+
     // MARK: - Published state
 
     @Published private(set) var products: [Product] = []
@@ -200,8 +210,31 @@ final class ProStore: ObservableObject {
             }
         }
 
+        #if DEBUG
+        // DEBUG override — lets us simulate a Pro user without a real
+        // transaction. Only affects debug builds; the flag is ignored
+        // (and the read is compiled out) in release.
+        if UserDefaults.standard.bool(forKey: Self.debugForceProKey) {
+            active = true
+        }
+        #endif
+
         self.isProUser = active
     }
+
+    #if DEBUG
+    /// DEBUG-only helper that flips the force-Pro override flag and
+    /// immediately re-derives `isProUser` so the UI reacts right away.
+    func debugSetForcePro(_ enabled: Bool) async {
+        UserDefaults.standard.set(enabled, forKey: Self.debugForceProKey)
+        await refreshEntitlements()
+    }
+
+    /// DEBUG-only convenience used by the paywall's dev panel.
+    var debugIsForcingPro: Bool {
+        UserDefaults.standard.bool(forKey: Self.debugForceProKey)
+    }
+    #endif
 
     // MARK: - Internals
 

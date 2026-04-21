@@ -50,6 +50,9 @@ struct PaywallView: View {
                         pricingCards
                         buyButton
                         bottomLinks
+                        #if DEBUG
+                        debugDevPanel
+                        #endif
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
@@ -445,6 +448,60 @@ struct PaywallView: View {
             showRestoreError = true
         }
     }
+
+    // MARK: - Debug dev panel (DEBUG builds only)
+
+    #if DEBUG
+    /// Visible only in DEBUG builds. Flips `ProStore.debugForceProKey`
+    /// so we can test Pro-gated features (e.g. Survey access) without a
+    /// real StoreKit purchase and without a Sandbox tester account. The
+    /// entire view (and the backing override in `ProStore`) is compiled
+    /// out of release builds, so there's no risk of shipping a free
+    /// "unlock Pro" toggle to customers.
+    @State private var debugForcePro: Bool = false
+
+    private var debugDevPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "hammer.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.orange)
+                Text("DEBUG — Developer only")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.orange)
+            }
+
+            Toggle(isOn: $debugForcePro) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Force Pro entitlement")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.primaryText)
+                    Text("Pretend this user has an active Pro subscription. Use to test gated features without a real purchase.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(.orange)
+            .onChange(of: debugForcePro) { _, newValue in
+                Task { await store.debugSetForcePro(newValue) }
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.orange.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.orange.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                )
+        )
+        .padding(.top, 8)
+        .onAppear {
+            debugForcePro = store.debugIsForcingPro
+        }
+    }
+    #endif
 
     // MARK: - Close button
 
