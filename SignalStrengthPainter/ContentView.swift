@@ -20,6 +20,24 @@ struct ContentView: View {
         FloorPlanCustomRoomNames.names(for: selectedFloorPlan, json: customRoomNamesJSON)
     }
 
+    /// Trail points to highlight as "Best" and "Worst" latency on the map.
+    /// Only surfaced once a survey is finished so the user doesn't see a
+    /// badge flicker between points during the walk — in-progress rankings
+    /// would be misleading. Computed inline (single pass each) rather than
+    /// pulling from `SurveyInsightsReport` so these badges still appear in
+    /// the brief window before the insights report is cached and for short
+    /// walks where the engine returns `nil` but we still want to show the
+    /// extremes on the map.
+    private var highlightedSpots: (best: TrailPoint?, worst: TrailPoint?) {
+        guard viewModel.calibrationStage == .finished else { return (nil, nil) }
+        let rated = viewModel.trail.filter { $0.latencyMs != nil }
+        guard !rated.isEmpty else { return (nil, nil) }
+
+        let best = rated.min(by: { ($0.latencyMs ?? .infinity) < ($1.latencyMs ?? .infinity) })
+        let worst = rated.max(by: { ($0.latencyMs ?? -.infinity) < ($1.latencyMs ?? -.infinity) })
+        return (best, worst)
+    }
+
     var body: some View {
         Group {
             if viewModel.calibrationStage == .finished {
@@ -172,7 +190,8 @@ struct ContentView: View {
     }
 
     private func mapCanvas(contentScale: CGFloat) -> some View {
-        SignalCanvasView(
+        let spots = highlightedSpots
+        return SignalCanvasView(
             points: viewModel.trail,
             current: viewModel.currentPosition,
             headingRadians: viewModel.headingRadians,
@@ -182,6 +201,8 @@ struct ContentView: View {
             contentScale: contentScale,
             floorPlan: selectedFloorPlan,
             roomNameOverrides: roomNameOverrides,
+            bestSpot: spots.best,
+            worstSpot: spots.worst,
             onMapTap: { point in
                 viewModel.handleMapTap(point)
             }

@@ -599,6 +599,19 @@ A full-screen chat sheet presented from the **"Chat with Klaus"** CTA card inser
 - **Insights engine.** `SurveyInsightsEngine.generate` requires ≥ 8 rated samples before it returns a report. A typical 20–60 s walk still produces many dozens of rated points at 16 pt spacing, so coverage %s, dead-zone clustering (1.8 m merge threshold), and Pearson router-direction correlation all have plenty of signal to work with. The engine's thresholds are all stated in meters / ms, not sample counts, so they're invariant to this change.
 - **Review UX.** Tap-to-inspect uses `pointHitRadius / effectiveScale ≈ 18 pt / scale`. With points now ≥ 16 pt apart, the target hit areas no longer fight each other at default zoom, which is the actual bug the user reported.
 
+## Best/Worst spot markers on the review map (April 2026)
+
+**Problem:** The Survey Insights panel surfaces median, Worst 5%, and Worst latency in the "Latency range" strip, and the engine computes `bestSpot` / `worstSpot` positions internally — but nothing on the map told the user *which* dot out of the dozens in the heatmap corresponded to "Best 18 ms" or "Worst 240 ms". Users could see the stats but had no visual way to tie them back to a room.
+
+**Fix:**
+- `SignalCanvasView` gained two optional parameters, `bestSpot: TrailPoint?` and `worstSpot: TrailPoint?`. When provided, a new `drawHighlightedSpots` pass runs **after** `drawPath` (so badges sit on top of the regular blue waypoints) and renders each spot as a filled 14-pt radius colored circle (green for best / red for worst) with a 2.5 pt white border, an SF Symbol glyph inside (star for best, exclamation for worst), and a small capsule "Best" / "Worst" tag 24 pt above/below the marker. The label placement is offset in opposite directions (best above, worst below) so the two badges never stack even when the underlying dots are close together.
+- The glyphs are resolved through the `Canvas` symbol path (`BestSpotBadge` / `WorstSpotBadge` views tagged with static IDs), matching how `SurveyorSymbol` is rendered — keeps the icons crisp at any zoom level instead of approximating them with `Path`.
+- When the user taps a badge, the regular `PointInfoCard` inspect flow still works: if `selectedPointID == best.id` (or `worst.id`), the marker is suppressed so the yellow inspect ring isn't hidden behind it. If `bestSpot.id == worstSpot.id` (degenerate single-sample case) only the best badge is drawn.
+- `ContentView` computes `highlightedSpots: (best: TrailPoint?, worst: TrailPoint?)` inline (single `min`/`max` pass over the rated trail) and gates it on `calibrationStage == .finished` — during the live walk the extremes jump around as new pings arrive, so showing the badges only in review avoids a distracting "best/worst" flicker while surveying. The pair is passed through `mapCanvas(contentScale:)` so every finished-layout canvas instance gets them.
+- `SurveyInsightsView.latencyRange` gained a `mapLegendHint` row underneath the four latency tiles — two small badges (green star + red exclamation, matching the map markers pixel-for-pixel in color) plus "marked on map" caption. Without this hint the badges on the map are easy to miss; the legend makes the Best/Worst tiles read as a clickable legend for the map above.
+
+**Why not compute the extremes from the already-generated `SurveyInsightsReport.bestSpot`/`worstSpot`:** The report is `nil` when the walk has < 8 rated samples (the engine's minimum for drawing conclusions). For short walks we still want to mark the single best/worst dot visually even if the full report is withheld. Running the tiny `min`/`max` loop in `ContentView` decouples the badges from the report's availability.
+
 ## Possible follow-ups (not done here)
 
 - **Wire StoreKit 2** to PaywallView: product loading, purchase flow, receipt validation, entitlement gating of Pro features.

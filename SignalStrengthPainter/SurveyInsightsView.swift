@@ -250,6 +250,8 @@ struct SurveyInsightsView: View {
                 latencyTile(label: "Worst 5%", ms: report.p95LatencyMs, tint: Color(red: 0.98, green: 0.55, blue: 0.22))
                 latencyTile(label: "Worst", ms: report.maxLatencyMs, tint: Color(red: 0.98, green: 0.39, blue: 0.34))
             }
+
+            mapLegendHint
         }
         .padding(14)
         .background(
@@ -260,6 +262,50 @@ struct SurveyInsightsView: View {
                         .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
+    }
+
+    /// Small caption that tells the user where to find the Best / Worst
+    /// latency samples on the heatmap above. The `SignalCanvasView` renders
+    /// a green star badge on the best sample and a red exclamation badge on
+    /// the worst sample during the finished-review layout — without this
+    /// caption the badges are present but easy to overlook.
+    private var mapLegendHint: some View {
+        HStack(spacing: 10) {
+            legendBadge(
+                color: Color(red: 0.25, green: 0.86, blue: 0.43),
+                icon: "star.fill",
+                label: "Best"
+            )
+            legendBadge(
+                color: Color(red: 0.98, green: 0.39, blue: 0.34),
+                icon: "exclamationmark",
+                label: "Worst"
+            )
+            Text("marked on map")
+                .font(.system(size: 11))
+                .foregroundStyle(theme.tertiaryText)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func legendBadge(color: Color, icon: String, label: String) -> some View {
+        HStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .fill(color)
+                    .frame(width: 16, height: 16)
+                Circle()
+                    .stroke(Color.white, lineWidth: 1.2)
+                    .frame(width: 16, height: 16)
+                Image(systemName: icon)
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.secondaryText)
+        }
     }
 
     private func latencyTile(label: String, ms: Double, tint: Color) -> some View {

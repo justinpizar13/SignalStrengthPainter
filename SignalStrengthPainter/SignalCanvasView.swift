@@ -17,6 +17,14 @@ struct SignalCanvasView: View {
     /// (e.g. `["Bedroom 2": "Jamie's Room"]`). Rooms not present in this map
     /// fall back to their default name.
     var roomNameOverrides: [String: String] = [:]
+    /// Trail point with the lowest latency in the survey — rendered with a
+    /// distinctive green "Best" badge on top of the regular waypoint so the
+    /// user can immediately see which dot on the map the "Best" latency stat
+    /// refers to. `nil` outside of the finished-review layout.
+    var bestSpot: TrailPoint? = nil
+    /// Trail point with the highest latency in the survey — rendered with a
+    /// distinctive red "Worst" badge. Same purpose as `bestSpot`.
+    var worstSpot: TrailPoint? = nil
     let onMapTap: ((CGPoint) -> Void)?
 
     @Environment(\.theme) private var theme
@@ -94,6 +102,7 @@ struct SignalCanvasView: View {
             drawFloorPlan(in: &context, rect: mapRect)
             drawHeatMap(in: &context, center: innerCenter)
             drawPath(in: &context, center: innerCenter)
+            drawHighlightedSpots(in: &context, center: innerCenter)
             drawCalibration(in: &context, center: innerCenter)
             if showSurveyor {
                 drawSurveyor(in: &context, center: innerCenter)
@@ -101,6 +110,10 @@ struct SignalCanvasView: View {
         } symbols: {
             SurveyorSymbol()
                 .tag(SurveyorSymbol.id)
+            BestSpotBadge()
+                .tag(BestSpotBadge.id)
+            WorstSpotBadge()
+                .tag(WorstSpotBadge.id)
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
     }
@@ -364,6 +377,85 @@ struct SignalCanvasView: View {
         }
     }
 
+    /// Overlays a distinctive badge on the best- and worst-latency trail points
+    /// so the survey insights (Best / Worst tiles) map visually back to the
+    /// exact dots on the heatmap. Drawn after `drawPath` so the badges sit on
+    /// top of the regular blue waypoint dots. Skips the badge if a point is
+    /// currently selected (the yellow inspect ring takes precedence so the
+    /// user's active selection isn't hidden by the badge).
+    private func drawHighlightedSpots(in context: inout GraphicsContext, center: CGPoint) {
+        let bestColor = Color(red: 0.25, green: 0.86, blue: 0.43)
+        let worstColor = Color(red: 0.98, green: 0.39, blue: 0.34)
+
+        if let best = bestSpot, best.id != selectedPointID {
+            drawSpotMarker(
+                at: translated(best.position, center: center),
+                color: bestColor,
+                symbolID: BestSpotBadge.id,
+                label: "Best",
+                labelBelow: false,
+                in: &context
+            )
+        }
+
+        // If best and worst happen to be the same point (e.g. a single-sample
+        // survey), only show one badge to avoid visual stacking.
+        if let worst = worstSpot,
+           worst.id != selectedPointID,
+           worst.id != bestSpot?.id {
+            drawSpotMarker(
+                at: translated(worst.position, center: center),
+                color: worstColor,
+                symbolID: WorstSpotBadge.id,
+                label: "Worst",
+                labelBelow: true,
+                in: &context
+            )
+        }
+    }
+
+    private func drawSpotMarker(
+        at point: CGPoint,
+        color: Color,
+        symbolID: String,
+        label: String,
+        labelBelow: Bool,
+        in context: inout GraphicsContext
+    ) {
+        let ringRadius: CGFloat = 14
+        let ring = Path(ellipseIn: CGRect(
+            x: point.x - ringRadius,
+            y: point.y - ringRadius,
+            width: ringRadius * 2,
+            height: ringRadius * 2
+        ))
+        context.fill(ring, with: .color(color))
+        context.stroke(ring, with: .color(.white), lineWidth: 2.5)
+
+        if let symbol = context.resolveSymbol(id: symbolID) {
+            context.draw(symbol, at: point)
+        }
+
+        let labelOffset: CGFloat = labelBelow ? 24 : -24
+        let labelPoint = CGPoint(x: point.x, y: point.y + labelOffset)
+        let tagWidth: CGFloat = 44
+        let tagHeight: CGFloat = 16
+        let tagRect = CGRect(
+            x: labelPoint.x - tagWidth / 2,
+            y: labelPoint.y - tagHeight / 2,
+            width: tagWidth,
+            height: tagHeight
+        )
+        let tagPath = RoundedRectangle(cornerRadius: 8, style: .continuous).path(in: tagRect)
+        context.fill(tagPath, with: .color(color))
+        context.stroke(tagPath, with: .color(.white.opacity(0.9)), lineWidth: 1)
+
+        let text = Text(label)
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+        context.draw(text, at: labelPoint, anchor: .center)
+    }
+
     private func drawCalibration(in context: inout GraphicsContext, center: CGPoint) {
         if let start = calibrationStart {
             let translatedStart = translated(start, center: center)
@@ -502,5 +594,29 @@ private struct SurveyorSymbol: View {
                 .foregroundStyle(Color(red: 0.11, green: 0.5, blue: 0.99), Color(red: 1.0, green: 0.78, blue: 0.28))
                 .background(Circle().fill(Color.white))
         }
+    }
+}
+
+/// Glyph rendered inside the green "Best" spot marker. Drawn through the
+/// Canvas symbol resolver so a real SF Symbol (rather than a path approximation)
+/// stays crisp across zoom levels.
+private struct BestSpotBadge: View {
+    static let id = "bestSpotBadge"
+
+    var body: some View {
+        Image(systemName: "star.fill")
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(Color.white)
+    }
+}
+
+/// Glyph rendered inside the red "Worst" spot marker.
+private struct WorstSpotBadge: View {
+    static let id = "worstSpotBadge"
+
+    var body: some View {
+        Image(systemName: "exclamationmark")
+            .font(.system(size: 14, weight: .heavy))
+            .foregroundStyle(Color.white)
     }
 }
