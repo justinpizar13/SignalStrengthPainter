@@ -51,8 +51,18 @@ final class SignalMapViewModel: ObservableObject {
     let pointsPerMeter: Double = 38.0
     private let minimumLandmarkSegmentPoints: CGFloat = 25
     private let minimumLandmarkARPixels: CGFloat = 15
-    private let minimumSampleDistancePoints: CGFloat = 8
-    private let minimumSampleInterval: TimeInterval = 0.12
+    /// Distance (in map points) the surveyor must move since the last logged
+    /// sample before we record another. At `pointsPerMeter = 38`, 16 pt ≈
+    /// 42 cm — roughly double the previous 8 pt / 21 cm spacing. Wi-Fi
+    /// signal doesn't change meaningfully over 20 cm and each trail point's
+    /// heat blob already has a ~2.8 m diameter, so the coarser spacing keeps
+    /// the heatmap smooth while roughly halving total point count, which
+    /// makes individual points much easier to tap for post-survey review.
+    private let minimumSampleDistancePoints: CGFloat = 16
+    /// Minimum wall-clock gap between samples. Doubled from 0.12 s so a user
+    /// who's standing still (or walking very slowly near a router) doesn't
+    /// pile up near-identical samples at the same spot.
+    private let minimumSampleInterval: TimeInterval = 0.25
 
     init() {
         bindTracking()

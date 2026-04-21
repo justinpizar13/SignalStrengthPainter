@@ -154,6 +154,86 @@ struct FloorPlanRoom {
     let tint: FloorPlanRoomTint
 }
 
+/// Persistence + decoding helpers for user-supplied room nicknames.
+///
+/// The user can rename any room drawn under the survey heatmap (e.g. rename
+/// "Bedroom 2" → "Jamie's Room"). Names are stored per-template, keyed by the
+/// room's built-in name, and persisted as a JSON string in `@AppStorage` so
+/// they survive app relaunches without requiring a new `UserDefaults` key per
+/// template/room.
+///
+/// Shape of the decoded map:
+///
+///     [templateRawValue: [originalRoomName: customName]]
+///
+/// A room is considered "customized" only when the entry exists AND the
+/// trimmed value is non-empty; blank strings are treated as "reset to
+/// default" and removed on write so we don't keep empty keys around.
+enum FloorPlanCustomRoomNames {
+    typealias Map = [String: [String: String]]
+
+    /// Hard cap on a single room's nickname. Keeps the on-canvas label from
+    /// overflowing small rooms like "Bath 2" and keeps the editor sheet
+    /// readable.
+    static let maxNameLength = 24
+
+    static func decode(_ json: String) -> Map {
+        guard let data = json.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(Map.self, from: data)
+        else {
+            return [:]
+        }
+        return decoded
+    }
+
+    static func encode(_ map: Map) -> String {
+        guard let data = try? JSONEncoder().encode(map),
+              let str = String(data: data, encoding: .utf8)
+        else {
+            return "{}"
+        }
+        return str
+    }
+
+    /// Returns the overrides for a single template (empty dict when none).
+    static func names(for template: FloorPlanTemplate, json: String) -> [String: String] {
+        decode(json)[template.rawValue] ?? [:]
+    }
+
+    /// Returns a new JSON string reflecting the write. Empty / whitespace
+    /// names clear the override (reset to default).
+    static func setName(
+        _ name: String?,
+        for originalRoomName: String,
+        in template: FloorPlanTemplate,
+        json: String
+    ) -> String {
+        var map = decode(json)
+        var templateMap = map[template.rawValue] ?? [:]
+
+        let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == originalRoomName {
+            templateMap.removeValue(forKey: originalRoomName)
+        } else {
+            templateMap[originalRoomName] = String(trimmed.prefix(maxNameLength))
+        }
+
+        if templateMap.isEmpty {
+            map.removeValue(forKey: template.rawValue)
+        } else {
+            map[template.rawValue] = templateMap
+        }
+        return encode(map)
+    }
+
+    /// Returns a new JSON string with every override for `template` removed.
+    static func resetAll(for template: FloorPlanTemplate, json: String) -> String {
+        var map = decode(json)
+        map.removeValue(forKey: template.rawValue)
+        return encode(map)
+    }
+}
+
 enum FloorPlanRoomTint {
     case living
     case bedroom

@@ -4,12 +4,20 @@ struct ContentView: View {
     @Environment(\.theme) private var theme
     @StateObject private var viewModel = SignalMapViewModel()
     @State private var showResetConfirmation = false
+    @State private var showRoomNameEditor = false
     /// Persisted across launches so the user's last picked floor plan is
     /// remembered. Default is `.blank` (the plain background).
     @AppStorage("floorPlanTemplate") private var floorPlanRawValue: String = FloorPlanTemplate.blank.rawValue
+    /// JSON-encoded `[templateRaw: [originalRoomName: customName]]`. Empty
+    /// object by default — rooms fall back to their built-in names.
+    @AppStorage("customFloorPlanRoomNames") private var customRoomNamesJSON: String = "{}"
 
     private var selectedFloorPlan: FloorPlanTemplate {
         FloorPlanTemplate(rawValue: floorPlanRawValue) ?? .blank
+    }
+
+    private var roomNameOverrides: [String: String] {
+        FloorPlanCustomRoomNames.names(for: selectedFloorPlan, json: customRoomNamesJSON)
     }
 
     var body: some View {
@@ -173,6 +181,7 @@ struct ContentView: View {
             pendingReanchorPoint: viewModel.pendingReanchorPoint,
             contentScale: contentScale,
             floorPlan: selectedFloorPlan,
+            roomNameOverrides: roomNameOverrides,
             onMapTap: { point in
                 viewModel.handleMapTap(point)
             }
@@ -306,6 +315,33 @@ struct ContentView: View {
                 Text("Floor Plan")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
+
+                Spacer(minLength: 0)
+
+                if !selectedFloorPlan.rooms.isEmpty {
+                    Button {
+                        showRoomNameEditor = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Rename Rooms")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(.blue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue.opacity(0.12))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             HStack(spacing: 8) {
@@ -328,6 +364,13 @@ struct ContentView: View {
                         .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )
+        .sheet(isPresented: $showRoomNameEditor) {
+            FloorPlanRoomNameEditor(
+                template: selectedFloorPlan,
+                customNamesJSON: $customRoomNamesJSON
+            )
+            .withAppTheme()
+        }
     }
 
     private func floorPlanChip(_ template: FloorPlanTemplate) -> some View {
@@ -668,6 +711,152 @@ struct ContentView: View {
                 .fill(theme.cardFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Floor Plan Room Name Editor
+
+/// Sheet presented from the Floor Plan picker that lets the user give each
+/// room a personalized nickname (e.g. "Bedroom 2" → "Jamie's Room"). Writes
+/// are routed through `FloorPlanCustomRoomNames` so empty/blank entries clear
+/// the override rather than persisting an empty string, and the 24-character
+/// cap matches the canvas label's visual budget.
+private struct FloorPlanRoomNameEditor: View {
+    let template: FloorPlanTemplate
+    @Binding var customNamesJSON: String
+
+    @Environment(\.theme) private var theme
+    @Environment(\.dismiss) private var dismiss
+
+    private var currentOverrides: [String: String] {
+        FloorPlanCustomRoomNames.names(for: template, json: customNamesJSON)
+    }
+
+    private var hasAnyOverrides: Bool {
+        !currentOverrides.isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Give each room a name that matches your space. Leave blank to use the default.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(theme.secondaryText)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+
+                    VStack(spacing: 10) {
+                        ForEach(template.rooms.indices, id: \.self) { idx in
+                            roomRow(for: template.rooms[idx])
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    if hasAnyOverrides {
+                        Button(role: .destructive) {
+                            customNamesJSON = FloorPlanCustomRoomNames.resetAll(
+                                for: template,
+                                json: customNamesJSON
+                            )
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 12))
+                                Text("Reset All to Defaults")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(Color(red: 0.98, green: 0.39, blue: 0.34))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(red: 0.98, green: 0.39, blue: 0.34).opacity(0.10))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color(red: 0.98, green: 0.39, blue: 0.34).opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                    }
+
+                    Spacer(minLength: 24)
+                }
+            }
+            .background(theme.background.ignoresSafeArea())
+            .navigationTitle("Rename Rooms")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundStyle(.blue)
+                }
+            }
+        }
+    }
+
+    private func roomRow(for room: FloorPlanRoom) -> some View {
+        let currentValue = currentOverrides[room.name] ?? ""
+        let binding = Binding<String>(
+            get: { currentValue },
+            set: { newValue in
+                customNamesJSON = FloorPlanCustomRoomNames.setName(
+                    newValue,
+                    for: room.name,
+                    in: template,
+                    json: customNamesJSON
+                )
+            }
+        )
+
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(room.tint.color.opacity(0.85))
+                .frame(width: 10, height: 10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(room.name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.tertiaryText)
+                TextField(room.name, text: binding)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(false)
+                    .submitLabel(.done)
+                    .onChange(of: binding.wrappedValue) { _, newValue in
+                        if newValue.count > FloorPlanCustomRoomNames.maxNameLength {
+                            binding.wrappedValue = String(newValue.prefix(FloorPlanCustomRoomNames.maxNameLength))
+                        }
+                    }
+            }
+
+            if !currentValue.isEmpty {
+                Button {
+                    binding.wrappedValue = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(theme.tertiaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reset \(room.name)")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
                         .stroke(theme.cardStroke, lineWidth: 1)
                 )
         )

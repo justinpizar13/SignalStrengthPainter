@@ -13,6 +13,10 @@ struct SignalCanvasView: View {
     /// Which sample floor plan to draw under the trail/heatmap. `.blank` uses
     /// a plain shell with no rooms.
     var floorPlan: FloorPlanTemplate = .blank
+    /// User-supplied room nicknames keyed by the room's **original** name
+    /// (e.g. `["Bedroom 2": "Jamie's Room"]`). Rooms not present in this map
+    /// fall back to their default name.
+    var roomNameOverrides: [String: String] = [:]
     let onMapTap: ((CGPoint) -> Void)?
 
     @Environment(\.theme) private var theme
@@ -278,7 +282,8 @@ struct SignalCanvasView: View {
             // Only draw a label when the room is large enough that the text
             // won't overflow / clip.
             if roomRect.width >= 48, roomRect.height >= 28 {
-                let label = Text(room.name)
+                let displayName = roomNameOverrides[room.name] ?? room.name
+                let label = Text(displayName)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.78))
                 context.draw(
