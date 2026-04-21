@@ -167,8 +167,38 @@ final class NetworkScanner: ObservableObject {
     /// UPnP device descriptions fetched from SSDP LOCATION URLs
     private var upnpDescriptions: [String: (friendlyName: String, manufacturer: String?, modelName: String?)] = [:]
 
-    private static let trustedKey = "trustedDeviceIPs"
-    private static let customNamesKey = "customDeviceNames"
+    /// Gateway IP for the most recent scan. Captured at scan start and
+    /// used together with the ARP table at scan end to derive a stable
+    /// per-network fingerprint (see `currentNetworkID`).
+    private var currentGatewayIP: String?
+
+    /// Stable fingerprint for the network the last completed scan was run
+    /// on. Derived from the gateway's hardware (MAC) address, which is
+    /// unique per router and — unlike client devices — is never privacy
+    /// randomized on the LAN-facing interface. All persisted trust flags
+    /// and custom device names are scoped to this ID so that moving to
+    /// another Wi-Fi network that reuses the same IP schema (e.g., every
+    /// home router defaults to `192.168.1.x`) never causes a stranger's
+    /// device at `192.168.1.10` to be treated as your own trusted gear.
+    /// Nil when we haven't finished a scan yet, or when the ARP table
+    /// didn't contain a usable gateway MAC (rare).
+    @Published private(set) var currentNetworkID: String?
+
+    /// New, network-scoped storage. Key structure:
+    ///   trustedDevicesByNetwork : [networkID: [trustedIP]]
+    ///   customDeviceNamesByNetwork : [networkID: [ip: nickname]]
+    private static let trustedByNetworkKey = "trustedDevicesByNetwork"
+    private static let customNamesByNetworkKey = "customDeviceNamesByNetwork"
+
+    /// One-shot flag: set the first time we successfully migrate the
+    /// legacy flat (IP-only) trust/name storage into the new
+    /// network-scoped storage.
+    private static let trustMigrationKey = "trustMigrationCompleted_v2"
+
+    /// Legacy UserDefaults keys from before trust/names were scoped to a
+    /// network. Read once during migration, then deleted.
+    private static let legacyTrustedKey = "trustedDeviceIPs"
+    private static let legacyCustomNamesKey = "customDeviceNames"
 
     /// Maximum characters allowed in a user-assigned device nickname.
     /// Keeps UI rows from overflowing and bounds the stored data.
@@ -180,14 +210,43 @@ final class NetworkScanner: ObservableObject {
         22, 139, 5353, 8888, 5000, 515, 3000
     ]
 
-    var trustedIPs: Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: Self.trustedKey) ?? [])
+    /// Full persisted trust map: networkID → array of trusted IPs on that
+    /// network. Read lazily so we stay consistent across launches.
+    private var trustedByNetwork: [String: [String]] {
+        UserDefaults.standard.dictionary(forKey: Self.trustedByNetworkKey) as? [String: [String]] ?? [:]
     }
 
+    /// Full persisted custom-name map: networkID → (IP → nickname).
+    private var customNamesByNetwork: [String: [String: String]] {
+        UserDefaults.standard.dictionary(forKey: Self.customNamesByNetworkKey) as? [String: [String: String]] ?? [:]
+    }
+
+    /// Trust flags persisted for the supplied network.
+    private func trustedIPs(for networkID: String) -> Set<String> {
+        Set(trustedByNetwork[networkID] ?? [])
+    }
+
+    /// Custom nicknames persisted for the supplied network.
+    private func customNames(for networkID: String) -> [String: String] {
+        customNamesByNetwork[networkID] ?? [:]
+    }
+
+    /// Marks (or un-marks) a device as trusted for the current network.
+    /// No-op until a scan has resolved the gateway MAC and set
+    /// `currentNetworkID`, so we never write trust data to an unknown or
+    /// ambiguous network.
     func setTrusted(_ ip: String, trusted: Bool) {
-        var current = trustedIPs
+        guard let networkID = currentNetworkID else { return }
+        var byNetwork = trustedByNetwork
+        var current = Set(byNetwork[networkID] ?? [])
         if trusted { current.insert(ip) } else { current.remove(ip) }
-        UserDefaults.standard.set(Array(current), forKey: Self.trustedKey)
+        if current.isEmpty {
+            byNetwork.removeValue(forKey: networkID)
+        } else {
+            byNetwork[networkID] = Array(current)
+        }
+        UserDefaults.standard.set(byNetwork, forKey: Self.trustedByNetworkKey)
+
         if let idx = devices.firstIndex(where: { $0.ipAddress == ip }) {
             devices[idx].isTrusted = trusted
             // If the user un-trusts a device, drop their custom name too so
@@ -195,44 +254,133 @@ final class NetworkScanner: ObservableObject {
             // that implies they know it.
             if !trusted {
                 devices[idx].customName = nil
-                removeStoredCustomName(for: ip)
+                removeStoredCustomName(for: ip, in: networkID)
             }
         }
         objectWillChange.send()
     }
 
-    /// Persisted map of IP → user-assigned nickname. Read lazily from
-    /// `UserDefaults` so we stay in sync with changes across app launches.
-    var customNames: [String: String] {
-        UserDefaults.standard.dictionary(forKey: Self.customNamesKey) as? [String: String] ?? [:]
-    }
-
-    /// Assigns (or clears) a custom nickname for a device. The name is
-    /// sanitized: trimmed of whitespace/control characters and capped to
-    /// `customNameMaxLength`. Passing `nil` or an empty string removes the
-    /// stored nickname. Only allowed for trusted devices — renaming an
-    /// unknown host would give the user a false sense of recognition.
+    /// Assigns (or clears) a custom nickname for a device on the current
+    /// network. The name is sanitized: trimmed of whitespace/control
+    /// characters and capped to `customNameMaxLength`. Passing `nil` or
+    /// an empty string removes the stored nickname. Only allowed for
+    /// trusted devices — renaming an unknown host would give the user a
+    /// false sense of recognition.
     func setCustomName(_ ip: String, name: String?) {
+        guard let networkID = currentNetworkID else { return }
         guard let idx = devices.firstIndex(where: { $0.ipAddress == ip }) else { return }
         guard devices[idx].isTrusted else { return }
 
         let sanitized = Self.sanitizeCustomName(name)
         if let sanitized {
-            var current = customNames
+            var byNetwork = customNamesByNetwork
+            var current = byNetwork[networkID] ?? [:]
             current[ip] = sanitized
-            UserDefaults.standard.set(current, forKey: Self.customNamesKey)
+            byNetwork[networkID] = current
+            UserDefaults.standard.set(byNetwork, forKey: Self.customNamesByNetworkKey)
             devices[idx].customName = sanitized
         } else {
-            removeStoredCustomName(for: ip)
+            removeStoredCustomName(for: ip, in: networkID)
             devices[idx].customName = nil
         }
         objectWillChange.send()
     }
 
-    private func removeStoredCustomName(for ip: String) {
-        var current = customNames
+    private func removeStoredCustomName(for ip: String, in networkID: String) {
+        var byNetwork = customNamesByNetwork
+        guard var current = byNetwork[networkID] else { return }
         if current.removeValue(forKey: ip) != nil {
-            UserDefaults.standard.set(current, forKey: Self.customNamesKey)
+            if current.isEmpty {
+                byNetwork.removeValue(forKey: networkID)
+            } else {
+                byNetwork[networkID] = current
+            }
+            UserDefaults.standard.set(byNetwork, forKey: Self.customNamesByNetworkKey)
+        }
+    }
+
+    /// Derives a stable per-network fingerprint from the gateway's MAC
+    /// address. Returns `nil` when the ARP table doesn't yet contain an
+    /// entry for the gateway, or when the gateway somehow reports a
+    /// locally-administered (randomized) MAC — both are rare on home
+    /// routers but we refuse to key trust data on something unstable.
+    private func computeNetworkID(gatewayIP: String, arpTable: [String: String]) -> String? {
+        guard let mac = arpTable[gatewayIP], !mac.isEmpty else { return nil }
+        let normalized = mac.lowercased()
+        guard !MACAddressResolver.isLocallyAdministered(normalized) else { return nil }
+        return "gw:\(normalized)"
+    }
+
+    /// One-shot migration from the pre-upgrade, IP-only trust/name store
+    /// to the new network-scoped store. We only carry legacy data
+    /// forward when we have strong evidence the current scan is running
+    /// on the same network the data was created on — specifically, when
+    /// at least half of the previously-trusted IPs are currently present
+    /// in `devices`. Otherwise we drop the legacy entries: untrusting
+    /// everything is a far better failure mode than silently re-trusting
+    /// strangers' hardware on a new network that reuses the same IP
+    /// schema. Always clears the legacy keys so migration is a one-shot.
+    private func migrateLegacyTrustIfNeeded(into networkID: String) {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.trustMigrationKey) else { return }
+        let legacyTrustedList = defaults.stringArray(forKey: Self.legacyTrustedKey) ?? []
+        let legacyNames = defaults.dictionary(forKey: Self.legacyCustomNamesKey) as? [String: String] ?? [:]
+        let legacyTrustedSet = Set(legacyTrustedList)
+
+        let currentIPs = Set(devices.map(\.ipAddress))
+        let overlap = legacyTrustedSet.intersection(currentIPs).count
+        let shouldMigrate = !legacyTrustedSet.isEmpty && overlap * 2 >= legacyTrustedSet.count
+
+        if shouldMigrate {
+            var byNetTrust = trustedByNetwork
+            var existing = Set(byNetTrust[networkID] ?? [])
+            existing.formUnion(legacyTrustedSet)
+            byNetTrust[networkID] = Array(existing)
+            defaults.set(byNetTrust, forKey: Self.trustedByNetworkKey)
+
+            if !legacyNames.isEmpty {
+                var byNetNames = customNamesByNetwork
+                var names = byNetNames[networkID] ?? [:]
+                names.merge(legacyNames, uniquingKeysWith: { _, new in new })
+                byNetNames[networkID] = names
+                defaults.set(byNetNames, forKey: Self.customNamesByNetworkKey)
+            }
+        }
+
+        defaults.removeObject(forKey: Self.legacyTrustedKey)
+        defaults.removeObject(forKey: Self.legacyCustomNamesKey)
+        defaults.set(true, forKey: Self.trustMigrationKey)
+    }
+
+    /// Applies the stored trust flags and custom nicknames for the
+    /// current network to every discovered device. Deferred until the
+    /// ARP table is populated so we know which network we're actually on
+    /// — before that point we cannot distinguish e.g. "my home router"
+    /// from "a coffee shop router that also uses 192.168.1.1".
+    private func applyTrustAndCustomNames(arpTable: [String: String], gatewayIP: String) {
+        let networkID = computeNetworkID(gatewayIP: gatewayIP, arpTable: arpTable)
+        currentNetworkID = networkID
+
+        guard let networkID else {
+            // Without a stable network ID we cannot safely apply any
+            // persisted trust state. Leave every device as untrusted so
+            // the user cannot accidentally act on cross-network data.
+            for i in devices.indices {
+                devices[i].isTrusted = false
+                devices[i].customName = nil
+            }
+            return
+        }
+
+        migrateLegacyTrustIfNeeded(into: networkID)
+
+        let trusted = trustedIPs(for: networkID)
+        let names = customNames(for: networkID)
+        for i in devices.indices {
+            let ip = devices[i].ipAddress
+            let isTrusted = trusted.contains(ip)
+            devices[i].isTrusted = isTrusted
+            devices[i].customName = isTrusted ? names[ip] : nil
         }
     }
 
@@ -271,6 +419,12 @@ final class NetworkScanner: ObservableObject {
         upnpDescriptions = [:]
         bonjourCollector.reset()
         stopBonjourBrowsers()
+        // Clear any stale network fingerprint from a previous scan. We'll
+        // recompute it at the end of this scan once the ARP table is
+        // populated — until then, every newly-built device is treated as
+        // untrusted (see `applyTrustAndCustomNames`).
+        currentNetworkID = nil
+        currentGatewayIP = nil
         scanStatusMessage = "Discovering local network..."
 
         let (ip, mask) = getLocalIPAndMask()
@@ -302,6 +456,7 @@ final class NetworkScanner: ObservableObject {
 
             let subnet = calculateSubnetRange(ip: ip, mask: mask)
             let gatewayIP = inferGatewayIP(localIP: ip)
+            currentGatewayIP = gatewayIP
             let totalHosts = subnet.count
             var scannedCount = 0
 
@@ -350,6 +505,11 @@ final class NetworkScanner: ObservableObject {
                                     let hint = self.ssdpServiceHint(ssdpInfo, ip: foundIP)
                                     if !allServices.contains(hint) { allServices.append(hint) }
                                 }
+                                // Trust flags and custom nicknames are applied
+                                // at the end of the scan (see
+                                // `applyTrustAndCustomNames`) once we have
+                                // resolved the gateway MAC and can tell which
+                                // network we're on.
                                 let device = DiscoveredDevice(
                                     id: foundIP,
                                     ipAddress: foundIP,
@@ -364,8 +524,8 @@ final class NetworkScanner: ObservableObject {
                                     hasRandomizedMAC: false,
                                     firstSeen: Date(),
                                     isCurrentDevice: isSelf,
-                                    isTrusted: trustedIPs.contains(foundIP),
-                                    customName: customNames[foundIP]
+                                    isTrusted: false,
+                                    customName: nil
                                 )
                                 devices.append(device)
                                 sortDevices()
@@ -418,6 +578,21 @@ final class NetworkScanner: ObservableObject {
     /// their Wi-Fi.
     private func resolveMACAddresses() {
         let arpTable = MACAddressResolver.readARPTable()
+
+        // Even if the ARP table is empty we still want to call
+        // `applyTrustAndCustomNames` so stale trust flags from a
+        // previous scan don't bleed into the UI. The apply helper
+        // gracefully falls back to "no trust" when the gateway's MAC
+        // isn't resolvable.
+        // Apply persisted trust state after MAC resolution (or
+        // attempted resolution) finishes. Sort order doesn't depend on
+        // `isTrusted`/`customName`, so we don't need to re-sort here.
+        defer {
+            if let gatewayIP = currentGatewayIP {
+                applyTrustAndCustomNames(arpTable: arpTable, gatewayIP: gatewayIP)
+            }
+        }
+
         guard !arpTable.isEmpty else { return }
 
         for i in devices.indices {
@@ -724,6 +899,7 @@ final class NetworkScanner: ObservableObject {
                 let hint = ssdpServiceHint(ssdpInfo, ip: ip)
                 if !allServices.contains(hint) { allServices.append(hint) }
             }
+            // Trust flags and nicknames are applied at scan end.
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
@@ -738,8 +914,8 @@ final class NetworkScanner: ObservableObject {
                 hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
-                isTrusted: trustedIPs.contains(ip),
-                customName: customNames[ip]
+                isTrusted: false,
+                customName: nil
             )
             devices.append(device)
         }
@@ -861,6 +1037,7 @@ final class NetworkScanner: ObservableObject {
             )
             let serviceHint = ssdpServiceHint(headers, ip: ip)
             let ssdpName = upnpDescriptions[ip]?.friendlyName
+            // Trust flags and nicknames are applied at scan end.
             let device = DiscoveredDevice(
                 id: ip,
                 ipAddress: ip,
@@ -875,8 +1052,8 @@ final class NetworkScanner: ObservableObject {
                 hasRandomizedMAC: false,
                 firstSeen: Date(),
                 isCurrentDevice: isSelf,
-                isTrusted: trustedIPs.contains(ip),
-                customName: customNames[ip]
+                isTrusted: false,
+                customName: nil
             )
             devices.append(device)
         }
