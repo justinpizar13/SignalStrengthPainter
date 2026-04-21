@@ -7,53 +7,60 @@ struct SignalCanvasView: View {
     let showSurveyor: Bool
     let calibrationStart: CGPoint?
     let pendingReanchorPoint: CGPoint?
-    /// Uniform scale about the view center (smaller = more "zoomed out" for long walks).
+    /// Baseline uniform scale about the view center (smaller = more "zoomed out" for long walks).
+    /// The user's pinch / zoom-button input multiplies on top of this.
     var contentScale: CGFloat = 1.0
     let onMapTap: ((CGPoint) -> Void)?
 
     @Environment(\.theme) private var theme
 
+    @State private var userScale: CGFloat = 1.0
+    @State private var panOffset: CGSize = .zero
+    @GestureState private var pinchDelta: CGFloat = 1.0
+    @GestureState private var dragDelta: CGSize = .zero
+    @State private var selectedPointID: UUID?
+
+    private let minUserScale: CGFloat = 0.4
+    private let maxUserScale: CGFloat = 5.0
+    private let zoomStep: CGFloat = 1.4
+    private let tapSlop: CGFloat = 6
+    private let pointHitRadius: CGFloat = 18
+
+    private var effectiveScale: CGFloat {
+        contentScale * userScale * pinchDelta
+    }
+
+    private var effectiveOffset: CGSize {
+        CGSize(
+            width: panOffset.width + dragDelta.width,
+            height: panOffset.height + dragDelta.height
+        )
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            Canvas { context, size in
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                let mapRect = CGRect(origin: .zero, size: size).insetBy(dx: 22, dy: 22)
+            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            let scale = effectiveScale
+            let offset = effectiveOffset
+            let selectedPoint = selectedPointID.flatMap { id in points.first(where: { $0.id == id }) }
 
-                if contentScale != 1, contentScale > 0.001 {
-                    context.concatenate(
-                        CGAffineTransform(translationX: center.x, y: center.y)
-                            .scaledBy(x: contentScale, y: contentScale)
-                            .translatedBy(x: -center.x, y: -center.y)
+            ZStack(alignment: .topTrailing) {
+                mapCanvas(size: geometry.size, scale: scale, offset: offset)
+
+                gestureLayer(center: center)
+
+                zoomControls
+                    .padding(12)
+
+                if let selectedPoint {
+                    pointInfoBubble(
+                        for: selectedPoint,
+                        center: center,
+                        scale: scale,
+                        offset: offset,
+                        canvasSize: geometry.size
                     )
                 }
-
-                drawFloorPlan(in: &context, rect: mapRect)
-                drawHeatMap(in: &context, center: center)
-                drawPath(in: &context, center: center)
-                drawCalibration(in: &context, center: center)
-                if showSurveyor {
-                    drawSurveyor(in: &context, center: center)
-                }
-            } symbols: {
-                SurveyorSymbol()
-                    .tag(SurveyorSymbol.id)
-            }
-            .overlay {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onEnded { value in
-                                guard let onMapTap else { return }
-                                let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                                let scale = contentScale > 0.001 ? contentScale : 1.0
-                                let translated = CGPoint(
-                                    x: (value.location.x - center.x) / scale,
-                                    y: (value.location.y - center.y) / scale
-                                )
-                                onMapTap(translated)
-                            }
-                    )
             }
         }
         .background(theme.canvasBackground)
@@ -63,6 +70,168 @@ struct SignalCanvasView: View {
                 .stroke(theme.canvasStroke, lineWidth: 1)
         )
     }
+
+    // MARK: - Canvas
+
+    private func mapCanvas(size canvasSize: CGSize, scale: CGFloat, offset: CGSize) -> some View {
+        Canvas { context, size in
+            let innerCenter = CGPoint(x: size.width / 2, y: size.height / 2)
+            let mapRect = CGRect(origin: .zero, size: size).insetBy(dx: 22, dy: 22)
+
+            context.concatenate(
+                CGAffineTransform(translationX: innerCenter.x + offset.width, y: innerCenter.y + offset.height)
+                    .scaledBy(x: scale, y: scale)
+                    .translatedBy(x: -innerCenter.x, y: -innerCenter.y)
+            )
+
+            drawFloorPlan(in: &context, rect: mapRect)
+            drawHeatMap(in: &context, center: innerCenter)
+            drawPath(in: &context, center: innerCenter)
+            drawCalibration(in: &context, center: innerCenter)
+            if showSurveyor {
+                drawSurveyor(in: &context, center: innerCenter)
+            }
+        } symbols: {
+            SurveyorSymbol()
+                .tag(SurveyorSymbol.id)
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height)
+    }
+
+    // MARK: - Gestures
+
+    private func gestureLayer(center: CGPoint) -> some View {
+        let drag = DragGesture(minimumDistance: 0)
+            .updating($dragDelta) { value, state, _ in
+                let distance = hypot(value.translation.width, value.translation.height)
+                if distance > tapSlop {
+                    state = value.translation
+                }
+            }
+            .onEnded { value in
+                let distance = hypot(value.translation.width, value.translation.height)
+                if distance <= tapSlop {
+                    handleTap(at: value.location, center: center)
+                } else {
+                    panOffset.width += value.translation.width
+                    panOffset.height += value.translation.height
+                }
+            }
+
+        let pinch = MagnificationGesture()
+            .updating($pinchDelta) { value, state, _ in
+                state = value
+            }
+            .onEnded { value in
+                userScale = clamp(userScale * value, minUserScale, maxUserScale)
+            }
+
+        return Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(SimultaneousGesture(drag, pinch))
+    }
+
+    private func handleTap(at screenLocation: CGPoint, center: CGPoint) {
+        let scale = effectiveScale
+        let offset = effectiveOffset
+        let mapPoint = CGPoint(
+            x: (screenLocation.x - center.x - offset.width) / scale,
+            y: (screenLocation.y - center.y - offset.height) / scale
+        )
+
+        let hitRadiusInMapUnits = pointHitRadius / max(scale, 0.001)
+        if let hit = nearestTrailPoint(to: mapPoint, withinRadius: hitRadiusInMapUnits) {
+            selectedPointID = hit.id
+            return
+        }
+
+        selectedPointID = nil
+        onMapTap?(mapPoint)
+    }
+
+    private func nearestTrailPoint(to mapPoint: CGPoint, withinRadius radius: CGFloat) -> TrailPoint? {
+        var best: (point: TrailPoint, distance: CGFloat)?
+        for p in points {
+            let d = hypot(p.position.x - mapPoint.x, p.position.y - mapPoint.y)
+            if d <= radius, d < (best?.distance ?? .greatestFiniteMagnitude) {
+                best = (p, d)
+            }
+        }
+        return best?.point
+    }
+
+    // MARK: - Zoom controls
+
+    private var zoomControls: some View {
+        VStack(spacing: 8) {
+            zoomButton(icon: "plus") { zoom(by: zoomStep) }
+                .disabled(userScale >= maxUserScale - 0.001)
+            zoomButton(icon: "minus") { zoom(by: 1.0 / zoomStep) }
+                .disabled(userScale <= minUserScale + 0.001)
+            zoomButton(icon: "scope") { recenter() }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func zoomButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(theme.primaryText)
+                .frame(width: 34, height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(theme.cardFill.opacity(0.92))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(theme.cardStroke, lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func zoom(by factor: CGFloat) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            userScale = clamp(userScale * factor, minUserScale, maxUserScale)
+        }
+    }
+
+    private func recenter() {
+        withAnimation(.easeOut(duration: 0.25)) {
+            panOffset = .zero
+            userScale = 1.0
+            selectedPointID = nil
+        }
+    }
+
+    // MARK: - Point info bubble
+
+    private func pointInfoBubble(
+        for point: TrailPoint,
+        center: CGPoint,
+        scale: CGFloat,
+        offset: CGSize,
+        canvasSize: CGSize
+    ) -> some View {
+        let screenX = point.position.x * scale + center.x + offset.width
+        let screenY = point.position.y * scale + center.y + offset.height
+
+        // Place the bubble above the point when there's room, below otherwise.
+        let bubbleYOffset: CGFloat = screenY < 80 ? 60 : -60
+        let clampedX = min(max(screenX, 100), canvasSize.width - 100)
+        let clampedY = min(max(screenY + bubbleYOffset, 40), canvasSize.height - 40)
+
+        return PointInfoCard(
+            point: point,
+            onDismiss: { selectedPointID = nil }
+        )
+        .position(x: clampedX, y: clampedY)
+        .transition(.opacity.combined(with: .scale))
+    }
+
+    // MARK: - Drawing
 
     private func drawFloorPlan(in context: inout GraphicsContext, rect: CGRect) {
         let shell = RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: rect)
@@ -119,19 +288,40 @@ struct SignalCanvasView: View {
     }
 
     private func drawPath(in context: inout GraphicsContext, center: CGPoint) {
-        guard points.count > 1 else { return }
+        guard !points.isEmpty else { return }
 
-        for index in 1..<points.count {
-            let previous = translated(points[index - 1].position, center: center)
-            let next = translated(points[index].position, center: center)
+        if points.count > 1 {
             var path = Path()
-            path.move(to: previous)
-            path.addLine(to: next)
+            path.move(to: translated(points[0].position, center: center))
+            for index in 1..<points.count {
+                path.addLine(to: translated(points[index].position, center: center))
+            }
             context.stroke(path, with: .color(Color.blue.opacity(0.95)), lineWidth: 4)
+        }
 
-            let waypoint = Path(ellipseIn: CGRect(x: next.x - 5.5, y: next.y - 5.5, width: 11, height: 11))
-            context.fill(waypoint, with: .color(Color.blue))
-            context.stroke(waypoint, with: .color(.white.opacity(0.85)), lineWidth: 1.5)
+        for point in points {
+            let pt = translated(point.position, center: center)
+            let isHighlighted = point.id == selectedPointID
+            let radius: CGFloat = isHighlighted ? 8 : 5.5
+            let waypoint = Path(ellipseIn: CGRect(
+                x: pt.x - radius, y: pt.y - radius,
+                width: radius * 2, height: radius * 2
+            ))
+            context.fill(
+                waypoint,
+                with: .color(isHighlighted ? Color.yellow : Color.blue)
+            )
+            context.stroke(
+                waypoint,
+                with: .color(.white.opacity(0.9)),
+                lineWidth: isHighlighted ? 2.5 : 1.5
+            )
+        }
+
+        if let id = selectedPointID, let point = points.first(where: { $0.id == id }) {
+            let pt = translated(point.position, center: center)
+            let ring = Path(ellipseIn: CGRect(x: pt.x - 16, y: pt.y - 16, width: 32, height: 32))
+            context.stroke(ring, with: .color(Color.yellow.opacity(0.6)), lineWidth: 2)
         }
     }
 
@@ -181,6 +371,81 @@ struct SignalCanvasView: View {
 
     private func translated(_ point: CGPoint, center: CGPoint) -> CGPoint {
         CGPoint(x: center.x + point.x, y: center.y + point.y)
+    }
+
+    private func clamp<T: Comparable>(_ x: T, _ lo: T, _ hi: T) -> T {
+        min(max(x, lo), hi)
+    }
+}
+
+private struct PointInfoCard: View {
+    let point: TrailPoint
+    let onDismiss: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    private static let timeFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.timeStyle = .medium
+        df.dateStyle = .none
+        return df
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(point.quality.color)
+                    .frame(width: 8, height: 8)
+                Text(point.quality.description)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(theme.secondaryText)
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(alignment: .top, spacing: 14) {
+                infoColumn(
+                    caption: "Latency",
+                    value: point.latencyMs.map { "\(Int($0)) ms" } ?? "—"
+                )
+                infoColumn(
+                    caption: "Captured",
+                    value: Self.timeFormatter.string(from: point.timestamp)
+                )
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+        )
+        .fixedSize()
+    }
+
+    private func infoColumn(caption: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(caption.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(theme.tertiaryText)
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(theme.primaryText)
+        }
     }
 }
 

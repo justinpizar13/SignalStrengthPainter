@@ -136,9 +136,11 @@ final class SignalMapViewModel: ObservableObject {
         }
     }
 
-    /// Zooms map content toward the view center so longer walks stay on the canvas (1 = normal).
+    /// Baseline zoom applied to map content so longer walks stay on the canvas (1 = normal).
+    /// Users can pinch / use the zoom controls in `SignalCanvasView` to zoom in or out from this baseline,
+    /// and tap the recenter button to return to it.
     var mapContentScale: CGFloat {
-        usesExpandedMapLayout ? 0.48 : 1.0
+        usesExpandedMapLayout ? 0.72 : 1.0
     }
 
     func performPrimaryAction() {

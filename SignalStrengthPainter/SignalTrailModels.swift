@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import SwiftUI
 
 enum LatencyQuality: String {
@@ -33,6 +34,13 @@ struct TrailPoint: Identifiable {
     let id = UUID()
     let position: CGPoint
     let latencyMs: Double?
+    let timestamp: Date
+
+    init(position: CGPoint, latencyMs: Double?, timestamp: Date = Date()) {
+        self.position = position
+        self.latencyMs = latencyMs
+        self.timestamp = timestamp
+    }
 
     var normalizedSignal: Double {
         guard let latencyMs else { return 0 }
