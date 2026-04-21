@@ -380,10 +380,16 @@ struct PaywallView: View {
     private func startPurchase() async {
         guard let product = store.product(for: selectedPlan.productID) else {
             // Product metadata hasn't loaded (or the ID is wrong) — retry
-            // the fetch and surface a friendly error if it still fails.
+            // the fetch and surface whatever error `loadProducts()` set.
+            // We preserve that error (e.g. "launch from Xcode so
+            // Configuration.storekit is attached") instead of overwriting
+            // it with a generic "try again" — otherwise the real reason
+            // is invisible on device.
             await store.loadProducts()
             if store.product(for: selectedPlan.productID) == nil {
-                store.lastError = "Couldn't load that subscription. Please try again."
+                if store.lastError == nil {
+                    store.lastError = "Couldn't load that subscription. Please try again."
+                }
                 showRestoreError = true
             }
             return

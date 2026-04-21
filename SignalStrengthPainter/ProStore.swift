@@ -78,8 +78,32 @@ final class ProStore: ObservableObject {
             self.products = loaded.sorted { lhs, _ in
                 lhs.id == Self.monthlyProductID
             }
+
+            // `Product.products(for:)` does NOT throw when the store simply
+            // has nothing to return for our IDs — most commonly because the
+            // app isn't attached to Xcode's StoreKit config file on device,
+            // or the IDs aren't in App Store Connect / Sandbox yet. Detect
+            // that here so the UI can say something useful instead of the
+            // generic "try again" message.
+            if loaded.isEmpty {
+                #if DEBUG
+                lastError = """
+                    No Wi-Fi Buddy Pro products were returned by StoreKit. \
+                    On a physical device, launch the app from Xcode (⌘R) so \
+                    Configuration.storekit is attached — or configure a \
+                    Sandbox tester. Product IDs expected: \
+                    \(Self.allProductIDs.sorted().joined(separator: ", "))
+                    """
+                #else
+                lastError = "Wi-Fi Buddy Pro isn't available right now. Please try again later."
+                #endif
+            }
         } catch {
+            #if DEBUG
+            lastError = "Couldn't load subscription options: \(error.localizedDescription)"
+            #else
             lastError = "Couldn't load subscription options. Check your connection and try again."
+            #endif
         }
     }
 
