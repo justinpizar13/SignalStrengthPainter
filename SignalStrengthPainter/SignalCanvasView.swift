@@ -10,6 +10,9 @@ struct SignalCanvasView: View {
     /// Baseline uniform scale about the view center (smaller = more "zoomed out" for long walks).
     /// The user's pinch / zoom-button input multiplies on top of this.
     var contentScale: CGFloat = 1.0
+    /// Which sample floor plan to draw under the trail/heatmap. `.blank` uses
+    /// a plain shell with no rooms.
+    var floorPlan: FloorPlanTemplate = .blank
     let onMapTap: ((CGPoint) -> Void)?
 
     @Environment(\.theme) private var theme
@@ -237,32 +240,63 @@ struct SignalCanvasView: View {
         let shell = RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: rect)
         context.fill(shell, with: .color(Color(red: 0.28, green: 0.27, blue: 0.25)))
 
-        let rooms: [(CGRect, Color)] = [
-            (CGRect(x: rect.minX + 16, y: rect.midY + 12, width: rect.width * 0.32, height: rect.height * 0.28), Color(red: 0.56, green: 0.42, blue: 0.25)),
-            (CGRect(x: rect.minX + 24, y: rect.minY + 28, width: rect.width * 0.34, height: rect.height * 0.22), Color(red: 0.47, green: 0.43, blue: 0.35)),
-            (CGRect(x: rect.midX - 40, y: rect.minY + 24, width: rect.width * 0.22, height: rect.height * 0.27), Color(red: 0.42, green: 0.39, blue: 0.28)),
-            (CGRect(x: rect.midX + 10, y: rect.midY - 14, width: rect.width * 0.28, height: rect.height * 0.3), Color(red: 0.4, green: 0.45, blue: 0.31)),
-            (CGRect(x: rect.midX + 26, y: rect.minY + 26, width: rect.width * 0.24, height: rect.height * 0.23), Color(red: 0.38, green: 0.41, blue: 0.33))
-        ]
-
-        for (roomRect, color) in rooms {
-            let room = RoundedRectangle(cornerRadius: 8, style: .continuous).path(in: roomRect)
-            context.fill(room, with: .color(color.opacity(0.92)))
-            context.stroke(room, with: .color(Color.black.opacity(0.35)), lineWidth: 1)
-
-            let inset = roomRect.insetBy(dx: 10, dy: 10)
-            var furniture = Path()
-            furniture.addRect(CGRect(x: inset.minX, y: inset.minY, width: inset.width * 0.5, height: inset.height * 0.22))
-            furniture.addRect(CGRect(x: inset.maxX - inset.width * 0.26, y: inset.maxY - inset.height * 0.24, width: inset.width * 0.22, height: inset.height * 0.18))
-            context.stroke(furniture, with: .color(Color.white.opacity(0.12)), lineWidth: 1)
+        let rooms = floorPlan.rooms
+        guard !rooms.isEmpty else {
+            // Blank template — leave the plain shell so the heatmap reads on a
+            // clean surface. Outer outline adds visual weight without implying
+            // any particular floor layout.
+            context.stroke(shell, with: .color(Color.white.opacity(0.10)), lineWidth: 1)
+            return
         }
 
-        var corridor = Path()
-        corridor.move(to: CGPoint(x: rect.minX + rect.width * 0.37, y: rect.minY + 20))
-        corridor.addLine(to: CGPoint(x: rect.minX + rect.width * 0.37, y: rect.maxY - 18))
-        corridor.move(to: CGPoint(x: rect.minX + 18, y: rect.midY))
-        corridor.addLine(to: CGPoint(x: rect.maxX - 18, y: rect.midY))
-        context.stroke(corridor, with: .color(Color.white.opacity(0.16)), lineWidth: 8)
+        for room in rooms {
+            let roomRect = denormalizedRect(room.normalizedRect, in: rect)
+            let roomPath = RoundedRectangle(cornerRadius: 8, style: .continuous).path(in: roomRect)
+            context.fill(roomPath, with: .color(room.tint.color.opacity(0.92)))
+            context.stroke(roomPath, with: .color(Color.black.opacity(0.35)), lineWidth: 1)
+
+            // Light-touch "furniture" hint — two subtle rectangles — so rooms
+            // don't read as uniform blocks at a glance.
+            let inset = roomRect.insetBy(dx: 10, dy: 10)
+            if inset.width > 24, inset.height > 24 {
+                var furniture = Path()
+                furniture.addRect(CGRect(
+                    x: inset.minX,
+                    y: inset.minY,
+                    width: inset.width * 0.5,
+                    height: inset.height * 0.22
+                ))
+                furniture.addRect(CGRect(
+                    x: inset.maxX - inset.width * 0.26,
+                    y: inset.maxY - inset.height * 0.24,
+                    width: inset.width * 0.22,
+                    height: inset.height * 0.18
+                ))
+                context.stroke(furniture, with: .color(Color.white.opacity(0.12)), lineWidth: 1)
+            }
+
+            // Only draw a label when the room is large enough that the text
+            // won't overflow / clip.
+            if roomRect.width >= 48, roomRect.height >= 28 {
+                let label = Text(room.name)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.78))
+                context.draw(
+                    label,
+                    at: CGPoint(x: roomRect.midX, y: roomRect.midY),
+                    anchor: .center
+                )
+            }
+        }
+    }
+
+    private func denormalizedRect(_ normalized: CGRect, in rect: CGRect) -> CGRect {
+        CGRect(
+            x: rect.minX + normalized.minX * rect.width,
+            y: rect.minY + normalized.minY * rect.height,
+            width: normalized.width * rect.width,
+            height: normalized.height * rect.height
+        )
     }
 
     private func drawHeatMap(in context: inout GraphicsContext, center: CGPoint) {

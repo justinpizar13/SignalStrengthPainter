@@ -4,6 +4,13 @@ struct ContentView: View {
     @Environment(\.theme) private var theme
     @StateObject private var viewModel = SignalMapViewModel()
     @State private var showResetConfirmation = false
+    /// Persisted across launches so the user's last picked floor plan is
+    /// remembered. Default is `.blank` (the plain background).
+    @AppStorage("floorPlanTemplate") private var floorPlanRawValue: String = FloorPlanTemplate.blank.rawValue
+
+    private var selectedFloorPlan: FloorPlanTemplate {
+        FloorPlanTemplate(rawValue: floorPlanRawValue) ?? .blank
+    }
 
     var body: some View {
         Group {
@@ -33,6 +40,10 @@ struct ContentView: View {
 
                 mapCanvas(contentScale: viewModel.mapContentScale)
                     .frame(height: 320)
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
+
+                floorPlanPicker
                     .padding(.top, 16)
                     .padding(.horizontal, 20)
 
@@ -161,6 +172,7 @@ struct ContentView: View {
             calibrationStart: viewModel.calibrationStartPoint,
             pendingReanchorPoint: viewModel.pendingReanchorPoint,
             contentScale: contentScale,
+            floorPlan: selectedFloorPlan,
             onMapTap: { point in
                 viewModel.handleMapTap(point)
             }
@@ -277,6 +289,86 @@ struct ContentView: View {
                         .stroke(theme.subtle, lineWidth: 1)
                 )
         )
+    }
+
+    // MARK: - Floor Plan Picker
+
+    /// Lets the user pick a sample floor plan to draw behind the survey, or
+    /// keep the plain default. Shown on the calibration screen so it's chosen
+    /// before a walk begins; hidden once a survey is in progress to avoid
+    /// re-keying the background under a live heatmap.
+    private var floorPlanPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.blue)
+                Text("Floor Plan")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(FloorPlanTemplate.allCases) { template in
+                    floorPlanChip(template)
+                }
+            }
+
+            Text(selectedFloorPlan.summary)
+                .font(.system(size: 11))
+                .foregroundStyle(theme.tertiaryText)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func floorPlanChip(_ template: FloorPlanTemplate) -> some View {
+        let isSelected = template == selectedFloorPlan
+        return Button {
+            floorPlanRawValue = template.rawValue
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: template.iconName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : .blue)
+                Text(template.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : theme.primaryText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        isSelected
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [.blue, .blue.opacity(0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            : AnyShapeStyle(Color.blue.opacity(0.10))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                isSelected ? Color.clear : Color.blue.opacity(0.25),
+                                lineWidth: 1
+                            )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Scale Legend
