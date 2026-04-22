@@ -28,7 +28,7 @@ struct PaywallView: View {
     /// Hard-coded fallbacks used before StoreKit returns real products, or
     /// if the product fetch fails (e.g. App Store unreachable). These must
     /// stay in sync with the prices configured in App Store Connect.
-    private static let fallbackMonthlyPrice = "$2.99"
+    private static let fallbackMonthlyPrice = "$3.99"
     private static let fallbackYearlyPrice = "$9.99"
     private static let fallbackYearlyCrossOut = "$19.99"
 

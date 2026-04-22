@@ -76,7 +76,7 @@ final class ProStore: ObservableObject {
 
     /// Fetch `Product` objects from the App Store so we can show localized
     /// pricing on the paywall. Failure here is non-fatal — we fall back to
-    /// the hard-coded "$2.99 / $9.99" copy in `PaywallView`.
+    /// the hard-coded "$3.99 / $9.99" copy in `PaywallView`.
     func loadProducts() async {
         isLoadingProducts = true
         defer { isLoadingProducts = false }
