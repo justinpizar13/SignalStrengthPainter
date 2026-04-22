@@ -547,24 +547,33 @@ enum WiFiAssistantEngine {
 
 struct WiFiAssistantView: View {
     /// StoreKit-backed Pro entitlement source. Free users get exactly
-    /// one question answered in a given chat session; after that the
-    /// input bar is replaced with a Pro upsell CTA. Gating is always
-    /// re-evaluated against `store.isProUser` (derived from
+    /// one question answered *for the lifetime of the install*; after
+    /// that the input bar is replaced with a Pro upsell CTA. Gating is
+    /// always re-evaluated against `store.isProUser` (derived from
     /// `Transaction.currentEntitlements` in `ProStore`) rather than a
-    /// cached flag, so if the user buys Pro mid-session the chat
-    /// unlocks immediately without a view rebuild.
+    /// cached flag, so if the user buys Pro mid-chat the chat unlocks
+    /// immediately without a view rebuild.
     @ObservedObject var store: ProStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
 
-    /// Free-tier cap: number of user messages allowed in a session
-    /// before the Pro paywall takes over the input bar. Changing this
-    /// value is the single place to tune the free trial for Klaus.
+    /// Free-tier cap: number of user messages allowed before the Pro
+    /// paywall takes over the input bar. Changing this value is the
+    /// single place to tune the free trial for Klaus.
     private static let freeMessageLimit = 1
+
+    /// UserDefaults key backing the persisted free-question counter.
+    /// The counter must outlive the sheet — if it lived in `@State`,
+    /// dismissing the assistant and re-presenting it would construct
+    /// a fresh view with `userMessagesSent = 0`, letting a free user
+    /// bypass the paywall just by closing and re-opening the chat.
+    /// `@AppStorage` anchors the count to the install so the cap
+    /// actually gates.
+    private static let freeMessagesSentKey = "klaus.freeMessagesSent"
 
     @State private var messages: [AssistantMessage] = []
     @State private var inputText: String = ""
-    @State private var userMessagesSent: Int = 0
+    @AppStorage(WiFiAssistantView.freeMessagesSentKey) private var userMessagesSent: Int = 0
     @State private var showPaywall: Bool = false
     @FocusState private var inputFocused: Bool
 
@@ -807,11 +816,14 @@ struct WiFiAssistantView: View {
     // MARK: Pro upsell bar
 
     /// Replaces the input bar once a free user has used their one free
-    /// question. Explains the limit and opens the paywall sheet. If
-    /// the user purchases Pro from the sheet, `store.isProUser` flips
-    /// to `true`, `isLockedForFreeUser` becomes `false`, and the
-    /// regular input bar swaps back in on the next render — no need to
-    /// dismiss and reopen the chat.
+    /// question. Explains the limit and opens the paywall sheet. The
+    /// lock-out survives dismissing and re-opening the assistant sheet
+    /// because `userMessagesSent` is persisted via `@AppStorage` (see
+    /// the property declaration for why that persistence matters).
+    /// If the user purchases Pro from the paywall sheet,
+    /// `store.isProUser` flips to `true`, `isLockedForFreeUser`
+    /// becomes `false`, and the regular input bar swaps back in on
+    /// the next render — no need to dismiss and reopen the chat.
     private var proUpsellBar: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
@@ -901,7 +913,10 @@ struct WiFiAssistantView: View {
 
         // Count only accepted, non-empty user submissions against the
         // free cap — sanitization rejecting an empty/whitespace input
-        // shouldn't eat the user's one free message.
+        // shouldn't eat the user's one free message. The counter is
+        // persisted via `@AppStorage`, so this increment outlives the
+        // current sheet presentation; a free user can't reset it just
+        // by closing and reopening Klaus.
         if !store.isProUser {
             userMessagesSent += 1
         }

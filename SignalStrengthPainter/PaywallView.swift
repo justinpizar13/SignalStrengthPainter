@@ -486,6 +486,31 @@ struct PaywallView: View {
             .onChange(of: debugForcePro) { _, newValue in
                 Task { await store.debugSetForcePro(newValue) }
             }
+
+            Button {
+                // Wipe the persisted Klaus free-question counter so
+                // the paywall flow can be retested on the same install.
+                // Production users never hit this — the surrounding
+                // panel and ProStore's force-Pro read are both behind
+                // `#if DEBUG`.
+                UserDefaults.standard.removeObject(forKey: "klaus.freeMessagesSent")
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Reset Klaus free-question counter")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.orange.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                )
+            }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .background(
