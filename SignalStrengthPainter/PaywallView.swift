@@ -29,8 +29,8 @@ struct PaywallView: View {
     /// if the product fetch fails (e.g. App Store unreachable). These must
     /// stay in sync with the prices configured in App Store Connect.
     private static let fallbackMonthlyPrice = "$3.99"
-    private static let fallbackYearlyPrice = "$9.99"
-    private static let fallbackYearlyCrossOut = "$19.99"
+    private static let fallbackYearlyPrice = "$24.99"
+    private static let fallbackYearlyCrossOut = "$34.99"
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
