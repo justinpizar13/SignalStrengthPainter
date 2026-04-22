@@ -20,14 +20,14 @@ struct MainTabView: View {
                 }
                 .tag(Tab.speed)
 
-            ContentView()
+            SurveyProGate(store: store)
                 .tabItem {
                     Image(systemName: "map.fill")
                     Text("Survey")
                 }
                 .tag(Tab.survey)
 
-            SignalDetailView()
+            SignalDetailView(store: store)
                 .tabItem {
                     Image(systemName: "antenna.radiowaves.left.and.right")
                     Text("Signal")
@@ -125,6 +125,7 @@ struct AppearanceToggle: View {
 // MARK: - Signal Detail Tab
 
 struct SignalDetailView: View {
+    @ObservedObject var store: ProStore
     @Environment(\.theme) private var theme
     @State private var latestLatencyMs: Double?
     @State private var animateRings = false
@@ -177,7 +178,7 @@ struct SignalDetailView: View {
         }
         .background(theme.background.ignoresSafeArea())
         .sheet(isPresented: $showAssistant) {
-            WiFiAssistantView()
+            WiFiAssistantView(store: store)
                 .withAppTheme()
         }
         .onAppear {

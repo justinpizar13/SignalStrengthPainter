@@ -546,22 +546,51 @@ enum WiFiAssistantEngine {
 // MARK: - Chat View
 
 struct WiFiAssistantView: View {
+    /// StoreKit-backed Pro entitlement source. Free users get exactly
+    /// one question answered in a given chat session; after that the
+    /// input bar is replaced with a Pro upsell CTA. Gating is always
+    /// re-evaluated against `store.isProUser` (derived from
+    /// `Transaction.currentEntitlements` in `ProStore`) rather than a
+    /// cached flag, so if the user buys Pro mid-session the chat
+    /// unlocks immediately without a view rebuild.
+    @ObservedObject var store: ProStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
 
+    /// Free-tier cap: number of user messages allowed in a session
+    /// before the Pro paywall takes over the input bar. Changing this
+    /// value is the single place to tune the free trial for Klaus.
+    private static let freeMessageLimit = 1
+
     @State private var messages: [AssistantMessage] = []
     @State private var inputText: String = ""
+    @State private var userMessagesSent: Int = 0
+    @State private var showPaywall: Bool = false
     @FocusState private var inputFocused: Bool
+
+    /// Free users are out of messages when they've sent their cap of
+    /// non-Pro questions. Pro users are never locked out.
+    private var isLockedForFreeUser: Bool {
+        !store.isProUser && userMessagesSent >= Self.freeMessageLimit
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider().background(theme.divider)
             messageList
-            inputBar
+            if isLockedForFreeUser {
+                proUpsellBar
+            } else {
+                inputBar
+            }
         }
         .background(theme.background.ignoresSafeArea())
         .onAppear(perform: seedGreetingIfNeeded)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(store: store, isPresented: $showPaywall)
+                .withAppTheme()
+        }
     }
 
     // MARK: Header
@@ -775,6 +804,72 @@ struct WiFiAssistantView: View {
         .background(theme.background)
     }
 
+    // MARK: Pro upsell bar
+
+    /// Replaces the input bar once a free user has used their one free
+    /// question. Explains the limit and opens the paywall sheet. If
+    /// the user purchases Pro from the sheet, `store.isProUser` flips
+    /// to `true`, `isLockedForFreeUser` becomes `false`, and the
+    /// regular input bar swaps back in on the next render — no need to
+    /// dismiss and reopen the chat.
+    private var proUpsellBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.blue)
+                    .padding(.top, 1)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("You've used your free question")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.primaryText)
+                    Text("Get Wi-Fi Buddy Pro to keep chatting with Klaus as much as you want.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+
+            Button {
+                showPaywall = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Unlock Unlimited Chat")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(theme.buttonText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .blue.opacity(0.85)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            theme.background
+                .overlay(
+                    Rectangle()
+                        .fill(theme.divider)
+                        .frame(height: 0.5),
+                    alignment: .top
+                )
+        )
+    }
+
     // MARK: Logic
 
     private var trimmedInput: String {
@@ -789,12 +884,27 @@ struct WiFiAssistantView: View {
     }
 
     private func submit(_ rawText: String) {
+        // Gate the send at the edge, not inside the engine. This runs
+        // for both tapped chips and typed input, so a free user can't
+        // sneak past the cap by tapping a suggested question.
+        guard !isLockedForFreeUser else {
+            showPaywall = true
+            return
+        }
+
         let cleaned = WiFiAssistantEngine.sanitize(rawText)
         guard !cleaned.isEmpty else { return }
 
         messages.append(
             AssistantMessage(role: .user, text: cleaned, relatedQuestions: [])
         )
+
+        // Count only accepted, non-empty user submissions against the
+        // free cap — sanitization rejecting an empty/whitespace input
+        // shouldn't eat the user's one free message.
+        if !store.isProUser {
+            userMessagesSent += 1
+        }
 
         let thinkingMessage = AssistantMessage(
             role: .assistant,
@@ -880,6 +990,6 @@ private struct ThinkingBubble: View {
 }
 
 #Preview {
-    WiFiAssistantView()
+    WiFiAssistantView(store: ProStore())
         .withAppTheme()
 }

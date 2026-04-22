@@ -884,6 +884,195 @@ private struct FloorPlanRoomNameEditor: View {
     }
 }
 
+// MARK: - Survey Pro Gate
+
+/// Wrapper around the Survey (`ContentView`) that only lets Pro users
+/// through. Free users see an upsell explaining that the Survey is
+/// part of Wi-Fi Buddy Pro, with a CTA that presents `PaywallView`
+/// as a sheet. The authoritative check is `store.isProUser`, which is
+/// derived from `Transaction.currentEntitlements` inside `ProStore`
+/// (not a persisted `@AppStorage` flag), so a jailbroken user cannot
+/// flip a local default to bypass the gate.
+struct SurveyProGate: View {
+    @ObservedObject var store: ProStore
+    @Environment(\.theme) private var theme
+    @State private var showPaywall = false
+
+    var body: some View {
+        Group {
+            if store.isProUser {
+                ContentView()
+            } else {
+                upsell
+            }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(store: store, isPresented: $showPaywall)
+                .withAppTheme()
+        }
+    }
+
+    private var upsell: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 22) {
+                VStack(spacing: 14) {
+                    AppLogoView(size: 60)
+                        .padding(.top, 32)
+
+                    HStack(spacing: 0) {
+                        Text("Unlock the ")
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(theme.primaryText)
+                        Text("Survey")
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(.blue)
+                    }
+
+                    Text("Walk your space and paint Wi-Fi coverage onto the map.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(theme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                }
+
+                previewCard
+                    .padding(.horizontal, 20)
+
+                proBenefitsCard
+                    .padding(.horizontal, 20)
+
+                Button {
+                    showPaywall = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Get Pro for Unlimited Surveys")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(theme.buttonText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.blue, .blue.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+
+                Text("Cancel anytime from your Apple ID subscriptions.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.tertiaryText)
+                    .padding(.bottom, 32)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.background.ignoresSafeArea())
+    }
+
+    private var previewCard: some View {
+        VStack(spacing: 10) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Pro Preview")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.blue.opacity(0.12)))
+
+                Spacer()
+            }
+
+            Text("See every dead zone at a glance with a live coverage heatmap painted over your own floor plan.")
+                .font(.system(size: 13))
+                .foregroundStyle(theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private var proBenefitsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("With Wi-Fi Buddy Pro you get")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+
+            benefitRow(
+                icon: "infinity",
+                title: "Unlimited Surveys",
+                detail: "Walk any space, any time — no caps, no limits."
+            )
+            benefitRow(
+                icon: "map.fill",
+                title: "Live Coverage Heatmap",
+                detail: "Paint signal quality onto your floor plan as you move."
+            )
+            benefitRow(
+                icon: "chart.bar.doc.horizontal",
+                title: "Insights & Dead-Zone Reports",
+                detail: "See exactly where coverage drops off and what to do next."
+            )
+            benefitRow(
+                icon: "bubble.left.and.bubble.right.fill",
+                title: "Unlimited Chats with Klaus",
+                detail: "Ask your Wi-Fi sidekick anything, as often as you like."
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(theme.cardFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(theme.cardStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func benefitRow(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 22, height: 22)
+                .padding(6)
+                .background(Circle().fill(Color.blue.opacity(0.12)))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
