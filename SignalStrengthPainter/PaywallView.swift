@@ -34,10 +34,11 @@ struct PaywallView: View {
     /// stay in sync with the prices configured in App Store Connect.
     private static let fallbackMonthlyPrice = "$3.99"
     private static let fallbackYearlyPrice = "$34.99"
-    /// Shown next to the yearly price to anchor against the per-month
-    /// equivalent ($2.92/mo × 12). Kept as a dumb string — StoreKit
-    /// doesn't surface an "equivalent monthly" field.
-    private static let fallbackYearlyMonthlyEquivalent = "~$2.92/mo"
+    /// Strikethrough "was" price shown next to the live Yearly price to
+    /// anchor the Yearly plan as a deal. Pure marketing copy — never
+    /// configured as a real SKU in `Configuration.storekit` or App Store
+    /// Connect.
+    private static let fallbackYearlyCrossOut = "$39.99"
 
     /// True when the user is still eligible to redeem the 3-day free
     /// trial on the currently selected plan. StoreKit reports this per
@@ -274,7 +275,7 @@ struct PaywallView: View {
             pricingOption(
                 plan: .monthly,
                 title: "Monthly",
-                subtitle: "Just need it once? Cancel anytime.",
+                subtitle: "Billed monthly. Cancel anytime.",
                 price: store.product(for: ProStore.monthlyProductID)?.displayPrice
                     ?? Self.fallbackMonthlyPrice,
                 badge: nil,
@@ -290,7 +291,7 @@ struct PaywallView: View {
                 badge: store.isEligibleForIntroOffer(productID: ProStore.yearlyProductID)
                     ? "3 Days Free"
                     : "Best Deal",
-                crossedOutPrice: Self.fallbackYearlyMonthlyEquivalent
+                crossedOutPrice: Self.fallbackYearlyCrossOut
             )
         }
         .padding(.top, 8)
