@@ -20,6 +20,10 @@ struct DashboardView: View {
     @StateObject private var topology = NetworkTopologyMonitor()
 
     @State private var serviceLatencies: [String: Double] = [:]
+    // Drives the hamburger-menu sheet in the top-left of the Wi-Fi
+    // header. Kept as a simple boolean because the sheet is a single
+    // static "About & Guide" screen — no navigation state to preserve.
+    @State private var showAbout = false
 
     private let probe = LatencyProbe()
 
@@ -72,6 +76,10 @@ struct DashboardView: View {
             }
         }
         .background(theme.background.ignoresSafeArea())
+        .sheet(isPresented: $showAbout) {
+            AboutView()
+                .withAppTheme()
+        }
         .onAppear { topology.start() }
         .onDisappear { topology.stop() }
         .onChange(of: speedTest.phase) { _, newPhase in
@@ -158,6 +166,11 @@ struct DashboardView: View {
     // MARK: - WiFi Header
 
     private var wifiHeader: some View {
+        // Three-zone layout: hamburger (menu) on the left, centered
+        // logo/title, appearance toggle on the right. The centered
+        // brand stays optically centered regardless of what's on the
+        // sides because it's drawn in its own ZStack layer rather
+        // than inside the HStack.
         ZStack {
             HStack(spacing: 8) {
                 AppLogoView(size: 44)
@@ -167,11 +180,31 @@ struct DashboardView: View {
             }
 
             HStack {
+                menuButton
                 Spacer()
                 AppearanceToggle()
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    /// Hamburger-style menu button. Opens the About & Guide sheet so
+    /// new users have a single obvious entry point for "what does this
+    /// app do / how do I use it?" without us cramming help text onto
+    /// every screen.
+    private var menuButton: some View {
+        Button {
+            showAbout = true
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.secondaryText)
+                .frame(width: 32, height: 32)
+                .background(theme.cardFill)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(theme.cardStroke, lineWidth: 1))
+        }
+        .accessibilityLabel("About and guide")
     }
 
     // MARK: - Network Topology
