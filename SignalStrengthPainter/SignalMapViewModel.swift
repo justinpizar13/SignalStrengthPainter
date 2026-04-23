@@ -263,12 +263,21 @@ final class SignalMapViewModel: ObservableObject {
     }
 
     private func startPingLoop() {
+        // Timer closures are nonisolated; `self` is `@MainActor`-isolated,
+        // so every access hops back onto the main actor via Task.
+        // `LatencyProbe.measureLatency` already dispatches its completion on
+        // DispatchQueue.main, but Swift's concurrency checker can't see that,
+        // so we also wrap the callback body in a main-actor Task.
         pingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.latencyProbe.measureLatency { [weak self] value in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.latestLatencyMs = value
-                self.refreshLatestSample()
+                self.latencyProbe.measureLatency { [weak self] value in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        self.latestLatencyMs = value
+                        self.refreshLatestSample()
+                    }
+                }
             }
         }
         pingTimer?.tolerance = 0.1

@@ -21,9 +21,13 @@ final class ProStore: ObservableObject {
     /// Keep the list narrow — any unknown ID silently drops out of the
     /// entitlement check below, which means a mistyped ID here manifests as
     /// "the user paid but the app still shows the paywall".
-    static let monthlyProductID = "com.wifibuddy.pro.monthly"
-    static let yearlyProductID = "com.wifibuddy.pro.yearly"
-    static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
+    // These IDs are compile-time constants with no main-actor state, so we
+    // mark them `nonisolated` to let nonisolated contexts (e.g. SwiftUI
+    // previews, Sendable closures, `@ViewBuilder` bodies) reference them
+    // without having to hop to the main actor first.
+    nonisolated static let monthlyProductID = "com.wifibuddy.pro.monthly"
+    nonisolated static let yearlyProductID = "com.wifibuddy.pro.yearly"
+    nonisolated static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
 
     #if DEBUG
     /// UserDefaults key used in DEBUG builds to force Pro entitlement on

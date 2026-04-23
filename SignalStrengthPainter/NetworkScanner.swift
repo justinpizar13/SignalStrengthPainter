@@ -2,6 +2,27 @@ import Foundation
 import Network
 import Darwin
 
+/// Tiny `@Sendable`-safe one-shot latch. `setIfUnset()` returns `true` the
+/// first time it is called from any thread and `false` on every subsequent
+/// call. Used by the TCP-probe completion guards below to replace the
+/// `var hasResumed = false` + `NSLock` pattern, which Swift 6's
+/// strict-concurrency checker rejects when the enclosing `finish` helper is
+/// marked `@Sendable` (mutable local `var`s cannot be captured by `@Sendable`
+/// closures). `@unchecked Sendable` is safe here because the only mutable
+/// state is guarded by the lock.
+private final class AtomicBool: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    func setIfUnset() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !value else { return false }
+        value = true
+        return true
+    }
+}
+
 struct DiscoveredDevice: Identifiable {
     let id: String
     let ipAddress: String
@@ -1346,14 +1367,15 @@ final class NetworkScanner: ObservableObject {
             )
 
             let start = DispatchTime.now()
-            var hasResumed = false
-            let lock = NSLock()
+            let hasResumed = AtomicBool()
 
-            func finish(_ value: Double?) {
-                lock.lock()
-                guard !hasResumed else { lock.unlock(); return }
-                hasResumed = true
-                lock.unlock()
+            // `@Sendable` so the closure (captured by the NWConnection state
+            // handler + the probeQueue timeout block, both of which hop
+            // threads) satisfies strict-concurrency checking. It only
+            // captures `Sendable` state (`DispatchTime`, `NWConnection`,
+            // `NSLock` via `AtomicBool`, and the continuation).
+            @Sendable func finish(_ value: Double?) {
+                guard hasResumed.setIfUnset() else { return }
                 connection.cancel()
                 continuation.resume(returning: value)
             }
@@ -1399,17 +1421,11 @@ final class NetworkScanner: ObservableObject {
             )
 
             let start = DispatchTime.now()
-            var hasResumed = false
-            let lock = NSLock()
+            let hasResumed = AtomicBool()
 
-            func finish(_ value: Double?) {
-                lock.lock()
-                guard !hasResumed else {
-                    lock.unlock()
-                    return
-                }
-                hasResumed = true
-                lock.unlock()
+            // See probeLivenessRefused() above for why `finish` is @Sendable.
+            @Sendable func finish(_ value: Double?) {
+                guard hasResumed.setIfUnset() else { return }
                 connection.cancel()
                 continuation.resume(returning: value)
             }

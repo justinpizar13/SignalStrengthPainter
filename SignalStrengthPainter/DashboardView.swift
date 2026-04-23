@@ -74,7 +74,7 @@ struct DashboardView: View {
         .background(theme.background.ignoresSafeArea())
         .onAppear { topology.start() }
         .onDisappear { topology.stop() }
-        .onChange(of: speedTest.phase) { newPhase in
+        .onChange(of: speedTest.phase) { _, newPhase in
             if newPhase == .complete {
                 testServiceLatencies()
                 // After a speed test we also know ping/jitter — trigger
@@ -511,7 +511,6 @@ struct DashboardView: View {
 
     private var overallSummary: String {
         let dl = speedTest.downloadSpeed
-        let ul = speedTest.uploadSpeed
         let ping = speedTest.pingMs
 
         if dl >= 100 && ping < 30 {
