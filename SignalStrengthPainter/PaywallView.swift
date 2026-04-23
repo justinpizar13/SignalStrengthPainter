@@ -15,6 +15,12 @@ struct PaywallView: View {
     @State private var selectedPlan: Plan = .yearly
     @State private var currentPage = 0
     @State private var showRestoreError: Bool = false
+    /// Drives the bundled legal-document sheet (Privacy Policy / Terms
+    /// of Use). Apple's guideline 3.1.2 requires the paywall to expose
+    /// both, tappable from the screen that sells the subscription.
+    /// Using `Identifiable` binding lets a single `.sheet(item:)`
+    /// modifier render whichever doc the user tapped.
+    @State private var legalDoc: LegalDocumentView.Kind?
 
     private let pageCount = 3
 
@@ -81,6 +87,10 @@ struct PaywallView: View {
             closeButton
                 .padding(.top, 12)
                 .padding(.trailing, 16)
+        }
+        .sheet(item: $legalDoc) { kind in
+            LegalDocumentView(kind: kind)
+                .withAppTheme()
         }
     }
 
@@ -701,18 +711,45 @@ struct PaywallView: View {
         }
     }
 
-    /// Small disclosure line under the CTA. Apple requires clear
-    /// "cancel anytime" copy whenever we advertise an intro offer; we
-    /// also show a condensed version when the trial isn't visible so
-    /// the subscription terms stay readable.
+    /// Full legal disclosure block under the CTA. Apple's App Review
+    /// guideline 3.1.2 (and 3.1.2(a) for auto-renewing subs) requires
+    /// the paywall to spell out: subscription title, length, price,
+    /// that payment is charged to the Apple ID at confirmation, the
+    /// auto-renewal rules (24-hour window on both sides), and how to
+    /// cancel. We dynamically pull the live price from StoreKit when
+    /// available and fall back to the hard-coded values so this block
+    /// is never blank during product-load failures.
     private var disclosureLine: some View {
-        Text(trialAvailableForSelection && selectedPlan == .yearly
-             ? "Cancel anytime in Settings → Apple ID → Subscriptions."
-             : "Subscription auto-renews. Cancel anytime in Settings.")
-            .font(.system(size: 11))
-            .foregroundStyle(theme.tertiaryText)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+        let monthly = store.product(for: ProStore.monthlyProductID)?.displayPrice ?? Self.fallbackMonthlyPrice
+        let yearly = store.product(for: ProStore.yearlyProductID)?.displayPrice ?? Self.fallbackYearlyPrice
+        let selectedPrice = selectedPlan == .yearly ? yearly : monthly
+        let period = selectedPlan == .yearly ? "year" : "month"
+        let trialLine = trialAvailableForSelection && selectedPlan == .yearly
+            ? "After your 3-day free trial, your Apple ID will be charged \(yearly)/year. "
+            : ""
+
+        return VStack(spacing: 6) {
+            Text("Wi-Fi Buddy Pro — \(selectedPrice)/\(period). \(trialLine)Payment will be charged to your Apple ID at confirmation of purchase. Subscription auto-renews for the same price and period unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in Settings → Apple ID → Subscriptions. Any unused portion of a free trial is forfeited when a subscription is purchased.")
+                .font(.system(size: 11))
+                .foregroundStyle(theme.tertiaryText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 14) {
+                Button("Privacy Policy") {
+                    legalDoc = .privacyPolicy
+                }
+                Text("•")
+                    .foregroundStyle(theme.tertiaryText)
+                Button("Terms of Use") {
+                    legalDoc = .termsOfUse
+                }
+            }
+            .font(.system(size: 11, weight: .medium))
+            .tint(.blue)
+            .foregroundStyle(.blue)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func startPurchase() async {

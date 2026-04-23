@@ -668,6 +668,122 @@ Cleared 82 Xcode warnings in a single pass (none were behavioral regressions —
 
 Clean rebuild now reports zero warnings. `SWIFT_STRICT_CONCURRENCY` is still set to `minimal`; bumping it to `complete` or `targeted` would likely surface more Timer/DispatchQueue closure patterns — if that's attempted, expect similar `Task { @MainActor in … }` wrappers around every Combine `sink` and Timer body in `SignalMapViewModel` and `NetworkTopologyMonitor`.
 
+## App Store readiness pass (April 2026)
+
+Locked the project down for App Store Connect submission. All of the blockers that would have bounced a fresh `com.example.*` build were cleaned up in one pass. The app **builds cleanly for iOS Simulator** (`xcodebuild … build` → `** BUILD SUCCEEDED **`) with `com.wifibuddy.app` as the bundle id and the three new resources (`PrivacyInfo.xcprivacy`, `PrivacyPolicy.md`, `TermsOfUse.md`) verified inside the packaged `.app`.
+
+### Identity and build settings (`project.pbxproj`)
+
+- **Bundle ID** renamed from `com.example.SignalStrengthPainter` → `com.wifibuddy.app` in both the Debug and Release configurations of the `SignalStrengthPainter` target. The StoreKit product IDs (`com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly`) already lived under the same `com.wifibuddy.*` namespace, so nothing else needed renaming in `ProStore.swift` or `Configuration.storekit`.
+- **Removed six dead `INFOPLIST_KEY_*` build settings** from both configs: `INFOPLIST_KEY_UIApplicationSceneManifest_Generation`, `INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents`, `INFOPLIST_KEY_UILaunchScreen_Generation`, `INFOPLIST_KEY_UIRequiresFullScreen`, `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad`, `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone`. These were silently ignored because the target uses a static `Info.plist` (`GENERATE_INFOPLIST_FILE = NO`) — Xcode only merges `INFOPLIST_KEY_*` when it's generating the plist for you. Keeping them around was misleading; the static plist is now the single source of truth for every Info.plist key.
+
+### `Info.plist` additions
+
+Added four new keys (everything directly in the plist since `INFOPLIST_KEY_*` is a no-op under this build config):
+
+- **`ITSAppUsesNonExemptEncryption = <false/>`** — the app only uses standard HTTPS/TLS (no custom crypto, no proprietary VPN, nothing export-controlled). Setting this declaratively in Info.plist skips the App Store Connect encryption questionnaire on every build upload, which otherwise has to be answered manually for each TestFlight build.
+- **Orientation locked to portrait on iPhone**:
+  ```xml
+  <key>UISupportedInterfaceOrientations</key>
+  <array><string>UIInterfaceOrientationPortrait</string></array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationPortraitUpsideDown</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  ```
+  Why: `ARWorldTrackingConfiguration` anchors the map projection at Start Survey and converts the user's walk into floor-projected `(x, y)` positions using the camera transform. A landscape flip mid-walk rotates the projection matrix underneath the heatmap and visibly tears the trail. iPad is intentionally left permissive because larger screens don't rotate accidentally and the map benefits from landscape real estate on a flat surface during review. The `~ipad` suffix is how Apple scopes the iPhone-only override without needing runtime code in `AppDelegate`.
+- **`UIRequiresFullScreen = <true/>`** — already declared indirectly by the (now-removed) `INFOPLIST_KEY_UIRequiresFullScreen = YES` build setting; promoted to the plist so it's explicit. This also opts the app out of iPad Stage Manager / Split View, which would break AR session lifecycle anyway (`ARWorldTrackingConfiguration` pauses when the view shrinks and loses its anchor graph, which is worse than just not supporting split-screen).
+- **`UIRequiredDeviceCapabilities = [arkit, wifi]`** — makes the app invisible on devices that lack ARKit (iPad 7th gen and earlier, older iPhones) rather than letting users download an app whose marquee feature is a dead screen. `wifi` is technically redundant (every iOS device has Wi-Fi) but documents intent.
+
+Left untouched: the existing `NSMotionUsageDescription` / `NSLocalNetworkUsageDescription` / `NSCameraUsageDescription` privacy strings and the 19-entry `NSBonjourServices` array (which **still must stay in sync** with `NetworkScanner.bonjourServiceTypes` — iOS silently drops browsers for any service type not listed in Info.plist, so Bonjour discovery would start failing the moment the list drifts).
+
+### Privacy Manifest (`SignalStrengthPainter/PrivacyInfo.xcprivacy`)
+
+New file — mandatory for all App Store submissions since May 1, 2024. Without it, `altool`/ASC rejects the upload before the build ever reaches review.
+
+```xml
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
+```
+
+- **`NSPrivacyTracking = false`, empty `NSPrivacyTrackingDomains`** — the app has zero analytics, zero third-party SDKs, zero ad networks. No IDFA request, no AppTrackingTransparency prompt needed.
+- **Empty `NSPrivacyCollectedDataTypes`** — "Data Not Collected" answer to every App Privacy question on the ASC App Privacy form. All survey history, device trust flags, Klaus chat transcripts, floor-plan room renames, and Pro entitlement cache are stored client-side only, never uploaded anywhere.
+- **`NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1`** — "Declare this reason to access user defaults that are only used by the app itself and/or its App Extensions and/or App Clips that are in the same group as the app." This covers every `@AppStorage` read/write across the codebase (theme preference, first-launch flag, trusted-device dictionary, custom room names, Klaus free-message counter, `isProUser` entitlement cache, etc.).
+- **No other API reason codes** — the app doesn't use `NSUserDefaults` for cross-app data sharing (no App Groups), and doesn't touch any of the other four categories that now require reason codes (disk space, file timestamp, system boot time, active keyboards). If a future feature adds any of those (e.g., "available disk space" banner on the dashboard), the corresponding reason code must be added here **or** the upload will be rejected at submission time.
+
+Wired into the Xcode project as both a `PBXFileReference` and a `PBXBuildFile` in the Resources build phase, so it ships inside the `.app` bundle — confirmed by inspecting the built `.app` after the `xcodebuild` pass.
+
+### Bundled legal documents
+
+To satisfy App Review Guideline 3.1.2 (auto-renewing subscriptions must expose Privacy Policy and Terms of Use directly from the paywall) without standing up a marketing website, both documents ship as Markdown files in the app bundle and are rendered in-app.
+
+- **`SignalStrengthPainter/PrivacyPolicy.md`** — single-page policy. Lead line is "Your data stays on your device." Covers: no accounts / no servers / no analytics / no ads, what's stored locally (survey trails, topology snapshots, trusted device list, Klaus chat history, preferences), what outbound traffic the app does make (Cloudflare-backed speed test, TCP ping to `8.8.8.8:53` / `1.1.1.1:53` / OpenDNS / gateway, Bonjour + SSDP multicasts on the LAN — all non-identifying), StoreKit purchases are handled by Apple (Apple's privacy rules apply, not ours), local notifications, the three required permissions (Camera / Motion / Local Network), and a contact email placeholder.
+- **`SignalStrengthPainter/TermsOfUse.md`** — ingests Apple's standard EULA by reference and then adds the subscription-specific terms: product names + prices (`Wi-Fi Buddy Pro` Monthly `$3.99` / Yearly `$34.99` with a 3-day free trial on yearly when eligible), auto-renewal language with the explicit 24-hour-before-period-end cancellation window, billing charged to Apple ID, no refunds for partial periods, "what Pro unlocks" (unlimited AR surveys, unlimited Klaus chat, full insights report), acceptable use (only scan networks you own or have permission to scan), an accuracy disclaimer ("signal quality and device discovery are best-effort; don't use this to make contractual claims about coverage"), and liability limits.
+- **`SignalStrengthPainter/LegalDocumentView.swift`** — new SwiftUI `View` that reads the bundled `.md` file from `Bundle.main.url(forResource:withExtension:)`, parses it with `AttributedString(markdown:)` (stdlib, no 3rd-party dependency), and renders it in a `ScrollView` inside a `NavigationStack` with a close button. Has a `Kind` enum (`.privacyPolicy` / `.termsOfUse`) that drives both the nav title and the resource name lookup, and conforms to `Identifiable` so it slots directly into `PaywallView.sheet(item:)`. Works entirely offline — important because the paywall might be shown on a device whose Wi-Fi is broken (which is literally the reason they'd use this app). A `fallbackMessage` view renders a "Couldn't load document" copy + the support email if the bundle lookup ever fails, so the sheet is never visibly empty.
+
+### Paywall disclosures (`PaywallView.swift`)
+
+Replaced the old one-line `"Subscription auto-renews. Cancel anytime in Settings."` with the full Apple-required language plus tappable policy links:
+
+- **`@State private var legalDoc: LegalDocumentView.Kind?`** drives a single `.sheet(item:)` attached to the root `ZStack`, so whichever legal doc the user taps opens with `.withAppTheme()` applied (same theme plumbing as every other sheet in the app).
+- **`disclosureLine`** now builds a truthful sentence by pulling the live `displayPrice` off `store.product(for:)` for whichever plan is currently selected, falling back to the hard-coded `fallbackMonthlyPrice` / `fallbackYearlyPrice` constants if StoreKit hasn't finished loading. The sentence covers: product name + price/period, trial prelude when `trialAvailableForSelection && selectedPlan == .yearly`, Apple-ID billing at confirmation, auto-renewal at the same price/period, the 24-hour-before-period-end cancellation window, the 24-hour-before-period-end charge window, cancel path (Settings → Apple ID → Subscriptions), and the unused-trial-forfeiture clause. This is the exact language App Review cross-checks against guideline 3.1.2(a).
+- Under that, a compact horizontal row with two `Button`s: **Privacy Policy** and **Terms of Use**, both tinted `.blue` so they read as links, separated by a `•` in `theme.tertiaryText`. Tapping either sets `legalDoc = .privacyPolicy` / `.termsOfUse` which presents the sheet. Kept at 11 pt / medium weight — visible enough to read and tap, not so big that it competes with the CTA.
+
+No change to the existing "Restore purchase" / "Not now" bottom links block below.
+
+### Why "just link" instead of hosting externally
+
+User explicitly picked `just_link` for the legal-doc strategy. Bundling them as Markdown means:
+1. No web hosting / DNS / cert rotation to maintain.
+2. Works offline — the paywall doesn't get stranded on a plane / hotel Wi-Fi.
+3. Versioned with the code: when Terms change, they ship in the same commit as the feature change that justified the edit, so there's no legal/product drift between what the binary says and what a website says.
+4. App Review checks the links during review by tapping them on-device, which bundled Markdown satisfies as well as any remote URL would.
+
+Downside: any material terms change requires a new TestFlight build rather than just editing a web page. Acceptable tradeoff given the app doesn't have lawyers-on-call and rarely rewrites terms.
+
+### README refresh
+
+The repo's root `README.md` was stale (old bundle ID, wrong yearly price, no mention of AR / survey / topology / Klaus / new legal docs). Rewrote it to match April 2026 reality:
+
+- Corrected bundle ID to `com.wifibuddy.app` and yearly price to `$34.99` (with `~~$39.99~~` strikethrough reference copy).
+- Project-layout table gained entries for `LegalDocumentView.swift`, `AboutView.swift`, `PrivacyInfo.xcprivacy`, `PrivacyPolicy.md`, `TermsOfUse.md`, plus an expanded Info.plist description covering the new orientation / full-screen / encryption / device-capabilities keys.
+- **New "Legal documents"** section explaining the bundled-markdown + `LegalDocumentView` strategy and why it satisfies guideline 3.1.2.
+- **Expanded "Privacy and permissions"** section covering both the four Info.plist additions and the full Privacy Manifest (tracking / collected data / API-reasons) so a new contributor can see what Apple-facing promises the build has baked in.
+- **New "App Store submission checklist"** at the bottom listing the external App Store Connect work that still needs to happen before the first build can be submitted (see "Remaining external work" below).
+
+### Remaining external work (outside the codebase)
+
+Everything in-codebase is done. The following ASC dashboard steps still need a human:
+
+1. Create the app record in App Store Connect using `com.wifibuddy.app` as the bundle ID.
+2. Configure both subscriptions in the same subscription group with the prices and free-trial rules that the `TermsOfUse.md` document currently commits to (`Monthly $3.99`, `Yearly $34.99`, 3-day free trial on yearly).
+3. Upload screenshots at 6.7" / 6.5" / 5.5" iPhone and 12.9" iPad per the current App Store spec.
+4. Fill in the App Privacy questionnaire — answer **"Data Not Collected"** for every category. This must match `PrivacyInfo.xcprivacy`; if they disagree, review will surface the inconsistency and reject.
+5. App Review Notes suggested copy: *"Survey tab uses ARKit; please test on a physical device for world tracking. Paywall with Privacy Policy + Terms links is on the Pro tab; Klaus chat is on the Signal tab."*
+6. Archive + upload via Xcode → Product → Archive → Distribute App → App Store Connect.
+
 ## Possible follow-ups (not done here)
 
 - **Register the two product IDs in App Store Connect** (`com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly`) as auto-renewing subscriptions in a single subscription group before flipping the build on in production. Local simulator testing already works via `Configuration.storekit`, but `Product.products(for:)` will return empty on TestFlight / App Store builds until the products exist in App Store Connect. If different IDs are preferred, edit the two `static let` constants at the top of `ProStore.swift` and the matching `productID` fields in `Configuration.storekit`.
@@ -675,7 +791,6 @@ Clean rebuild now reports zero warnings. `SWIFT_STRICT_CONCURRENCY` is still set
 - **Win-back offer (iOS 18+ `winBackOffer`) + weekly price-anchor plan ($4.99/wk)** are both called out in the monetization plan but not yet implemented. Win-back needs a cancelled-user detection path via `SubscriptionStatus` observation and a one-time sheet on re-launch; the weekly plan wants to sit behind an A/B flag before commitment since it lifts revenue 30–50% in top utility apps but raises support load.
 - Replace sample floor plans with **user-provided image** + proper **scale/rotation** calibration (the three built-in `FloorPlanTemplate`s cover the common "main-floor apartment" and "upstairs" cases but still aren't the user's actual space).
 - **Auto-follow surveyor** toggle — pan/zoom are in place (April 2026), but the view doesn't yet auto-scroll to keep the live surveyor centered while walking. A "follow me" mode would make long surveys hands-off.
-- **README refresh** to match AR + survey flow.
 - Tighter **multi-segment** landmark rotation (beyond first segment) if drift remains.
 
 ---

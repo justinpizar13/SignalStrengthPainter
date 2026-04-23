@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Privacy Manifest — required by Apple for all apps submitted to the
+  App Store since May 1, 2024.
+
+  This app collects NO user data. Every survey, device list, chat
+  history, and custom room-name override is persisted only in local
+  UserDefaults on the device. No analytics SDKs are linked, no
+  advertising identifiers are read, no data leaves the device.
+
+  The only network traffic is:
+    - HTTPS to speed.cloudflare.com (speed test + colo metadata)
+    - TCP pings to public DNS resolvers (8.8.8.8:53 etc.) for latency
+    - Local-network Bonjour/SSDP/ARP discovery (LAN only, no egress)
+
+  Required-reason APIs declared below are limited to UserDefaults,
+  which we use for all app state persistence (@AppStorage + direct
+  UserDefaults reads/writes). Reason CA92.1: "Access info from same
+  app, per documentation" — every UserDefaults read/write is scoped
+  to this app's own defaults domain.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

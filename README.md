@@ -64,7 +64,8 @@ Trust flags and custom names are **scoped per network** — the network ID is de
 ### Pro (paywall)
 
 - StoreKit 2 integration via `ProStore.swift`.
-- **Monthly $3.99** and **Yearly $24.99** (with a `~~$34.99~~` strikethrough and "Best Deal" badge); prices hydrate from `Product.products(for:)` when available.
+- **Monthly $3.99** and **Yearly $34.99** (with a `~~$39.99~~` strikethrough and "Best Deal" badge), plus a 3-day free trial on the yearly plan when the user is still eligible. Prices hydrate from `Product.products(for:)` when available.
+- Paywall includes the full Apple-required subscription disclosure (auto-renewal, 24-hour cancellation window, Apple ID billing) plus tappable **Privacy Policy** and **Terms of Use** links that open `LegalDocumentView` over the bundled Markdown docs.
 - Buy / Restore are wired end-to-end. Entitlement is derived from `Transaction.currentEntitlements` (never persisted), with a long-lived `Transaction.updates` listener for Ask-to-Buy / refunds.
 - Local simulator testing via `Configuration.storekit` (referenced by the shared scheme; no per-developer setup needed).
 - Debug builds expose a developer panel with a "force Pro" toggle and a "reset Klaus free-question counter" button; both are stripped in release builds.
@@ -98,7 +99,15 @@ SignalStrengthPainter/
 ├── KlausMascotView.swift                Animated pixel-art mascot (GIF via ImageIO)
 ├── PaywallView.swift                    Pro upsell + StoreKit 2 purchase flow
 ├── ProStore.swift                       StoreKit 2 manager (products/purchase/restore)
-├── Info.plist                           Motion, Local Network, Camera, NSBonjourServices
+├── LegalDocumentView.swift              In-app Markdown viewer for Privacy Policy / Terms
+├── AboutView.swift                      About sheet (version, links, credits)
+├── Info.plist                           Motion, Local Network, Camera, NSBonjourServices,
+│                                        orientation (portrait on iPhone),
+│                                        UIRequiresFullScreen, UIRequiredDeviceCapabilities,
+│                                        ITSAppUsesNonExemptEncryption=false
+├── PrivacyInfo.xcprivacy                Apple Privacy Manifest (no tracking, UserDefaults CA92.1)
+├── PrivacyPolicy.md                     Bundled privacy policy (rendered by LegalDocumentView)
+├── TermsOfUse.md                        Bundled terms of use (rendered by LegalDocumentView)
 └── Assets.xcassets                      AppIcon + Klaus GIFs (NSDataAsset)
 
 Configuration.storekit                   Local StoreKit config (simulator testing)
@@ -117,7 +126,7 @@ MEMORY.md                                Session memory / detailed architecture 
 
 1. Open `SignalStrengthPainter.xcodeproj` in Xcode.
 2. Select the **SignalStrengthPainter** scheme plus your iPhone (recommended) or a simulator.
-3. In **Signing & Capabilities**, choose your **Team**. The bundle ID is `com.example.SignalStrengthPainter`; change it in the target's **General** tab if needed. `CFBundleDisplayName` is set to `Wi-Fi Buddy` so that name appears under the home-screen icon.
+3. In **Signing & Capabilities**, choose your **Team**. The bundle ID is `com.wifibuddy.app`; change it in the target's **General** tab if you're testing a personal fork. `CFBundleDisplayName` is set to `Wi-Fi Buddy` so that name appears under the home-screen icon.
 4. Build and run (**⌘R**).
 
 ### StoreKit (Pro tab)
@@ -139,8 +148,28 @@ The Simulator can render the Survey UI, the heatmap, and the post-survey report 
 - `NSLocalNetworkUsageDescription` — LAN scanning for the Devices tab.
 - `NSCameraUsageDescription` — ARKit world tracking for the Survey tab.
 - `NSBonjourServices` — the 19 mDNS service types the scanner browses. This **must stay in sync** with `NetworkScanner.bonjourServiceTypes`; iOS will silently drop any browser for a type not listed here.
+- `ITSAppUsesNonExemptEncryption=false` — the app only uses standard HTTPS/TLS, which is export-compliance exempt; this flag skips the App Store Connect encryption questionnaire on every build upload.
+- iPhone is locked to **portrait** orientation (`UISupportedInterfaceOrientations`), while iPad keeps all four orientations. ARKit world-tracking surveys behave much better when the map projection can't flip mid-walk.
+- `UIRequiresFullScreen=true` and `UIRequiredDeviceCapabilities = [arkit, wifi]` — keeps the app off split-screen iPad multitasking (AR + survey assumes a single full window) and hides the app from devices that can't run ARKit.
+
+The app ships a full **Apple Privacy Manifest** at `PrivacyInfo.xcprivacy`. It declares `NSPrivacyTracking=false`, no tracking domains, and no collected data types. The only privacy-sensitive API declared is `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1` (accessing user defaults from within the same app) — used by the `@AppStorage` calls that persist preferences, trust flags, survey history, and Klaus chat state.
 
 The app makes no analytics or third-party network calls. The speed test, latency probes, and gateway pings are the only outbound traffic. The assistant (Klaus) runs entirely offline.
+
+## Legal documents
+
+Privacy Policy and Terms of Use ship as bundled Markdown (`PrivacyPolicy.md`, `TermsOfUse.md`) and are rendered in-app by `LegalDocumentView` via `AttributedString`'s native Markdown parser. The paywall exposes both links next to the Apple-required subscription disclosure, satisfying App Store Review Guideline 3.1.2 without relying on an external hosted web page.
+
+## App Store submission checklist
+
+When preparing a new build for App Store Connect, double-check:
+
+- Bundle identifier is `com.wifibuddy.app` in both Debug and Release configs.
+- `Info.plist` has the four usage-description strings plus `ITSAppUsesNonExemptEncryption`, the orientation arrays, `UIRequiresFullScreen`, and `UIRequiredDeviceCapabilities`.
+- `PrivacyInfo.xcprivacy` is present in the target's **Copy Bundle Resources** phase (the project wires it in automatically).
+- `PrivacyPolicy.md` and `TermsOfUse.md` are in **Copy Bundle Resources**.
+- StoreKit product IDs (`com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly`) exist in App Store Connect with matching pricing tiers, and a 3-day free trial is configured on the yearly SKU if that funnel is enabled.
+- App Review Notes include: "Survey tab uses ARKit; please run on a physical device to exercise world tracking. Paywall disclosures and Privacy/Terms links are on the Pro tab."
 
 ## Further reading
 

@@ -29,6 +29,57 @@
     </dict>
     <key>UILaunchScreen</key>
     <dict/>
+    <!--
+      App Transport Security: defaults apply (HTTPS only). All network
+      calls in the app go to https://speed.cloudflare.com and TCP pings
+      to public DNS resolvers; no plaintext HTTP is used.
+    -->
+    <!--
+      Export compliance. The app uses only Apple-provided TLS (HTTPS for
+      Cloudflare speed tests, standard iOS network stack everywhere else)
+      and no proprietary cryptography, so it qualifies for the Category 5
+      Part 2 exemption. Declaring this here skips the export-compliance
+      questionnaire on every TestFlight upload.
+    -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <!--
+      Orientation: portrait only on iPhone. The AR survey canvas
+      (SignalMapViewModel.projectToMap) assumes a portrait-up device so
+      the x/z floor projection lines up with the rendered map; allowing
+      mid-walk rotation would visibly skew the heat trail. iPad is
+      allowed to rotate because the Survey tab on iPad still projects
+      the map correctly at any orientation.
+    -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <!--
+      AR + full-screen posture. Stage Manager / Split View break
+      ARWorldTrackingConfiguration's camera pipeline, so the survey tab
+      requires a full-screen window.
+    -->
+    <key>UIRequiresFullScreen</key>
+    <true/>
+    <!--
+      Device capability: the app requires ARKit world tracking (used by
+      the Survey tab's AR positioning). Listing it here prevents the app
+      from appearing on non-AR-capable hardware in the App Store, which
+      is the right filter for a feature we can't fall back from.
+    -->
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arkit</string>
+        <string>wifi</string>
+    </array>
     <key>NSMotionUsageDescription</key>
     <string>This app uses motion data to draw your walked signal map path.</string>
     <key>NSCameraUsageDescription</key>
