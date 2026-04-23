@@ -54,15 +54,13 @@ struct PaywallView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    heroPreview
-                        .frame(height: 280)
-                        .clipped()
+                    heroPager
+                        .frame(height: 360)
 
                     VStack(spacing: 22) {
+                        pageDots
                         titleSection
                         featureIcon
-                        tagline
-                        pageDots
                         pricingCards
                         buyButton
                         if trialAvailableForSelection && selectedPlan == .yearly {
@@ -75,7 +73,7 @@ struct PaywallView: View {
                         #endif
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 20)
+                    .padding(.top, 4)
                     .padding(.bottom, 36)
                 }
             }
@@ -86,22 +84,236 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - Hero preview
+    // MARK: - Hero pager
 
-    private var heroPreview: some View {
+    /// Three-page swipeable pitch for Wi-Fi Buddy Pro. Each page covers
+    /// one of the features that is actually gated behind `store.isProUser`
+    /// in the app (AR Survey + Insights report + unlimited Klaus chat),
+    /// so the copy here stays in sync with what the user will unlock.
+    /// Wired to `currentPage` so the existing `pageDots` below reflect
+    /// real selection state instead of being decorative.
+    private var heroPager: some View {
+        TabView(selection: $currentPage) {
+            heroPage(
+                eyebrow: "AR Wi-Fi Survey",
+                headline: "Visualize your Wi-Fi coverage",
+                subtitle: "Walk your home and watch signal strength paint itself onto a live floor plan — no extra hardware needed."
+            ) {
+                surveyArt
+            }
+            .tag(0)
+
+            heroPage(
+                eyebrow: "Smart Insights",
+                headline: "Fix dead zones, fast",
+                subtitle: "Every survey delivers personalized fixes — where to move your router, add a mesh node, or switch bands."
+            ) {
+                insightsArt
+            }
+            .tag(1)
+
+            heroPage(
+                eyebrow: "Klaus AI Assistant",
+                headline: "Unlimited Wi-Fi help",
+                subtitle: "Chat as much as you like with Klaus — your personal Wi-Fi expert, with clear answers tuned to your network."
+            ) {
+                klausArt
+            }
+            .tag(2)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .animation(.easeInOut(duration: 0.2), value: currentPage)
+    }
+
+    /// Layout for a single pager page: art on top, then eyebrow tag,
+    /// headline, and supporting copy. The art's fade-to-background
+    /// gradient lives here (instead of on each art view) so every page
+    /// blends into `theme.background` identically.
+    @ViewBuilder
+    private func heroPage<Art: View>(
+        eyebrow: String,
+        headline: String,
+        subtitle: String,
+        @ViewBuilder art: () -> Art
+    ) -> some View {
+        VStack(spacing: 12) {
+            art()
+                .frame(height: 220)
+                .clipped()
+                .overlay(
+                    LinearGradient(
+                        colors: [.clear, .clear, theme.background.opacity(0.85), theme.background],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+
+            VStack(spacing: 6) {
+                Text(eyebrow.uppercased())
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.4)
+                    .foregroundStyle(.blue)
+
+                Text(headline)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                    .multilineTextAlignment(.center)
+
+                Text(subtitle)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(theme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 28)
+        }
+    }
+
+    // MARK: - Per-page art
+
+    /// Page 1 — the existing floor-plan heatmap preview. Shows what
+    /// the user sees after a completed AR survey: rooms, heat blobs,
+    /// signal nodes, and the connection mesh between them.
+    private var surveyArt: some View {
         Canvas { context, size in
             drawMiniFloorPlan(context: context, size: size)
             drawHeatBlobs(context: context, size: size)
             drawSignalNodes(context: context, size: size)
             drawConnectionLines(context: context, size: size)
         }
-        .overlay(
-            LinearGradient(
-                colors: [.clear, .clear, theme.background.opacity(0.85), theme.background],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+    }
+
+    /// Page 2 — same floor plan, but annotated with two callout badges
+    /// so the user sees the *interpretation* layer, not just the raw
+    /// heatmap. The positions are percentage-based so the layout holds
+    /// across device widths.
+    private var insightsArt: some View {
+        ZStack {
+            Canvas { context, size in
+                drawMiniFloorPlan(context: context, size: size)
+                drawHeatBlobs(context: context, size: size)
+            }
+
+            GeometryReader { geo in
+                insightCallout(
+                    icon: "exclamationmark.triangle.fill",
+                    label: "Dead zone",
+                    tint: Color(red: 0.95, green: 0.35, blue: 0.3)
+                )
+                .position(x: geo.size.width * 0.28, y: geo.size.height * 0.78)
+
+                insightCallout(
+                    icon: "checkmark.seal.fill",
+                    label: "Move router here",
+                    tint: Color(red: 0.25, green: 0.8, blue: 0.45)
+                )
+                .position(x: geo.size.width * 0.68, y: geo.size.height * 0.28)
+            }
+        }
+    }
+
+    private func insightCallout(icon: String, label: String, tint: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(tint)
+                .shadow(color: tint.opacity(0.5), radius: 6, x: 0, y: 2)
         )
+    }
+
+    /// Page 3 — Klaus mascot plus two sample chat bubbles to communicate
+    /// "this is a real conversational feature, not just a help article".
+    /// Dark panel matches the other pages' backdrop so the pager reads
+    /// as one consistent visual space.
+    private var klausArt: some View {
+        ZStack {
+            Color(red: 0.06, green: 0.06, blue: 0.08)
+
+            Canvas { context, size in
+                drawGridBackdrop(context: context, size: size)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    KlausMascotView(size: 52, mode: .portrait, isAnimating: false)
+                        .frame(width: 52, height: 52)
+                        .background(
+                            Circle().fill(Color.white.opacity(0.08))
+                        )
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        chatBubble(
+                            text: "My video calls drop in the office. What can I do?",
+                            isUser: true
+                        )
+                        chatBubble(
+                            text: "Your office is 38 ft from the router with two walls. Try moving it to the hallway or add a mesh node near the desk.",
+                            isUser: false
+                        )
+                    }
+                }
+
+                HStack {
+                    Spacer(minLength: 0)
+                    chatBubble(text: "That fixed it — thanks!", isUser: true)
+                }
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    private func chatBubble(text: String, isUser: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isUser
+                          ? Color.blue.opacity(0.85)
+                          : Color.white.opacity(0.12))
+            )
+            .frame(maxWidth: 220, alignment: isUser ? .trailing : .leading)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Subtle grid used as backdrop on the Klaus page so it feels like
+    /// the same "network canvas" as the floor-plan pages, just without
+    /// rooms drawn on top.
+    private func drawGridBackdrop(context: GraphicsContext, size: CGSize) {
+        var ctx = context
+        ctx.opacity = 0.12
+        let gridSpacing: CGFloat = 28
+        let cols = Int(size.width / gridSpacing) + 1
+        let rows = Int(size.height / gridSpacing) + 1
+        for col in 0...cols {
+            let x = CGFloat(col) * gridSpacing
+            var line = Path()
+            line.move(to: CGPoint(x: x, y: 0))
+            line.addLine(to: CGPoint(x: x, y: size.height))
+            ctx.stroke(line, with: .color(.gray), lineWidth: 0.5)
+        }
+        for row in 0...rows {
+            let y = CGFloat(row) * gridSpacing
+            var line = Path()
+            line.move(to: CGPoint(x: 0, y: y))
+            line.addLine(to: CGPoint(x: size.width, y: y))
+            ctx.stroke(line, with: .color(.gray), lineWidth: 0.5)
+        }
     }
 
     private func drawMiniFloorPlan(context: GraphicsContext, size: CGSize) {
@@ -240,30 +452,31 @@ struct PaywallView: View {
             .padding(.vertical, 4)
     }
 
-    // MARK: - Tagline
-
-    private var tagline: some View {
-        Text("Visualize your Wi-Fi coverage &\noptimize your network setup")
-            .font(.system(size: 16, weight: .regular))
-            .foregroundStyle(theme.secondaryText)
-            .multilineTextAlignment(.center)
-            .lineSpacing(3)
-    }
-
     // MARK: - Page dots
 
+    /// Selection indicator for `heroPager`. Dots are tappable so users
+    /// who spot them before they spot the swipe gesture can still
+    /// navigate the feature tour.
     private var pageDots: some View {
         HStack(spacing: 8) {
             ForEach(0..<pageCount, id: \.self) { index in
-                if index == currentPage {
-                    Capsule()
-                        .fill(.blue)
-                        .frame(width: 20, height: 8)
-                } else {
-                    Circle()
-                        .fill(theme.tertiaryText)
-                        .frame(width: 8, height: 8)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        currentPage = index
+                    }
+                } label: {
+                    if index == currentPage {
+                        Capsule()
+                            .fill(.blue)
+                            .frame(width: 20, height: 8)
+                    } else {
+                        Circle()
+                            .fill(theme.tertiaryText)
+                            .frame(width: 8, height: 8)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Feature page \(index + 1) of \(pageCount)")
             }
         }
     }
