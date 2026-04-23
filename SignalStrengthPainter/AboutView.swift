@@ -41,7 +41,7 @@ struct AboutView: View {
                 .padding(.top, 12)
             }
             .background(theme.background.ignoresSafeArea())
-            .navigationTitle("About & Guide")
+            .navigationTitle("Getting Started")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -250,10 +250,6 @@ struct AboutView: View {
 
     private var footerSection: some View {
         VStack(spacing: 4) {
-            Text("Made with care for people who just want their Wi-Fi to work.")
-                .font(.system(size: 12))
-                .foregroundStyle(theme.tertiaryText)
-                .multilineTextAlignment(.center)
             if let version = appVersion {
                 Text("Version \(version)")
                     .font(.system(size: 11))
@@ -265,13 +261,7 @@ struct AboutView: View {
     }
 
     private var appVersion: String? {
-        guard let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-            return nil
-        }
-        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
-            return "\(short) (\(build))"
-        }
-        return short
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     }
 
     // MARK: - Building blocks

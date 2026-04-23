@@ -22,8 +22,14 @@ struct DashboardView: View {
     @State private var serviceLatencies: [String: Double] = [:]
     // Drives the hamburger-menu sheet in the top-left of the Wi-Fi
     // header. Kept as a simple boolean because the sheet is a single
-    // static "About & Guide" screen — no navigation state to preserve.
+    // static "Getting Started" screen — no navigation state to preserve.
     @State private var showAbout = false
+    // Persisted first-launch flag so we auto-present "Getting Started"
+    // exactly once per install. Stored in `UserDefaults` via
+    // `@AppStorage` because it's UX state, not a security-sensitive
+    // entitlement — the worst-case failure is a returning user seeing
+    // the sheet again, which is harmless.
+    @AppStorage("hasSeenGettingStarted") private var hasSeenGettingStarted: Bool = false
 
     private let probe = LatencyProbe()
 
@@ -80,7 +86,17 @@ struct DashboardView: View {
             AboutView()
                 .withAppTheme()
         }
-        .onAppear { topology.start() }
+        .onAppear {
+            topology.start()
+            // First launch only: auto-present the "Getting Started"
+            // sheet so new users always see the guided intro. The
+            // `@AppStorage` flag flips as soon as we show it so this
+            // never fires again on this install.
+            if !hasSeenGettingStarted {
+                hasSeenGettingStarted = true
+                showAbout = true
+            }
+        }
         .onDisappear { topology.stop() }
         .onChange(of: speedTest.phase) { _, newPhase in
             if newPhase == .complete {
@@ -188,7 +204,7 @@ struct DashboardView: View {
         .padding(.horizontal, 20)
     }
 
-    /// Hamburger-style menu button. Opens the About & Guide sheet so
+    /// Hamburger-style menu button. Opens the Getting Started sheet so
     /// new users have a single obvious entry point for "what does this
     /// app do / how do I use it?" without us cramming help text onto
     /// every screen.
@@ -204,7 +220,7 @@ struct DashboardView: View {
                 .clipShape(Circle())
                 .overlay(Circle().stroke(theme.cardStroke, lineWidth: 1))
         }
-        .accessibilityLabel("About and guide")
+        .accessibilityLabel("Getting started")
     }
 
     // MARK: - Network Topology
