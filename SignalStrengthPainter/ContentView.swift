@@ -1,16 +1,32 @@
 import SwiftUI
 
 struct ContentView: View {
+    /// StoreKit entitlement holder. Injected by the parent view so a
+    /// single `ProStore` instance governs Pro across the whole app.
+    /// The survey tab renders its regular chrome for free users so
+    /// they can see the feature, but every attempt to actually begin
+    /// a survey is hard-gated behind the trial paywall.
+    @ObservedObject var store: ProStore
     @Environment(\.theme) private var theme
     @StateObject private var viewModel = SignalMapViewModel()
     @State private var showResetConfirmation = false
     @State private var showRoomNameEditor = false
+    @State private var showHardPaywall = false
     /// Persisted across launches so the user's last picked floor plan is
     /// remembered. Default is `.blank` (the plain background).
     @AppStorage("floorPlanTemplate") private var floorPlanRawValue: String = FloorPlanTemplate.blank.rawValue
     /// JSON-encoded `[templateRaw: [originalRoomName: customName]]`. Empty
     /// object by default — rooms fall back to their built-in names.
     @AppStorage("customFloorPlanRoomNames") private var customRoomNamesJSON: String = "{}"
+    /// Number of completed surveys across the app's lifetime. Only ever
+    /// incremented for Pro (or trial) users now that the survey is fully
+    /// gated; we still track it to drive the re-survey reminder
+    /// scheduler on first-ever completion.
+    @AppStorage("survey.completedCount") private var completedSurveyCount: Int = 0
+    /// Remembers whether the "finished" stage for the current survey has
+    /// already been counted so we don't double-increment if the view
+    /// re-renders or the user toggles into and out of `.finished`.
+    @State private var lastCountedFinishedID: ObjectIdentifier?
 
     private var selectedFloorPlan: FloorPlanTemplate {
         FloorPlanTemplate(rawValue: floorPlanRawValue) ?? .blank
@@ -53,6 +69,52 @@ struct ContentView: View {
         .onDisappear {
             viewModel.stopTracking()
         }
+        .onChange(of: viewModel.calibrationStage) { _, newValue in
+            // Count a completed survey exactly once, the moment it
+            // enters `.finished`. The view model fires rapid transitions
+            // elsewhere, so we guard with a one-shot token tied to the
+            // view's identity.
+            if newValue == .finished {
+                let token = ObjectIdentifier(viewModel)
+                if lastCountedFinishedID != token {
+                    lastCountedFinishedID = token
+                    completedSurveyCount += 1
+                    // Survey reminders are a retention hook — ask for
+                    // notification permission after the first real
+                    // success, not at launch when the user has no
+                    // context for why we'd want it.
+                    SurveyReminderScheduler.shared.scheduleResurveyReminders()
+                }
+            } else if newValue == .idle || newValue == .selectingStartPoint {
+                lastCountedFinishedID = nil
+            }
+        }
+        .sheet(isPresented: $showHardPaywall) {
+            PaywallView(store: store, isPresented: $showHardPaywall)
+                .withAppTheme()
+        }
+    }
+
+    /// Hard-gate the primary survey-control button for free users.
+    ///
+    /// Policy:
+    /// - Pro users (and DEBUG force-Pro) always proceed.
+    /// - On transitions that start a NEW survey (`idle` / `finished`),
+    ///   free users are ALWAYS shown the full-screen paywall. A single
+    ///   survey is often all anyone runs, so we can't afford to give
+    ///   one away — the whole flow is a trial-paywall funnel.
+    /// - Mid-flow transitions (tap start point, re-anchor, stop) are
+    ///   never gated — only the entry to a new survey.
+    private func handlePrimaryAction() {
+        let startsNewSurvey = viewModel.calibrationStage == .idle
+            || viewModel.calibrationStage == .finished
+
+        if !store.isProUser && startsNewSurvey {
+            showHardPaywall = true
+            return
+        }
+
+        viewModel.performPrimaryAction()
     }
 
     // MARK: - Calibration Layout
@@ -182,7 +244,16 @@ struct ContentView: View {
             trail: viewModel.trail,
             pointsPerMeter: viewModel.pointsPerMeter
         ) {
-            SurveyInsightsView(report: report)
+            // The A–F grade, dead-zone clustering and router-direction
+            // hint are the real paid payoff. Free users have already
+            // seen the raw heatmap above; the *report* stays locked.
+            if store.isProUser {
+                SurveyInsightsView(report: report)
+            } else {
+                LockedInsightsCard {
+                    showHardPaywall = true
+                }
+            }
         } else {
             let rated = viewModel.trail.filter { $0.latencyMs != nil }.count
             SurveyInsightsPlaceholder(sampleCount: rated)
@@ -498,7 +569,7 @@ struct ContentView: View {
     private var controlButtons: some View {
         VStack(spacing: 10) {
             Button {
-                viewModel.performPrimaryAction()
+                handlePrimaryAction()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: primaryActionIcon)
@@ -895,149 +966,74 @@ private struct FloorPlanRoomNameEditor: View {
 /// flip a local default to bypass the gate.
 struct SurveyProGate: View {
     @ObservedObject var store: ProStore
-    @Environment(\.theme) private var theme
-    @State private var showPaywall = false
 
     var body: some View {
-        Group {
-            if store.isProUser {
-                ContentView()
-            } else {
-                upsell
-            }
-        }
-        .sheet(isPresented: $showPaywall) {
-            PaywallView(store: store, isPresented: $showPaywall)
-                .withAppTheme()
-        }
+        // Free users now fall through to the real survey UI — the hard
+        // paywall is fired inside `ContentView` on the first (and
+        // post-freebie) Start Survey tap. The previous all-or-nothing
+        // soft gate hid the "aha" walk entirely, which hurt trial
+        // starts. We keep this wrapper purely so the rest of the app
+        // can pass `store` through without knowing about the change.
+        ContentView(store: store)
     }
+}
 
-    private var upsell: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 22) {
-                VStack(spacing: 14) {
-                    AppLogoView(size: 60)
-                        .padding(.top, 32)
+// MARK: - Locked Insights Card
 
-                    HStack(spacing: 0) {
-                        Text("Unlock the ")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(theme.primaryText)
-                        Text("Survey")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(.blue)
-                    }
+/// Shown below the raw heatmap after a free user's first completed
+/// survey. The heatmap is their "aha"; this card is the "relief" —
+/// upgrading to Pro unlocks the A–F grade, dead-zone clustering and
+/// router-placement hint. Tapping the CTA re-fires the same hard
+/// paywall used on the Start Survey gate.
+struct LockedInsightsCard: View {
+    @Environment(\.theme) private var theme
+    let onUnlock: () -> Void
 
-                    Text("Walk your space and paint Wi-Fi coverage onto the map.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(theme.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
-                }
-
-                previewCard
-                    .padding(.horizontal, 20)
-
-                proBenefitsCard
-                    .padding(.horizontal, 20)
-
-                Button {
-                    showPaywall = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Get Pro for Unlimited Surveys")
-                            .font(.system(size: 16, weight: .bold))
-                    }
-                    .foregroundStyle(theme.buttonText)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, .blue.opacity(0.85)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                    )
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 20)
-
-                Text("Cancel anytime from your Apple ID subscriptions.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.tertiaryText)
-                    .padding(.bottom, 32)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background.ignoresSafeArea())
-    }
-
-    private var previewCard: some View {
-        VStack(spacing: 10) {
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("Pro Preview")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.blue.opacity(0.12)))
-
-                Spacer()
-            }
-
-            Text("See every dead zone at a glance with a live coverage heatmap painted over your own floor plan.")
-                .font(.system(size: 13))
-                .foregroundStyle(theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(theme.cardFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(theme.cardStroke, lineWidth: 1)
-                )
-        )
-    }
-
-    private var proBenefitsCard: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("With Wi-Fi Buddy Pro you get")
-                .font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Pro Insights")
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundStyle(.blue)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.blue.opacity(0.12)))
+
+            Text("See the full report")
+                .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(theme.primaryText)
 
-            benefitRow(
-                icon: "infinity",
-                title: "Unlimited Surveys",
-                detail: "Walk any space, any time — no caps, no limits."
-            )
-            benefitRow(
-                icon: "map.fill",
-                title: "Live Coverage Heatmap",
-                detail: "Paint signal quality onto your floor plan as you move."
-            )
-            benefitRow(
-                icon: "chart.bar.doc.horizontal",
-                title: "Insights & Dead-Zone Reports",
-                detail: "See exactly where coverage drops off and what to do next."
-            )
-            benefitRow(
-                icon: "bubble.left.and.bubble.right.fill",
-                title: "Unlimited Chats with Klaus",
-                detail: "Ask your Wi-Fi sidekick anything, as often as you like."
-            )
+            VStack(alignment: .leading, spacing: 10) {
+                lockedRow(icon: "chart.bar.doc.horizontal", text: "A–F coverage grade for your space")
+                lockedRow(icon: "mappin.slash", text: "Dead-zone clustering with exact spots")
+                lockedRow(icon: "wifi", text: "Best router placement hint")
+            }
+
+            Button(action: onUnlock) {
+                HStack(spacing: 8) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("Unlock Pro Insights")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(theme.buttonText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .blue.opacity(0.85)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -1051,31 +1047,22 @@ struct SurveyProGate: View {
         )
     }
 
-    private func benefitRow(icon: String, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+    private func lockedRow(icon: String, text: String) -> some View {
+        HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.blue)
-                .frame(width: 22, height: 22)
-                .padding(6)
-                .background(Circle().fill(Color.blue.opacity(0.12)))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.primaryText)
-                Text(detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+                .frame(width: 22)
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundStyle(theme.secondaryText)
         }
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        ContentView(store: ProStore())
             .withAppTheme()
     }
 }

@@ -8,7 +8,11 @@ struct PaywallView: View {
     @ObservedObject var store: ProStore
     @Binding var isPresented: Bool
     @Environment(\.theme) private var theme
-    @State private var selectedPlan: Plan = .monthly
+    /// Default to Yearly — this is the trial-led funnel, and utility-app
+    /// benchmarks show trial-to-annual converts at ~12x the LTV of
+    /// trial-to-monthly. Start the user on the plan we actually want
+    /// them to pick.
+    @State private var selectedPlan: Plan = .yearly
     @State private var currentPage = 0
     @State private var showRestoreError: Bool = false
 
@@ -29,8 +33,19 @@ struct PaywallView: View {
     /// if the product fetch fails (e.g. App Store unreachable). These must
     /// stay in sync with the prices configured in App Store Connect.
     private static let fallbackMonthlyPrice = "$3.99"
-    private static let fallbackYearlyPrice = "$24.99"
-    private static let fallbackYearlyCrossOut = "$34.99"
+    private static let fallbackYearlyPrice = "$34.99"
+    /// Shown next to the yearly price to anchor against the per-month
+    /// equivalent ($2.92/mo × 12). Kept as a dumb string — StoreKit
+    /// doesn't surface an "equivalent monthly" field.
+    private static let fallbackYearlyMonthlyEquivalent = "~$2.92/mo"
+
+    /// True when the user is still eligible to redeem the 3-day free
+    /// trial on the currently selected plan. StoreKit reports this per
+    /// subscription group, so selecting Monthly vs Yearly after a past
+    /// trial on either product will correctly show "no trial available".
+    private var trialAvailableForSelection: Bool {
+        store.isEligibleForIntroOffer(productID: selectedPlan.productID)
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -49,6 +64,10 @@ struct PaywallView: View {
                         pageDots
                         pricingCards
                         buyButton
+                        if trialAvailableForSelection && selectedPlan == .yearly {
+                            trialTimeline
+                        }
+                        disclosureLine
                         bottomLinks
                         #if DEBUG
                         debugDevPanel
@@ -255,7 +274,7 @@ struct PaywallView: View {
             pricingOption(
                 plan: .monthly,
                 title: "Monthly",
-                subtitle: "Billed every month",
+                subtitle: "Just need it once? Cancel anytime.",
                 price: store.product(for: ProStore.monthlyProductID)?.displayPrice
                     ?? Self.fallbackMonthlyPrice,
                 badge: nil,
@@ -265,14 +284,25 @@ struct PaywallView: View {
             pricingOption(
                 plan: .yearly,
                 title: "Yearly",
-                subtitle: "Billed once a year",
+                subtitle: yearlyCardSubtitle,
                 price: store.product(for: ProStore.yearlyProductID)?.displayPrice
                     ?? Self.fallbackYearlyPrice,
-                badge: "Best Deal",
-                crossedOutPrice: Self.fallbackYearlyCrossOut
+                badge: store.isEligibleForIntroOffer(productID: ProStore.yearlyProductID)
+                    ? "3 Days Free"
+                    : "Best Deal",
+                crossedOutPrice: Self.fallbackYearlyMonthlyEquivalent
             )
         }
         .padding(.top, 8)
+    }
+
+    private var yearlyCardSubtitle: String {
+        if store.isEligibleForIntroOffer(productID: ProStore.yearlyProductID) {
+            let price = store.product(for: ProStore.yearlyProductID)?.displayPrice
+                ?? Self.fallbackYearlyPrice
+            return "3 days free, then \(price)/year"
+        }
+        return "Billed once a year"
     }
 
     private func pricingOption(
@@ -366,7 +396,7 @@ struct PaywallView: View {
                         .tint(.white)
                         .scaleEffect(0.9)
                 }
-                Text(store.purchaseInFlight ? "Processing..." : "Buy Now")
+                Text(buyButtonLabel)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(theme.buttonText)
             }
@@ -378,6 +408,97 @@ struct PaywallView: View {
         .disabled(store.purchaseInFlight || store.isRestoring)
         .opacity((store.purchaseInFlight || store.isRestoring) ? 0.7 : 1)
         .padding(.top, 8)
+    }
+
+    /// CTA copy flips between "Start 3-Day Free Trial" (yearly + eligible)
+    /// and the plain "Subscribe" path. We never show trial copy when
+    /// StoreKit reports the user is no longer eligible — doing so would
+    /// set up a refund because the purchase goes through at full price.
+    private var buyButtonLabel: String {
+        if store.purchaseInFlight { return "Processing..." }
+        if selectedPlan == .yearly && trialAvailableForSelection {
+            return "Start 3-Day Free Trial"
+        }
+        return "Subscribe"
+    }
+
+    /// Three-row trial timeline shown under the CTA when the yearly
+    /// plan is selected and the user is still eligible. Transparent
+    /// disclosure about the charge date consistently lifts trial start
+    /// rate AND reduces "I forgot I signed up" refund requests.
+    private var trialTimeline: some View {
+        let yearlyPrice = store.product(for: ProStore.yearlyProductID)?.displayPrice
+            ?? Self.fallbackYearlyPrice
+        return VStack(alignment: .leading, spacing: 10) {
+            trialTimelineRow(
+                index: 1,
+                title: "Today",
+                detail: "Full Pro access — unlimited surveys, insights, Klaus."
+            )
+            trialTimelineRow(
+                index: 2,
+                title: "Day 2",
+                detail: "We'll send a reminder before your trial ends."
+            )
+            trialTimelineRow(
+                index: 3,
+                title: "Day 3",
+                detail: "Trial ends. You'll be charged \(yearlyPrice)/year unless you cancel."
+            )
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private func trialTimelineRow(
+        index: Int,
+        title: String,
+        detail: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.18))
+                    .frame(width: 22, height: 22)
+                Text("\(index)")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Small disclosure line under the CTA. Apple requires clear
+    /// "cancel anytime" copy whenever we advertise an intro offer; we
+    /// also show a condensed version when the trial isn't visible so
+    /// the subscription terms stay readable.
+    private var disclosureLine: some View {
+        Text(trialAvailableForSelection && selectedPlan == .yearly
+             ? "Cancel anytime in Settings → Apple ID → Subscriptions."
+             : "Subscription auto-renews. Cancel anytime in Settings.")
+            .font(.system(size: 11))
+            .foregroundStyle(theme.tertiaryText)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
     }
 
     private func startPurchase() async {

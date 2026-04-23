@@ -195,6 +195,13 @@ final class NetworkScanner: ObservableObject {
     /// network-scoped storage.
     private static let trustMigrationKey = "trustMigrationCompleted_v2"
 
+    /// Persisted baseline of non-randomized MAC addresses seen per
+    /// network, keyed by `currentNetworkID`. When a scan on a trusted
+    /// network turns up a MAC we've never seen before, we post a local
+    /// notification — this is the single most re-engaging feature in a
+    /// Wi-Fi utility. Storage shape: `[networkID: [mac]]`.
+    private static let seenMACsByNetworkKey = "seenMACsByNetwork"
+
     /// Legacy UserDefaults keys from before trust/names were scoped to a
     /// network. Read once during migration, then deleted.
     private static let legacyTrustedKey = "trustedDeviceIPs"
@@ -381,6 +388,67 @@ final class NetworkScanner: ObservableObject {
             let isTrusted = trusted.contains(ip)
             devices[i].isTrusted = isTrusted
             devices[i].customName = isTrusted ? names[ip] : nil
+        }
+
+        // Once trust state is known, diff the MAC list against the
+        // per-network baseline to detect newcomers. Must happen after
+        // trust is applied so we can skip notifications on untrusted
+        // networks (coffee shops, airports, etc.).
+        detectNewDeviceArrivals(networkID: networkID)
+    }
+
+    /// Persisted per-network baseline of MACs we've already seen.
+    private var seenMACsByNetwork: [String: [String]] {
+        UserDefaults.standard.dictionary(forKey: Self.seenMACsByNetworkKey) as? [String: [String]] ?? [:]
+    }
+
+    /// Compares the current scan's non-randomized MACs against the
+    /// persisted baseline for `networkID` and fires a local notification
+    /// for each newcomer. Skipped entirely on first scan of a network
+    /// (otherwise every device would "alert") and on networks where
+    /// the user hasn't trusted anything (not *their* network, don't
+    /// spam).
+    ///
+    /// Randomized MACs are ignored — they churn by design and would
+    /// produce a constant stream of false positives.
+    private func detectNewDeviceArrivals(networkID: String) {
+        let trusted = trustedIPs(for: networkID)
+        var baseline = seenMACsByNetwork
+
+        guard !trusted.isEmpty else {
+            // Not a known-trusted network — drop any stale baseline
+            // we might have so a later trust designation gets a clean
+            // "first scan" pass.
+            if baseline.removeValue(forKey: networkID) != nil {
+                UserDefaults.standard.set(baseline, forKey: Self.seenMACsByNetworkKey)
+            }
+            return
+        }
+
+        let hasPriorBaseline = baseline[networkID] != nil
+        let previouslySeen = Set(baseline[networkID] ?? [])
+
+        var observed: Set<String> = []
+        var newDevices: [DiscoveredDevice] = []
+        for device in devices {
+            guard let mac = device.macAddress, !mac.isEmpty else { continue }
+            guard !device.hasRandomizedMAC else { continue }
+            guard !device.isCurrentDevice else { continue }
+            let normalized = mac.lowercased()
+            observed.insert(normalized)
+            if hasPriorBaseline, !previouslySeen.contains(normalized) {
+                newDevices.append(device)
+            }
+        }
+
+        // Union — keep devices that happened to be offline during this
+        // scan in the baseline so they don't re-trigger later.
+        let updated = previouslySeen.union(observed)
+        baseline[networkID] = Array(updated)
+        UserDefaults.standard.set(baseline, forKey: Self.seenMACsByNetworkKey)
+
+        if hasPriorBaseline, !newDevices.isEmpty {
+            NewDeviceAlertNotifier.shared.postNewDeviceAlerts(newDevices)
         }
     }
 
