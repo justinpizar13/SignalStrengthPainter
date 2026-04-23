@@ -59,13 +59,8 @@ struct MainTabView: View {
                 }
                 .tag(Tab.devices)
 
-            // In release builds the Pro tab disappears once the user
-            // has an active entitlement — they've already paid, so the
-            // upsell is noise. In DEBUG we keep it visible always so the
-            // paywall's dev toggle ("Force Pro entitlement") stays
-            // reachable regardless of the current simulated state,
-            // otherwise flipping ON would strand us with no way to flip
-            // OFF.
+            // The Pro tab disappears once the user has an active
+            // entitlement — they've already paid, so the upsell is noise.
             if showProTab {
                 PaywallView(
                     store: store,
@@ -85,24 +80,14 @@ struct MainTabView: View {
         }
         .tint(.blue)
         .onChange(of: store.isProUser) { _, newValue in
-            // Only auto-switch away from the Pro tab in release. In
-            // DEBUG we want the tester to stay on the paywall so they
-            // can flip the override back off after testing gated
-            // features.
-            #if !DEBUG
             if newValue && selectedTab == .pro {
                 selectedTab = .speed
             }
-            #endif
         }
     }
 
     private var showProTab: Bool {
-        #if DEBUG
-        return true
-        #else
-        return !store.isProUser
-        #endif
+        !store.isProUser
     }
 
 }

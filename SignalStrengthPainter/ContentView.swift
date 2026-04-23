@@ -98,7 +98,7 @@ struct ContentView: View {
     /// Hard-gate the primary survey-control button for free users.
     ///
     /// Policy:
-    /// - Pro users (and DEBUG force-Pro) always proceed.
+    /// - Pro users always proceed.
     /// - On transitions that start a NEW survey (`idle` / `finished`),
     ///   free users are ALWAYS shown the full-screen paywall. A single
     ///   survey is often all anyone runs, so we can't afford to give

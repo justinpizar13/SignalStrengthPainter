@@ -29,16 +29,6 @@ final class ProStore: ObservableObject {
     nonisolated static let yearlyProductID = "com.wifibuddy.pro.yearly"
     nonisolated static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
 
-    #if DEBUG
-    /// UserDefaults key used in DEBUG builds to force Pro entitlement on
-    /// without a real StoreKit transaction. Useful for testing Pro-gating
-    /// (e.g. "is the Survey tab blocked for free users?") without wiring
-    /// up `Configuration.storekit` or a Sandbox tester account. This flag
-    /// is read by `refreshEntitlements()` only; it can never turn Pro on
-    /// in a release build because the branch is compiled out.
-    static let debugForceProKey = "debug.forceProEntitlement"
-    #endif
-
     /// Persisted flag that stops us from re-scheduling the T+48h trial
     /// reminder every time the app relaunches and walks the entitlements.
     /// Keyed per transaction so an introductory-offer upgrade/downgrade
@@ -317,15 +307,6 @@ final class ProStore: ObservableObject {
             }
         }
 
-        #if DEBUG
-        // DEBUG override — lets us simulate a Pro user without a real
-        // transaction. Only affects debug builds; the flag is ignored
-        // (and the read is compiled out) in release.
-        if UserDefaults.standard.bool(forKey: Self.debugForceProKey) {
-            active = true
-        }
-        #endif
-
         self.hasActiveTrial = trialActive
         self.trialExpiration = trialEndDate
 
@@ -347,20 +328,6 @@ final class ProStore: ObservableObject {
             clearTrialReminder()
         }
     }
-
-    #if DEBUG
-    /// DEBUG-only helper that flips the force-Pro override flag and
-    /// immediately re-derives `isProUser` so the UI reacts right away.
-    func debugSetForcePro(_ enabled: Bool) async {
-        UserDefaults.standard.set(enabled, forKey: Self.debugForceProKey)
-        await refreshEntitlements()
-    }
-
-    /// DEBUG-only convenience used by the paywall's dev panel.
-    var debugIsForcingPro: Bool {
-        UserDefaults.standard.bool(forKey: Self.debugForceProKey)
-    }
-    #endif
 
     // MARK: - Internals
 

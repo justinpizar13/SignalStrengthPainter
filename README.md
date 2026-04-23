@@ -68,7 +68,6 @@ Trust flags and custom names are **scoped per network** — the network ID is de
 - Paywall includes the full Apple-required subscription disclosure (auto-renewal, 24-hour cancellation window, Apple ID billing) plus tappable **Privacy Policy** and **Terms of Use** links that open `LegalDocumentView` over the bundled Markdown docs.
 - Buy / Restore are wired end-to-end. Entitlement is derived from `Transaction.currentEntitlements` (never persisted), with a long-lived `Transaction.updates` listener for Ask-to-Buy / refunds.
 - Local simulator testing via `Configuration.storekit` (referenced by the shared scheme; no per-developer setup needed).
-- Debug builds expose a developer panel with a "force Pro" toggle and a "reset Klaus free-question counter" button; both are stripped in release builds.
 
 ## Project layout
 
@@ -134,7 +133,6 @@ MEMORY.md                                Session memory / detailed architecture 
 - The shared scheme already references `Configuration.storekit` under **Run → Options → StoreKit Configuration**, so Buy / Restore work in the Simulator without an Apple ID.
 - On a **physical device** launched from Xcode, StoreKit also uses the local config. If you detach the device and relaunch from the home screen, `Product.products(for:)` returns empty (the storekit config is scheme-scoped, not bundled in the app). Test purchases on-device either by staying attached to Xcode, by using the Simulator, or by configuring real products in App Store Connect and signing in with a Sandbox tester.
 - Product IDs (`com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly`) are declared in two places — `ProStore.swift` and `Configuration.storekit`. Keep them in sync when renaming.
-- In `#if DEBUG` builds, the paywall shows a developer panel that can force-flip `isProUser` for testing Pro-gated flows without running a purchase.
 
 ### Running the Survey without a device
 
