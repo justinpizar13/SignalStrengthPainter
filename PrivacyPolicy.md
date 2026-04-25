@@ -104,4 +104,4 @@ date at the top and surface the change in an app update.
 
 ## Contact
 
-Questions? Email: justin.dev@gmail.com
+Questions? Email: [justin.dev@gmail.com](mailto:justin.dev@gmail.com)
