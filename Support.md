@@ -1,8 +1,8 @@
-# Wi-Fi Buddy — Support
+# WiFi Buddy — Support
 
 _Last updated: April 24, 2026_
 
-Thanks for using **Wi-Fi Buddy**! If you need help, have a question,
+Thanks for using **WiFi Buddy**! If you need help, have a question,
 found a bug, or want to send a feature request, the best way to reach
 us is by email.
 
@@ -33,7 +33,7 @@ Subscriptions are managed by Apple, not by us. To cancel:
 1. Open the **Settings** app on your iPhone or iPad.
 2. Tap your **name** at the top.
 3. Tap **Subscriptions**.
-4. Tap **Wi-Fi Buddy Pro** and choose **Cancel Subscription**.
+4. Tap **WiFi Buddy Pro** and choose **Cancel Subscription**.
 
 If you cancel during the free trial period, you will not be charged.
 
@@ -45,7 +45,7 @@ buy the subscription.
 
 ### Do you collect my data?
 
-No. Wi-Fi Buddy does not run servers, accounts, analytics, or ads. All
+No. WiFi Buddy does not run servers, accounts, analytics, or ads. All
 your survey history, device list, trust flags, and Klaus chat history
 live **only on your device**. See the
 [Privacy Policy](./PrivacyPolicy.md) for details.

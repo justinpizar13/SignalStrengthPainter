@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Wi-Fi Buddy branded logo.
+/// WiFi Buddy branded logo.
 ///
 /// Renders a classic "signal-strength" Wi-Fi glyph — three concentric arcs and
 /// a center dot — in a traffic-light palette (green → yellow → orange → red).

@@ -93,7 +93,7 @@ struct PaywallView: View {
 
     // MARK: - Hero pager
 
-    /// Three-page swipeable pitch for Wi-Fi Buddy Pro. Each page covers
+    /// Three-page swipeable pitch for WiFi Buddy Pro. Each page covers
     /// one of the features that is actually gated behind `store.isProUser`
     /// in the app (AR Survey + Insights report + unlimited Klaus chat),
     /// so the copy here stays in sync with what the user will unlock.
@@ -443,7 +443,7 @@ struct PaywallView: View {
 
     private var titleSection: some View {
         HStack(spacing: 0) {
-            Text("Unlock Wi-Fi Buddy ")
+            Text("Unlock WiFi Buddy ")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)
             Text("Pro")
@@ -726,7 +726,7 @@ struct PaywallView: View {
             : ""
 
         return VStack(spacing: 6) {
-            Text("Wi-Fi Buddy Pro — \(selectedPrice)/\(period). \(trialLine)Payment will be charged to your Apple ID at confirmation of purchase. Subscription auto-renews for the same price and period unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in Settings → Apple ID → Subscriptions. Any unused portion of a free trial is forfeited when a subscription is purchased.")
+            Text("WiFi Buddy Pro — \(selectedPrice)/\(period). \(trialLine)Payment will be charged to your Apple ID at confirmation of purchase. Subscription auto-renews for the same price and period unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in Settings → Apple ID → Subscriptions. Any unused portion of a free trial is forfeited when a subscription is purchased.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.tertiaryText)
                 .multilineTextAlignment(.center)
@@ -802,7 +802,7 @@ struct PaywallView: View {
             .foregroundStyle(theme.tertiaryText)
         }
         .padding(.top, 4)
-        .alert("Wi-Fi Buddy Pro", isPresented: $showRestoreError, presenting: store.lastError) { _ in
+        .alert("WiFi Buddy Pro", isPresented: $showRestoreError, presenting: store.lastError) { _ in
             Button("OK", role: .cancel) { store.lastError = nil }
         } message: { text in
             Text(text)

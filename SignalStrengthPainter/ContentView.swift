@@ -959,7 +959,7 @@ private struct FloorPlanRoomNameEditor: View {
 
 /// Wrapper around the Survey (`ContentView`) that only lets Pro users
 /// through. Free users see an upsell explaining that the Survey is
-/// part of Wi-Fi Buddy Pro, with a CTA that presents `PaywallView`
+/// part of WiFi Buddy Pro, with a CTA that presents `PaywallView`
 /// as a sheet. The authoritative check is `store.isProUser`, which is
 /// derived from `Transaction.currentEntitlements` inside `ProStore`
 /// (not a persisted `@AppStorage` flag), so a jailbroken user cannot

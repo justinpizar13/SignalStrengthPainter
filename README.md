@@ -1,6 +1,6 @@
-# Wi-Fi Buddy
+# WiFi Buddy
 
-_Repository name: `SignalStrengthPainter` — the shipping app is branded **Wi-Fi Buddy**, with a **Wi-Fi Buddy Pro** premium tier._
+_Repository name: `SignalStrengthPainter` — the shipping app is branded **WiFi Buddy**, with a **WiFi Buddy Pro** premium tier._
 
 A SwiftUI iOS app for diagnosing home Wi-Fi. It combines a NetSpot-style AR walkthrough survey (with a live heatmap, floor-plan templates, and a post-survey A–F report) with a WiFiman/Speedtest-style dashboard (live network topology, Cloudflare-backed speed test, service latency grid) and a "who's on my Wi-Fi?" device scanner that identifies devices through eight overlapping layers (Bonjour, SSDP, UPnP, TCP port fingerprinting, liveness, reverse DNS, HTTP, and MAC/OUI vendor lookup).
 
@@ -14,7 +14,7 @@ The project started life as a pedometer-based 2D "paint your walk" prototype (se
 - **Live network topology card** on the Speed tab — ISP, router, and device nodes driven by real TCP pings and interface monitoring (no static diagrams).
 - **Cloudflare-backed speed test** with server selection (colo + distance + ISP), trimmed-mean ping/jitter, 8-stream concurrent download and upload, and a contextual Wi-Fi report rating the connection for streaming / gaming / video calls / home office / browsing.
 - **Device discovery** that identifies ~every device on the LAN by name, vendor, type, and open ports, with per-network trust flags and custom nicknames.
-- **Klaus, the Wi-Fi Buddy assistant** — a pixel-art mascot fronting an offline, keyword-matched Q&A knowledge base (no LLM, no network calls).
+- **Klaus, the WiFi Buddy assistant** — a pixel-art mascot fronting an offline, keyword-matched Q&A knowledge base (no LLM, no network calls).
 - **Light/dark/system** theming, persisted across launches.
 - **StoreKit 2 paywall** (monthly and yearly subscriptions) with a local `Configuration.storekit` for simulator testing.
 
@@ -125,7 +125,7 @@ MEMORY.md                                Session memory / detailed architecture 
 
 1. Open `SignalStrengthPainter.xcodeproj` in Xcode.
 2. Select the **SignalStrengthPainter** scheme plus your iPhone (recommended) or a simulator.
-3. In **Signing & Capabilities**, choose your **Team**. The bundle ID is `com.wifibuddy.app`; change it in the target's **General** tab if you're testing a personal fork. `CFBundleDisplayName` is set to `Wi-Fi Buddy` so that name appears under the home-screen icon.
+3. In **Signing & Capabilities**, choose your **Team**. The bundle ID is `com.wifibuddy.app`; change it in the target's **General** tab if you're testing a personal fork. `CFBundleDisplayName` is set to `WiFi Buddy` so that name appears under the home-screen icon.
 4. Build and run (**⌘R**).
 
 ### StoreKit (Pro tab)

@@ -4,7 +4,7 @@ import UserNotifications
 /// Posts a local notification when `NetworkScanner` detects a never-
 /// before-seen MAC address on a network the user has marked as trusted.
 ///
-/// Why local-only: Wi-Fi Buddy has no backend — everything runs on-
+/// Why local-only: WiFi Buddy has no backend — everything runs on-
 /// device. The notification is scheduled via `UNUserNotificationCenter`
 /// with a nil trigger so it fires immediately, and carries just enough
 /// context (device type, vendor) for the user to tap into the Devices

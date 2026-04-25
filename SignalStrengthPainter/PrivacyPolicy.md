@@ -2,7 +2,7 @@
 
 _Last updated: April 24, 2026_
 
-Wi-Fi Buddy ("we", "our", "the app") is designed to help you understand
+WiFi Buddy ("we", "our", "the app") is designed to help you understand
 and improve the Wi-Fi network you already have. We built the app with
 privacy as a first-order requirement: **your data stays on your
 device.**
@@ -56,7 +56,7 @@ of them carry identifying information about you:
 The app does not integrate with any third-party analytics, advertising,
 tracking, crash reporting, or attribution SDKs.
 
-## Subscriptions (Wi-Fi Buddy Pro)
+## Subscriptions (WiFi Buddy Pro)
 
 Subscription purchases are handled entirely by Apple's StoreKit. We
 never see your payment information. Apple's own privacy policy covers

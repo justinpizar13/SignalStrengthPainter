@@ -190,7 +190,7 @@ struct DashboardView: View {
         ZStack {
             HStack(spacing: 8) {
                 AppLogoView(size: 44)
-                Text("Wi-Fi Buddy")
+                Text("WiFi Buddy")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(theme.primaryText)
             }

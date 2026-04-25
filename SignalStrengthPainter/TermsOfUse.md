@@ -2,12 +2,12 @@
 
 _Last updated: April 23, 2026_
 
-These terms govern your use of Wi-Fi Buddy ("the app"). By using the
+These terms govern your use of WiFi Buddy ("the app"). By using the
 app you agree to these terms.
 
 ## License
 
-Wi-Fi Buddy is licensed to you under Apple's standard End User License
+WiFi Buddy is licensed to you under Apple's standard End User License
 Agreement (EULA) for App Store apps:
 <https://www.apple.com/legal/internet-services/itunes/dev/stdeula/>.
 
@@ -17,7 +17,7 @@ app, and these terms govern the relationship between you and us.
 
 ## Subscriptions
 
-Wi-Fi Buddy Pro is an auto-renewing subscription sold in two plans:
+WiFi Buddy Pro is an auto-renewing subscription sold in two plans:
 
 - **Monthly**: USD $3.99 / month
 - **Yearly**: USD $34.99 / year
@@ -48,7 +48,7 @@ price increase takes effect for your existing subscription.
 
 ## What Pro unlocks
 
-Wi-Fi Buddy Pro unlocks:
+WiFi Buddy Pro unlocks:
 
 - Unlimited AR Wi-Fi surveys with dead-zone detection and personalized
   recommendations
@@ -59,7 +59,7 @@ one question for Klaus.
 
 ## Acceptable use
 
-Wi-Fi Buddy is a diagnostic tool for networks you own or have
+WiFi Buddy is a diagnostic tool for networks you own or have
 permission to test. You agree to:
 
 - Only scan and survey Wi-Fi networks you own or have explicit

@@ -2,7 +2,7 @@ import Foundation
 import StoreKit
 import UserNotifications
 
-/// StoreKit 2 manager for Wi-Fi Buddy Pro.
+/// StoreKit 2 manager for WiFi Buddy Pro.
 ///
 /// Entitlement source of truth is `Transaction.currentEntitlements` — we never
 /// persist a `isProUser` flag in `UserDefaults`. A user who jailbreaks their
@@ -133,14 +133,14 @@ final class ProStore: ObservableObject {
             if loaded.isEmpty {
                 #if DEBUG
                 lastError = """
-                    No Wi-Fi Buddy Pro products were returned by StoreKit. \
+                    No WiFi Buddy Pro products were returned by StoreKit. \
                     On a physical device, launch the app from Xcode (⌘R) so \
                     Configuration.storekit is attached — or configure a \
                     Sandbox tester. Product IDs expected: \
                     \(Self.allProductIDs.sorted().joined(separator: ", "))
                     """
                 #else
-                lastError = "Wi-Fi Buddy Pro isn't available right now. Please try again later."
+                lastError = "WiFi Buddy Pro isn't available right now. Please try again later."
                 #endif
             }
         } catch {
@@ -244,7 +244,7 @@ final class ProStore: ObservableObject {
             try await AppStore.sync()
             await refreshEntitlements()
             if !isProUser {
-                lastError = "No active Wi-Fi Buddy Pro subscription was found on this Apple ID."
+                lastError = "No active WiFi Buddy Pro subscription was found on this Apple ID."
             }
         } catch {
             lastError = "Couldn't restore purchases. Please try again."
@@ -434,7 +434,7 @@ final class ProStore: ObservableObject {
         guard interval > 60 else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Wi-Fi Buddy Pro trial ends tomorrow"
+        content.title = "WiFi Buddy Pro trial ends tomorrow"
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short

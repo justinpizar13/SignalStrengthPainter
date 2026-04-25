@@ -2,7 +2,7 @@ import SwiftUI
 
 /// "About & Guide" sheet presented from the hamburger menu on the Speed
 /// tab. This is the single place a new user (or a returning one who
-/// forgot what a tab does) can read what Wi-Fi Buddy actually is, what
+/// forgot what a tab does) can read what WiFi Buddy actually is, what
 /// each tab is for, and how to run the two flows (Speed Test + Survey)
 /// that drive almost everything else in the app.
 ///
@@ -67,7 +67,7 @@ struct AboutView: View {
     private var heroSection: some View {
         VStack(spacing: 10) {
             AppLogoView(size: 72)
-            Text("Wi-Fi Buddy")
+            Text("WiFi Buddy")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(theme.primaryText)
             Text("Your pocket Wi-Fi expert — test, map, and fix your network without calling IT.")
@@ -89,15 +89,15 @@ struct AboutView: View {
         )
     }
 
-    // MARK: - What is Wi-Fi Buddy
+    // MARK: - What is WiFi Buddy
 
     private var whatIsSection: some View {
         section(
-            title: "What is Wi-Fi Buddy?",
+            title: "What is WiFi Buddy?",
             icon: "sparkles"
         ) {
             bodyText(
-                "Wi-Fi Buddy helps you understand and improve the Wi-Fi you already have. In a few taps you can measure your speed, walk your home to see where signal drops off, check who's on your network, and ask Klaus — our built-in Wi-Fi assistant — for plain-English advice."
+                "WiFi Buddy helps you understand and improve the Wi-Fi you already have. In a few taps you can measure your speed, walk your home to see where signal drops off, check who's on your network, and ask Klaus — our built-in Wi-Fi assistant — for plain-English advice."
             )
             bodyText(
                 "Everything runs on-device. We don't send your network data to a server, and Klaus is a local knowledge engine — no cloud, no accounts, no tracking."
@@ -152,7 +152,7 @@ struct AboutView: View {
             title: "How to Run a Speed Test",
             icon: "bolt.fill"
         ) {
-            stepRow(number: 1, title: "Open the Speed tab", body: "That's where you are when you first open Wi-Fi Buddy.")
+            stepRow(number: 1, title: "Open the Speed tab", body: "That's where you are when you first open WiFi Buddy.")
             stepRow(number: 2, title: "Tap \"Start Speed Test\"", body: "We pick the nearest Cloudflare test server, measure ping and jitter, then download and upload bursts for up to 12 seconds each.")
             stepRow(number: 3, title: "Read your report", body: "When it finishes, scroll down for a per-activity rating — streaming, gaming, video calls, home office, and browsing — based on your actual numbers.")
             tipCallout(
@@ -219,7 +219,7 @@ struct AboutView: View {
 
     private var proSection: some View {
         section(
-            title: "Wi-Fi Buddy Pro",
+            title: "WiFi Buddy Pro",
             icon: "crown.fill",
             accent: .orange
         ) {

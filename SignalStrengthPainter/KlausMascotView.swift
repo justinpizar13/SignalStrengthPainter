@@ -71,7 +71,7 @@ struct KlausMascotView: View {
         KlausAnimatedImage(mode: mode, isAnimating: isAnimating)
             .frame(width: size, height: size)
             .modifier(KlausColorModifier(invertColors: invertColors))
-            .accessibilityLabel("Klaus, the Wi-Fi Buddy mascot")
+            .accessibilityLabel("Klaus, the WiFi Buddy mascot")
     }
 }
 

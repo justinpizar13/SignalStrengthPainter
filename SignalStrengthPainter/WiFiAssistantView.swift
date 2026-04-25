@@ -613,7 +613,7 @@ struct WiFiAssistantView: View {
                 Text("Klaus")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(theme.primaryText)
-                Text("Your Wi-Fi Buddy sidekick")
+                Text("Your WiFi Buddy sidekick")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.tertiaryText)
             }
@@ -836,7 +836,7 @@ struct WiFiAssistantView: View {
                     Text("You've used your free question")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(theme.primaryText)
-                    Text("Get Wi-Fi Buddy Pro to keep chatting with Klaus as much as you want.")
+                    Text("Get WiFi Buddy Pro to keep chatting with Klaus as much as you want.")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -961,7 +961,7 @@ struct WiFiAssistantView: View {
         messages.append(
             AssistantMessage(
                 role: .assistant,
-                text: "Beep boop — hi there! I'm Klaus, your Wi-Fi Buddy. I live in your router's packets and I know *way* too much about Wi-Fi. Tap a question below or ask me anything.",
+                text: "Beep boop — hi there! I'm Klaus, your WiFi Buddy. I live in your router's packets and I know *way* too much about Wi-Fi. Tap a question below or ask me anything.",
                 relatedQuestions: WiFiAssistantEngine.starterQuestions
             )
         )

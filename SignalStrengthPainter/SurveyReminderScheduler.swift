@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 
 /// Schedules the 30 / 90 / 180-day "has your Wi-Fi changed?" re-survey
-/// nudges used as a retention hook for Wi-Fi Buddy Pro. Utility apps
+/// nudges used as a retention hook for WiFi Buddy Pro. Utility apps
 /// die from "I solved my problem, why am I paying?" — local notifications
 /// keep the app top-of-mind without adding any server dependency.
 ///

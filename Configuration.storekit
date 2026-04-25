@@ -66,12 +66,12 @@
       "id" : "22222222-2222-4222-8222-222222222222",
       "localizations" : [
         {
-          "description" : "Wi-Fi Buddy Pro",
-          "displayName" : "Wi-Fi Buddy Pro",
+          "description" : "WiFi Buddy Pro",
+          "displayName" : "WiFi Buddy Pro",
           "locale" : "en_US"
         }
       ],
-      "name" : "Wi-Fi Buddy Pro",
+      "name" : "WiFi Buddy Pro",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -94,13 +94,13 @@
           "localizations" : [
             {
               "description" : "Unlimited site surveys, dead-zone insights, and device identification.",
-              "displayName" : "Wi-Fi Buddy Pro Monthly",
+              "displayName" : "WiFi Buddy Pro Monthly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.wifibuddy.pro.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Wi-Fi Buddy Pro Monthly",
+          "referenceName" : "WiFi Buddy Pro Monthly",
           "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
           "type" : "RecurringSubscription"
         },
@@ -125,13 +125,13 @@
           "localizations" : [
             {
               "description" : "Unlimited site surveys, dead-zone insights, and device identification. Billed yearly — best value.",
-              "displayName" : "Wi-Fi Buddy Pro Yearly",
+              "displayName" : "WiFi Buddy Pro Yearly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.wifibuddy.pro.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Wi-Fi Buddy Pro Yearly",
+          "referenceName" : "WiFi Buddy Pro Yearly",
           "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
           "type" : "RecurringSubscription"
         }

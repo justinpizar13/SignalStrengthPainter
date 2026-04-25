@@ -1,4 +1,4 @@
-"""Generate the Wi-Fi Buddy app icon (1024x1024).
+"""Generate the WiFi Buddy app icon (1024x1024).
 
 The coloring and geometry here are kept in lockstep with the in-app
 ``AppLogoView`` SwiftUI view (`SignalStrengthPainter/AppLogoView.swift`). The
