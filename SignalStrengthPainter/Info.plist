@@ -44,23 +44,15 @@
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <!--
-      Orientation: portrait only on iPhone. The AR survey canvas
+      Orientation: portrait only. The AR survey canvas
       (SignalMapViewModel.projectToMap) assumes a portrait-up device so
       the x/z floor projection lines up with the rendered map; allowing
-      mid-walk rotation would visibly skew the heat trail. iPad is
-      allowed to rotate because the Survey tab on iPad still projects
-      the map correctly at any orientation.
+      mid-walk rotation would visibly skew the heat trail. iPhone-only
+      build, so no ~ipad override is needed.
     -->
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
-    </array>
-    <key>UISupportedInterfaceOrientations~ipad</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationPortraitUpsideDown</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <!--
       AR + full-screen posture. Stage Manager / Split View break

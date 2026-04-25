@@ -684,21 +684,14 @@ Locked the project down for App Store Connect submission. All of the blockers th
 Added four new keys (everything directly in the plist since `INFOPLIST_KEY_*` is a no-op under this build config):
 
 - **`ITSAppUsesNonExemptEncryption = <false/>`** — the app only uses standard HTTPS/TLS (no custom crypto, no proprietary VPN, nothing export-controlled). Setting this declaratively in Info.plist skips the App Store Connect encryption questionnaire on every build upload, which otherwise has to be answered manually for each TestFlight build.
-- **Orientation locked to portrait on iPhone**:
+- **Orientation locked to portrait (iPhone-only build)**:
   ```xml
   <key>UISupportedInterfaceOrientations</key>
   <array><string>UIInterfaceOrientationPortrait</string></array>
-  <key>UISupportedInterfaceOrientations~ipad</key>
-  <array>
-      <string>UIInterfaceOrientationPortrait</string>
-      <string>UIInterfaceOrientationPortraitUpsideDown</string>
-      <string>UIInterfaceOrientationLandscapeLeft</string>
-      <string>UIInterfaceOrientationLandscapeRight</string>
-  </array>
   ```
-  Why: `ARWorldTrackingConfiguration` anchors the map projection at Start Survey and converts the user's walk into floor-projected `(x, y)` positions using the camera transform. A landscape flip mid-walk rotates the projection matrix underneath the heatmap and visibly tears the trail. iPad is intentionally left permissive because larger screens don't rotate accidentally and the map benefits from landscape real estate on a flat surface during review. The `~ipad` suffix is how Apple scopes the iPhone-only override without needing runtime code in `AppDelegate`.
-- **`UIRequiresFullScreen = <true/>`** — already declared indirectly by the (now-removed) `INFOPLIST_KEY_UIRequiresFullScreen = YES` build setting; promoted to the plist so it's explicit. This also opts the app out of iPad Stage Manager / Split View, which would break AR session lifecycle anyway (`ARWorldTrackingConfiguration` pauses when the view shrinks and loses its anchor graph, which is worse than just not supporting split-screen).
-- **`UIRequiredDeviceCapabilities = [arkit, wifi]`** — makes the app invisible on devices that lack ARKit (iPad 7th gen and earlier, older iPhones) rather than letting users download an app whose marquee feature is a dead screen. `wifi` is technically redundant (every iOS device has Wi-Fi) but documents intent.
+  Why: `ARWorldTrackingConfiguration` anchors the map projection at Start Survey and converts the user's walk into floor-projected `(x, y)` positions using the camera transform. A landscape flip mid-walk rotates the projection matrix underneath the heatmap and visibly tears the trail. There is no `~ipad` override anymore — see the iPhone-only retarget below.
+- **`UIRequiresFullScreen = <true/>`** — already declared indirectly by the (now-removed) `INFOPLIST_KEY_UIRequiresFullScreen = YES` build setting; promoted to the plist so it's explicit. Also a hard requirement for the AR session: `ARWorldTrackingConfiguration` pauses the moment its view shrinks (which is what would happen under iPad Stage Manager / Split View if the app were ever made universal again).
+- **`UIRequiredDeviceCapabilities = [arkit, wifi]`** — makes the app invisible on devices that lack ARKit rather than letting users download an app whose marquee feature is a dead screen. `wifi` is technically redundant (every iOS device has Wi-Fi) but documents intent.
 
 Left untouched: the existing `NSMotionUsageDescription` / `NSLocalNetworkUsageDescription` / `NSCameraUsageDescription` privacy strings and the 19-entry `NSBonjourServices` array (which **still must stay in sync** with `NetworkScanner.bonjourServiceTypes` — iOS silently drops browsers for any service type not listed in Info.plist, so Bonjour discovery would start failing the moment the list drifts).
 
@@ -781,7 +774,7 @@ Everything in-codebase is done. The following ASC dashboard steps still need a h
 
 1. Create the app record in App Store Connect using `com.wifibuddy.app` as the bundle ID.
 2. Configure both subscriptions in the same subscription group with the prices and free-trial rules that the `TermsOfUse.md` document currently commits to (`Monthly $3.99`, `Yearly $34.99`, 3-day free trial on yearly).
-3. Upload screenshots at 6.7" / 6.5" / 5.5" iPhone and 12.9" iPad per the current App Store spec.
+3. Upload screenshots at 6.7" / 6.5" / 5.5" iPhone per the current App Store spec. **No iPad screenshots are required** — the app is targeted iPhone-only (`TARGETED_DEVICE_FAMILY = "1"`); see the "iPhone-only retarget" entry below.
 4. Fill in the App Privacy questionnaire — answer **"Data Not Collected"** for every category. This must match `PrivacyInfo.xcprivacy`; if they disagree, review will surface the inconsistency and reject.
 5. App Review Notes suggested copy: *"Survey tab uses ARKit; please test on a physical device for world tracking. Paywall with Privacy Policy + Terms links is on the Pro tab; Klaus chat is on the Signal tab."*
 6. Archive + upload via Xcode → Product → Archive → Distribute App → App Store Connect.
@@ -878,6 +871,25 @@ three places: `Support.md`, `PrivacyPolicy.md` (root), and
 - Replace sample floor plans with **user-provided image** + proper **scale/rotation** calibration (the three built-in `FloorPlanTemplate`s cover the common "main-floor apartment" and "upstairs" cases but still aren't the user's actual space).
 - **Auto-follow surveyor** toggle — pan/zoom are in place (April 2026), but the view doesn't yet auto-scroll to keep the live surveyor centered while walking. A "follow me" mode would make long surveys hands-off.
 - Tighter **multi-segment** landmark rotation (beyond first segment) if drift remains.
+
+## iPhone-only retarget (April 24, 2026)
+
+App Store Connect was prompting for iPad screenshots on the new app record. The build was inheriting that requirement from `TARGETED_DEVICE_FAMILY = "1,2"` (iPhone + iPad) in `project.pbxproj`. WiFi Buddy is positioned and tested as an iPhone-only app — the AR Survey, the topology card layouts, and the entire screenshot library are designed around portrait iPhone widths — so the universal target was a stale default rather than an intentional choice.
+
+Changes:
+- `SignalStrengthPainter.xcodeproj/project.pbxproj` — `TARGETED_DEVICE_FAMILY` flipped from `"1,2"` to `"1"` in **both** Debug and Release configurations of the `SignalStrengthPainter` target. `SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"` and `SUPPORTS_MACCATALYST = NO` were already correct and were left alone.
+- `SignalStrengthPainter/Info.plist` — removed the `UISupportedInterfaceOrientations~ipad` array (which previously allowed all four orientations on iPad) since iPad is no longer a supported device family. The base `UISupportedInterfaceOrientations` key is still portrait-only and still drives the AR projection lock described in the orientation section above.
+
+Why this is the right knob to turn:
+- App Store Connect derives "iPad screenshots required" from `TARGETED_DEVICE_FAMILY`, **not** from `LSRequiresIPhoneOS` or from `UIRequiredDeviceCapabilities`. `LSRequiresIPhoneOS = true` was already set; that key only blocks Mac App Store distribution, it doesn't change the device-family slot in ASC. Likewise, requiring `arkit` filters out *some* iPads at install time but doesn't tell ASC to hide the iPad screenshot column on the metadata page.
+- After uploading the next build (with bumped `CURRENT_PROJECT_VERSION`), the iPad slots in the version's Media section will disappear automatically and the "iPad screenshots required" blocker on the version page will clear.
+
+If WiFi Buddy ever goes universal again:
+1. Flip `TARGETED_DEVICE_FAMILY` back to `"1,2"`.
+2. Restore the `UISupportedInterfaceOrientations~ipad` array so iPad gets the four-orientation override the AR projection can tolerate at review time on a flat surface.
+3. Audit `MainTabView`/`DashboardView`/`PaywallView` for hardcoded portrait-iPhone width assumptions before shipping — the topology card and the swipeable paywall hero pages were both laid out against iPhone widths and have not been reviewed at iPad sizes.
+
+The `NetworkTopologyMonitor.deviceLabel` and Speed-tab device-node icon code that reads `UIDevice.current.userInterfaceIdiom` and resolves to "Your iPad" / `ipad` is intentionally left in place — it's harmless on iPhone-only builds (the iPad branches just never fire) and is useful as-is if the universal target is ever re-enabled.
 
 ---
 
