@@ -784,6 +784,90 @@ Everything in-codebase is done. The following ASC dashboard steps still need a h
 5. App Review Notes suggested copy: *"Survey tab uses ARKit; please test on a physical device for world tracking. Paywall with Privacy Policy + Terms links is on the Pro tab; Klaus chat is on the Signal tab."*
 6. Archive + upload via Xcode → Product → Archive → Distribute App → App Store Connect.
 
+## Public Support + Privacy Policy URLs for App Store submission (April 24, 2026)
+
+App Store Connect requires two **publicly reachable URLs** at submission time:
+a **Support URL** (a page listing how to contact you) and, because Wi-Fi Buddy
+ships auto-renewing subscriptions, a **Privacy Policy URL** that hosts the same
+text users see in-app. Apple wants the in-app and hosted policies to match — a
+mismatch (different email, different "Last updated" date, different scope of
+collected data) is a common rejection reason during review.
+
+Rather than stand up a marketing site or GitHub Pages just to host two static
+docs, two new top-level Markdown files were added to the repo root and pushed to
+`main`. GitHub serves them at public `/blob/main/...` URLs that App Store Connect
+accepts as both URL fields without any additional infrastructure.
+
+### Files added at repo root
+
+- **`Support.md`** (root) — public support page. Lists `justin.dev@gmail.com`
+  as the support email (rendered as a `mailto:` link), tells users what info to
+  include when reaching out (device model, iOS version, app version), and
+  answers the support questions Apple Reviewers and end users hit first:
+  how to cancel a subscription / free trial via iOS Settings → Apple ID →
+  Subscriptions, how to **Restore Purchase** from the Pro tab, the
+  "we don't collect your data" summary with a relative link to
+  `PrivacyPolicy.md`, why the Survey tab needs Camera (ARKit world tracking;
+  feed never recorded/transmitted), and why the Devices tab needs Local
+  Network (Bonjour + SSDP + TCP probes; traffic never leaves the router).
+- **`PrivacyPolicy.md`** (root) — byte-for-byte the same prose as the
+  bundled `SignalStrengthPainter/PrivacyPolicy.md` that ships in the app's
+  `LegalDocumentView`, except for the contact email
+  (`justin.dev@gmail.com`) and the "Last updated" date (April 24, 2026).
+  Apple Review compares the URL against the in-app document; keeping the
+  text identical prevents the "your hosted policy says X but the in-app
+  policy says Y" rejection.
+
+### In-app `SignalStrengthPainter/PrivacyPolicy.md` synced
+
+The bundled in-app privacy policy was edited in the same commit so its
+contact email and date now match the root-level public copy:
+
+- Contact line changed from `support@wifibuddy.app` (a placeholder that
+  was never wired up to a real mailbox) to `justin.dev@gmail.com`.
+- "Last updated" bumped from April 23, 2026 to April 24, 2026.
+
+No other prose changed, and `LegalDocumentView.swift` already reads the
+file by `Bundle.main.url(forResource: "PrivacyPolicy", withExtension: "md")`,
+so the in-app paywall link automatically picks up the new text on the next
+build with no code changes.
+
+### Public URLs to paste into App Store Connect
+
+- **Support URL** (App Information → General Information → Support URL):
+  <https://github.com/justinpizar13/SignalStrengthPainter/blob/main/Support.md>
+- **Privacy Policy URL** (App Privacy → Privacy Policy URL, also surfaced
+  next to subscription metadata):
+  <https://github.com/justinpizar13/SignalStrengthPainter/blob/main/PrivacyPolicy.md>
+
+The `/blob/main/` GitHub Markdown viewer is sufficient for review. If a
+cleaner URL is wanted later, **GitHub Pages** (Settings → Pages →
+Deploy from branch → `main`, root) will serve the same files at
+`https://justinpizar13.github.io/SignalStrengthPainter/Support.md` etc.
+without any code changes.
+
+### Why two `PrivacyPolicy.md` files now exist (and that's fine)
+
+- `PrivacyPolicy.md` (repo root) — served publicly by GitHub for the
+  App Store Connect URL field.
+- `SignalStrengthPainter/PrivacyPolicy.md` (target source dir) — bundled
+  as a Copy Bundle Resource, read at runtime by `LegalDocumentView` for
+  the paywall's "Privacy Policy" link.
+
+They are intentionally kept in sync. If the privacy policy text ever
+changes, **update both** in the same commit and bump the "Last updated"
+date in both. A simple `diff PrivacyPolicy.md SignalStrengthPainter/PrivacyPolicy.md`
+should print nothing (other than the header `# Privacy Policy` line which
+is the same; both copies are identical end-to-end as of this commit).
+
+The root-level `Support.md` does **not** have a bundled in-app twin —
+the in-app equivalent is `AboutView.swift`'s "Getting Started" sheet,
+which serves the same role (FAQ + how to use the app + contact info)
+inside the binary, while `Support.md` exists purely so App Store Connect
+has a URL to point at. If the support email ever changes, update it in
+three places: `Support.md`, `PrivacyPolicy.md` (root), and
+`SignalStrengthPainter/PrivacyPolicy.md` (bundled).
+
 ## Possible follow-ups (not done here)
 
 - **Register the two product IDs in App Store Connect** (`com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly`) as auto-renewing subscriptions in a single subscription group before flipping the build on in production. Local simulator testing already works via `Configuration.storekit`, but `Product.products(for:)` will return empty on TestFlight / App Store builds until the products exist in App Store Connect. If different IDs are preferred, edit the two `static let` constants at the top of `ProStore.swift` and the matching `productID` fields in `Configuration.storekit`.
