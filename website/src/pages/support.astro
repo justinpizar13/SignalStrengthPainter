@@ -1,0 +1,28 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import { getEntry, render } from "astro:content";
+
+// Support page is auto-populated by scripts/sync-legal.mjs from the
+// canonical Support.md at the repo root. App Store Connect's Support
+// URL field points at https://wifibuddy.app/support, so the URL must
+// stay live and the text must match the in-app contact + Privacy
+// Policy contact (App Review compares them).
+const entry = await getEntry("legal", "support");
+if (!entry) {
+  throw new Error("Support markdown missing — did sync-legal.mjs run?");
+}
+const { Content } = await render(entry);
+
+const title = "Support";
+const description =
+  "WiFi Buddy support: how to contact us, cancel a subscription or free trial, restore a purchase, and answers to common questions about ARKit and Local Network permissions.";
+---
+
+<BaseLayout title={title} description={description}>
+  <Section pad="md" width="narrow">
+    <article class="prose">
+      <Content />
+    </article>
+  </Section>
+</BaseLayout>

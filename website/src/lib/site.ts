@@ -12,7 +12,10 @@ export const SITE = {
   // We use the Smart App Banner-friendly canonical URL so Apple gets
   // attribution and the install completes inside the App Store.
   appStoreUrl: "https://apps.apple.com/app/wifi-buddy/idTODO",
-  supportEmail: "support@wifibuddy.app",
+  // Real, monitored mailbox. Must stay in sync with the contact email
+  // in PrivacyPolicy.md, TermsOfUse.md, and Support.md — App Review
+  // compares hosted-URL text against in-app text.
+  supportEmail: "justin.dev@gmail.com",
   // Used for App Store JSON-LD aggregateRating. Keep in sync with App
   // Store Connect once real ratings come in. Set to `null` to omit.
   rating: {
@@ -40,6 +43,7 @@ export const FOOTER_NAV: NavItem[] = [
   { label: "Devices", href: "/devices" },
   { label: "Releases", href: "/releases" },
   { label: "Blog", href: "/blog" },
+  { label: "Support", href: "/support" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
 ];

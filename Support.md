@@ -1,6 +1,6 @@
 # WiFi Buddy — Support
 
-_Last updated: April 24, 2026_
+_Last updated: April 30, 2026_
 
 Thanks for using **WiFi Buddy**! If you need help, have a question,
 found a bug, or want to send a feature request, the best way to reach
@@ -48,7 +48,7 @@ buy the subscription.
 No. WiFi Buddy does not run servers, accounts, analytics, or ads. All
 your survey history, device list, trust flags, and Klaus chat history
 live **only on your device**. See the
-[Privacy Policy](./PrivacyPolicy.md) for details.
+[Privacy Policy](https://wifibuddy.app/privacy) for details.
 
 ### Why does the Survey tab need camera access?
 
@@ -66,7 +66,8 @@ router.
 
 ## Legal
 
-- [Privacy Policy](./PrivacyPolicy.md)
+- [Privacy Policy](https://wifibuddy.app/privacy)
+- [Terms of Use](https://wifibuddy.app/terms)
 
 ---
 

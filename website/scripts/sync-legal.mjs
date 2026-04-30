@@ -24,9 +24,23 @@ const sources = [
     label: "Privacy Policy",
   },
   {
-    from: resolve(repoRoot, "SignalStrengthPainter", "TermsOfUse.md"),
+    // Public TermsOfUse.md at the repo root is the canonical EULA —
+    // it's the file App Store Connect's EULA field and the App
+    // Description's "Terms of Use" link both point at. The in-app
+    // bundled copy at SignalStrengthPainter/TermsOfUse.md must be
+    // kept byte-identical to this file so reviewers see matching
+    // text in-app and on the web (April 2026 rejection 3.1.2(c)).
+    from: resolve(repoRoot, "TermsOfUse.md"),
     to: resolve(targetDir, "terms.md"),
     label: "Terms of Use",
+  },
+  {
+    // Public Support.md at the repo root is the canonical support
+    // doc rendered at /support on the marketing site. App Store
+    // Connect's Support URL field points at https://wifibuddy.app/support.
+    from: resolve(repoRoot, "Support.md"),
+    to: resolve(targetDir, "support.md"),
+    label: "Support",
   },
 ];
 

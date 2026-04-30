@@ -69,7 +69,7 @@ struct PaywallView: View {
                         featureIcon
                         pricingCards
                         buyButton
-                        if trialAvailableForSelection && selectedPlan == .yearly {
+                        if trialAvailableForSelection {
                             trialTimeline
                         }
                         disclosureLine
@@ -495,10 +495,12 @@ struct PaywallView: View {
             pricingOption(
                 plan: .monthly,
                 title: "Monthly",
-                subtitle: "Billed monthly. Cancel anytime.",
+                subtitle: monthlyCardSubtitle,
                 price: store.product(for: ProStore.monthlyProductID)?.displayPrice
                     ?? Self.fallbackMonthlyPrice,
-                badge: nil,
+                badge: store.isEligibleForIntroOffer(productID: ProStore.monthlyProductID)
+                    ? "3 Days Free"
+                    : nil,
                 crossedOutPrice: nil
             )
 
@@ -515,6 +517,15 @@ struct PaywallView: View {
             )
         }
         .padding(.top, 8)
+    }
+
+    private var monthlyCardSubtitle: String {
+        if store.isEligibleForIntroOffer(productID: ProStore.monthlyProductID) {
+            let price = store.product(for: ProStore.monthlyProductID)?.displayPrice
+                ?? Self.fallbackMonthlyPrice
+            return "3 days free, then \(price)/month"
+        }
+        return "Billed monthly. Cancel anytime."
     }
 
     private var yearlyCardSubtitle: String {
@@ -631,25 +642,37 @@ struct PaywallView: View {
         .padding(.top, 8)
     }
 
-    /// CTA copy flips between "Start 3-Day Free Trial" (yearly + eligible)
-    /// and the plain "Subscribe" path. We never show trial copy when
-    /// StoreKit reports the user is no longer eligible — doing so would
-    /// set up a refund because the purchase goes through at full price.
+    /// CTA copy flips between "Start 3-Day Free Trial" (whichever plan
+    /// is selected, when eligible) and the plain "Subscribe" path. We
+    /// never show trial copy when StoreKit reports the user is no
+    /// longer eligible — doing so would set up a refund because the
+    /// purchase goes through at full price.
+    ///
+    /// Both Monthly and Yearly ship with a 3-day free trial intro
+    /// offer (see `Configuration.storekit` and the App Store Connect
+    /// subscription configuration). Surfacing the trial regardless of
+    /// the selected plan keeps the paywall consistent with the system
+    /// purchase sheet — App Review specifically rejected an earlier
+    /// build (April 2026) for "free trial did not reflect during the
+    /// purchase flow" when reviewers selected Monthly and the paywall
+    /// said "Subscribe" instead of disclosing the trial.
     private var buyButtonLabel: String {
         if store.purchaseInFlight { return "Processing..." }
-        if selectedPlan == .yearly && trialAvailableForSelection {
+        if trialAvailableForSelection {
             return "Start 3-Day Free Trial"
         }
         return "Subscribe"
     }
 
-    /// Three-row trial timeline shown under the CTA when the yearly
-    /// plan is selected and the user is still eligible. Transparent
+    /// Three-row trial timeline shown under the CTA whenever the
+    /// currently selected plan is intro-offer eligible. Transparent
     /// disclosure about the charge date consistently lifts trial start
-    /// rate AND reduces "I forgot I signed up" refund requests.
+    /// rate AND reduces "I forgot I signed up" refund requests. The
+    /// charge-date copy reflects the selected plan's actual price and
+    /// period so monthly trials don't silently say "/year".
     private var trialTimeline: some View {
-        let yearlyPrice = store.product(for: ProStore.yearlyProductID)?.displayPrice
-            ?? Self.fallbackYearlyPrice
+        let price = selectedPlanDisplayPrice
+        let period = selectedPlan == .yearly ? "year" : "month"
         return VStack(alignment: .leading, spacing: 10) {
             trialTimelineRow(
                 index: 1,
@@ -664,7 +687,7 @@ struct PaywallView: View {
             trialTimelineRow(
                 index: 3,
                 title: "Day 3",
-                detail: "Trial ends. You'll be charged \(yearlyPrice)/year unless you cancel."
+                detail: "Trial ends. You'll be charged \(price)/\(period) unless you cancel."
             )
         }
         .padding(14)
@@ -677,6 +700,20 @@ struct PaywallView: View {
                         .stroke(Color.blue.opacity(0.25), lineWidth: 1)
                 )
         )
+    }
+
+    /// Live (or fallback) price for whichever plan is selected. Used
+    /// by the trial timeline + the disclosure copy so the displayed
+    /// price always tracks the user's current selection.
+    private var selectedPlanDisplayPrice: String {
+        switch selectedPlan {
+        case .monthly:
+            return store.product(for: ProStore.monthlyProductID)?.displayPrice
+                ?? Self.fallbackMonthlyPrice
+        case .yearly:
+            return store.product(for: ProStore.yearlyProductID)?.displayPrice
+                ?? Self.fallbackYearlyPrice
+        }
     }
 
     private func trialTimelineRow(
@@ -717,12 +754,10 @@ struct PaywallView: View {
     /// available and fall back to the hard-coded values so this block
     /// is never blank during product-load failures.
     private var disclosureLine: some View {
-        let monthly = store.product(for: ProStore.monthlyProductID)?.displayPrice ?? Self.fallbackMonthlyPrice
-        let yearly = store.product(for: ProStore.yearlyProductID)?.displayPrice ?? Self.fallbackYearlyPrice
-        let selectedPrice = selectedPlan == .yearly ? yearly : monthly
+        let selectedPrice = selectedPlanDisplayPrice
         let period = selectedPlan == .yearly ? "year" : "month"
-        let trialLine = trialAvailableForSelection && selectedPlan == .yearly
-            ? "After your 3-day free trial, your Apple ID will be charged \(yearly)/year. "
+        let trialLine = trialAvailableForSelection
+            ? "After your 3-day free trial, your Apple ID will be charged \(selectedPrice)/\(period). "
             : ""
 
         return VStack(spacing: 6) {

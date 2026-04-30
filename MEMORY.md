@@ -972,6 +972,209 @@ If WiFi Buddy ever goes universal again:
 
 The `NetworkTopologyMonitor.deviceLabel` and Speed-tab device-node icon code that reads `UIDevice.current.userInterfaceIdiom` and resolves to "Your iPad" / `ipad` is intentionally left in place — it's harmless on iPhone-only builds (the iPad branches just never fire) and is useful as-is if the universal target is ever re-enabled.
 
+## App Review rejection fix — round 2 (April 30, 2026)
+
+Submission `c2d7b112-f19b-4b29-9834-91cdbfd97872` (v1.0 build 3) was
+rejected on two grounds. Both code-side fixes landed in this commit;
+the App Store Connect-side metadata fixes are documented below as the
+remaining manual steps.
+
+### 2.1(b) — "the free trial did not reflect during the purchase flow"
+
+**Root cause (code-side):** the paywall conditionally surfaced the
+3-day free trial **only when Yearly was the selected plan**, even
+though `Configuration.storekit` declares the same intro offer on the
+Monthly product. Reviewers selecting Monthly saw a CTA that read
+"Subscribe", a card subtitle that read "Billed monthly. Cancel
+anytime.", and a disclosure block with no trial language — yet the
+StoreKit purchase sheet (when the intro offer is configured in App
+Store Connect) would have started a free trial anyway. App Review
+rightly flagged this as a UI/IAP mismatch.
+
+**Code fixes (`PaywallView.swift`):**
+- `buyButtonLabel` now returns `"Start 3-Day Free Trial"` whenever
+  `trialAvailableForSelection` is true, regardless of which plan
+  is selected. The `selectedPlan == .yearly` guard was removed.
+- `trialTimeline` is now rendered for any intro-offer-eligible plan,
+  not just yearly. The Day-3 "you'll be charged" copy uses the new
+  `selectedPlanDisplayPrice` helper + a per-plan period string so a
+  monthly trial correctly says "$3.99/month" instead of the old
+  hardcoded "/year".
+- `disclosureLine` now drops the `selectedPlan == .yearly` filter on
+  the trial sentence and uses the same helpers, so the legalese
+  block always names the right charge price + period.
+- Pricing cards: the **Monthly** card now also displays the red
+  `3 Days Free` badge and a "3 days free, then $3.99/month"
+  subtitle when `isEligibleForIntroOffer(productID: monthly)` is
+  true. (The Yearly card already had this; we just mirrored the
+  pattern.) The `monthlyCardSubtitle` computed property mirrors
+  the existing `yearlyCardSubtitle` for symmetry.
+- New `selectedPlanDisplayPrice` helper centralizes "live displayPrice
+  with hardcoded fallback for whichever plan is currently selected" so
+  the timeline + disclosure stay in lockstep on price/period changes.
+
+**Why the rejection probably also pointed at App Store Connect:** the
+StoreKit native purchase sheet renders the trial automatically when
+the introductory offer is configured **in ASC** (not just locally in
+`Configuration.storekit`, which only affects `Product.products(for:)`
+under Xcode-attached debug runs). If the ASC subscription products
+don't have an `Introductory Offer` configured for the same group, the
+sheet shows the full price even though the local sim'd flow was
+trialing fine. The App Store Connect manual step is documented in the
+"Remaining external work" list below.
+
+**Manual ASC steps for resubmission:**
+1. App Store Connect → Subscriptions → WiFi Buddy Pro group → for
+   **both** `com.wifibuddy.pro.monthly` AND `com.wifibuddy.pro.yearly`,
+   add an **Introductory Offer** of type **Free Trial**, duration
+   **3 Days**, eligibility **New Subscribers**. Localized for at least
+   the primary App Store country (US English).
+2. Confirm the Paid Apps Agreement is in effect under Business →
+   Agreements (the rejection email called this out explicitly).
+3. Re-test in TestFlight by tapping "Buy Now" on each plan — the
+   native StoreKit sheet should show "Try Free for 3 Days, then
+   $3.99/month" or "$34.99/year" before the user has to confirm.
+
+### 3.1.2(c) — Terms of Use (EULA) link missing from metadata
+
+**Root cause (metadata-side):** App Store Connect's App Information
+page exposes either a **Privacy Policy URL** field (already filled
+with the public `PrivacyPolicy.md` GitHub URL) AND requires either a
+custom EULA in App Store Connect's EULA field OR a functional link
+to Apple's standard EULA in the App Description. Neither was
+configured at submission, so review couldn't reach the Terms of Use
+from the app's metadata.
+
+**Code fixes:**
+- `TermsOfUse.md` (root) — new file at the repo root. Public-URL
+  copy of the EULA, mirrors the same pattern the project already
+  uses for `PrivacyPolicy.md` (root → public URL, in-app bundled
+  copy → paywall link). GitHub serves it at
+  `https://github.com/justinpizar13/SignalStrengthPainter/blob/main/TermsOfUse.md`,
+  which is the URL to paste into the App Description / EULA field.
+- `SignalStrengthPainter/TermsOfUse.md` — synced byte-for-byte with
+  the root file. Two prose-level corrections in the same edit:
+  - **Contact email** changed from the never-wired `support@wifibuddy.app`
+    placeholder to `justin.dev@gmail.com`, matching the privacy policy.
+    Apple Review compares hosted-URL text against in-app text and
+    flags mismatches; keeping both bytes identical avoids that.
+  - **Last updated** bumped from April 23, 2026 to April 30, 2026.
+- `website/scripts/sync-legal.mjs` — `from` for the Terms of Use
+  source flipped from `SignalStrengthPainter/TermsOfUse.md` to the
+  new root-level `TermsOfUse.md`. The marketing site's `/terms`
+  page now reads from the same canonical EULA file as the public
+  GitHub URL the App Description points at, eliminating any chance
+  of the website / in-app / App Store Connect copies drifting from
+  one another. (Was already true for Privacy Policy — this brings
+  Terms of Use into the same single-source-of-truth pattern.)
+
+**Manual ASC steps for resubmission:**
+1. App Store Connect → App Information → Custom EULA — paste the full
+   contents of `TermsOfUse.md` into the **Custom End User License
+   Agreement** field for the relevant territories. Apple's reviewer
+   reads this exact text. **OR** add a functional link to either the
+   custom EULA URL or Apple's standard EULA
+   (<https://www.apple.com/legal/internet-services/itunes/dev/stdeula/>)
+   to the **App Description** so a tappable Terms of Use is reachable
+   from the App Store listing.
+2. Confirm the Privacy Policy URL field still points at
+   <https://github.com/justinpizar13/SignalStrengthPainter/blob/main/PrivacyPolicy.md>.
+3. Suggested App Review note for the next submission: *"Free trial is
+   configured for both Monthly and Yearly Pro plans (3 days free,
+   first-time subscribers only). Tap any plan and 'Start 3-Day Free
+   Trial' on the Pro tab to see it in the StoreKit purchase sheet.
+   Privacy Policy and Terms of Use are linked at the bottom of the
+   paywall — both also reachable as App Description links and the
+   Custom EULA field in App Information."*
+
+### Files touched in this round
+
+- `SignalStrengthPainter/PaywallView.swift` — trial display now
+  plan-agnostic (Monthly + Yearly).
+- `SignalStrengthPainter/TermsOfUse.md` — contact email synced to
+  `justin.dev@gmail.com`, "Last updated" bumped to 2026-04-30.
+- `TermsOfUse.md` (new at repo root) — public canonical copy.
+- `Support.md` (root) — "Last updated" bumped to 2026-04-30; the
+  in-doc `[Privacy Policy](./PrivacyPolicy.md)` relative link
+  rewritten to the absolute `https://wifibuddy.app/privacy` URL
+  (works on the website's `/support` page; relative GitHub links
+  would 404 once Support.md is rendered through Astro). Added a
+  `[Terms of Use](https://wifibuddy.app/terms)` line for symmetry.
+- `website/scripts/sync-legal.mjs` — now syncs Privacy + Terms +
+  **Support** into `website/src/content/legal/`. All three website
+  routes (`/privacy`, `/terms`, `/support`) read from the synced
+  collection so their text always matches the canonical Markdown
+  files at the repo root and the in-app bundled copies.
+- `website/src/pages/support.astro` (new) — renders `Support.md`
+  through Astro's content collection, same pattern as the existing
+  `/privacy` and `/terms` pages.
+- `website/src/lib/site.ts` — `SITE.supportEmail` flipped from the
+  never-wired `support@wifibuddy.app` to `justin.dev@gmail.com`;
+  `FOOTER_NAV` gained a "Support" entry between "Blog" and
+  "Privacy".
+- `website/src/pages/releases.astro` — hardcoded `support@wifibuddy.app`
+  mailto + button label replaced with `${SITE.supportEmail}` so the
+  email lives in one place.
+- `website/src/content/legal/terms.md`, `privacy.md`, `support.md` —
+  auto-regenerated by sync-legal.mjs (these files are git-ignored,
+  but the dev/build hook always rewrites them).
+- `website/dist/**` — rebuilt; sitemap now lists 17 routes
+  (was 16) including `/support/`.
+- `MEMORY.md` (this section).
+
+### Public URLs to use in App Store Connect (after deploy)
+
+The user paste-targets are now consolidated to the marketing
+domain — App Store Connect's three URL fields all point at
+`https://wifibuddy.app/...` instead of the previous mix of
+GitHub blob URLs. Apple Review reads these live, so the
+domain has to be deployed before the next submission.
+
+- **Privacy Policy URL** (App Privacy + subscription metadata):
+  `https://wifibuddy.app/privacy`
+- **Terms of Use URL** (App Description link or Custom EULA
+  paste source): `https://wifibuddy.app/terms`
+- **Support URL** (App Information → General Information):
+  `https://wifibuddy.app/support`
+
+The previous GitHub blob URLs (`/blob/main/PrivacyPolicy.md`,
+`/blob/main/Support.md`) still work as fallbacks — both files
+are still in the repo — but the website URLs are the canonical
+public face going forward.
+
+### Single-source-of-truth check (for future edits)
+
+A simple pre-resubmission diff verifies the legal docs haven't
+drifted across the four places they live:
+
+```
+diff PrivacyPolicy.md SignalStrengthPainter/PrivacyPolicy.md   # should be empty
+diff TermsOfUse.md    SignalStrengthPainter/TermsOfUse.md      # should be empty
+```
+
+`Support.md` only has one canonical at the repo root — there's
+no in-app twin (the in-app equivalent is `AboutView.swift`'s
+"Getting Started" sheet) — so it can't drift, but `npm run build`
+in `website/` will refuse to build if the file is missing.
+
+When the contact email changes, update it in **four** places in
+the same commit and run `cd website && npm run build` to
+regenerate `dist/`:
+
+1. `PrivacyPolicy.md` (root)
+2. `SignalStrengthPainter/PrivacyPolicy.md` (in-app bundled)
+3. `TermsOfUse.md` (root) — also syncs to
+   `SignalStrengthPainter/TermsOfUse.md` (manual mirror, not yet
+   automated; keep them byte-identical)
+4. `website/src/lib/site.ts` (`SITE.supportEmail`)
+5. `Support.md` (root)
+
+When either of the diff-checks prints anything, the App Store
+Connect URL fields, the website's `/privacy` + `/terms` + `/support`
+pages, and the in-app `LegalDocumentView` sheets will be serving
+different bytes — which is exactly the "hosted policy says X,
+in-app says Y" failure mode App Review rejects on.
+
 ---
 
 *Generated as a handoff summary for future Cursor chats.*
