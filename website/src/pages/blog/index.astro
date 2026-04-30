@@ -1,0 +1,59 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import { getCollection } from "astro:content";
+
+const allPosts = (await getCollection("blog")).filter((p) => !p.data.draft);
+const posts = allPosts.sort(
+  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()
+);
+
+const title = "Blog — WiFi Buddy";
+const description =
+  "Practical guides on home Wi-Fi: dead zones, jitter, mesh vs. extender, finding unknown devices, MAC randomization, and why your speed test doesn't match your ISP plan.";
+
+const formatDate = (d: Date): string =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+---
+
+<BaseLayout title={title} description={description}>
+  <Section pad="lg">
+    <p class="text-sm uppercase tracking-wider text-[--color-signal-blue]">Blog</p>
+    <h1 class="mt-2 font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+      Wi-Fi guides for normal people.
+    </h1>
+    <p class="mt-5 max-w-3xl text-lg text-[--color-fg-muted]">
+      No vendor pitches, no affiliate-link listicles. Just clear writing
+      on the home-Wi-Fi questions we hear most often.
+    </p>
+  </Section>
+
+  <Section pad="md">
+    <ul class="grid gap-5 md:grid-cols-2" data-reveal-stagger>
+      {posts.map((post) => (
+        <li class="card p-6 transition hover:border-[--color-signal-blue]/40">
+          <a href={`/blog/${post.id}`} class="block">
+            <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">
+              <time datetime={post.data.pubDate.toISOString()}>
+                {formatDate(post.data.pubDate)}
+              </time>
+            </p>
+            <h2 class="mt-2 font-display text-xl font-semibold tracking-tight">
+              {post.data.title}
+            </h2>
+            <p class="mt-2 text-sm text-[--color-fg-muted]">
+              {post.data.description}
+            </p>
+            <p class="mt-4 text-sm font-medium text-[--color-signal-blue]">
+              Read more →
+            </p>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </Section>
+</BaseLayout>

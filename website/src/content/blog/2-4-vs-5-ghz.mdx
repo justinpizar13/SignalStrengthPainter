@@ -1,0 +1,118 @@
+---
+title: "2.4 GHz vs 5 GHz Wi-Fi: which one should your devices use?"
+description: "Your router broadcasts both bands. They each have strengths. This is the practical guide to which devices belong on which band — and how to make your phone stop ending up on the wrong one."
+pubDate: 2026-03-25
+keywords: ["2.4 vs 5 ghz", "wifi band steering", "5 ghz wifi", "best wifi band"]
+---
+
+Almost every modern home router broadcasts on two bands: **2.4 GHz**
+and **5 GHz**. (Wi-Fi 6E and Wi-Fi 7 add a third, 6 GHz, but the
+core decision still applies.) Different devices are happier on
+different bands, and the wrong choice is responsible for a
+surprising number of "Wi-Fi feels slow" complaints.
+
+Here's how to think about it, and how to make sure your devices end
+up on the band that suits them.
+
+## How the bands differ
+
+| | **2.4 GHz** | **5 GHz** |
+|---|---|---|
+| **Range** | Goes farther, through more walls | Shorter range, drops fast through walls |
+| **Speed** | Slower max throughput | Faster max throughput |
+| **Crowding** | Crowded — everyone is on 2.4 | Cleaner — fewer devices, more channels |
+| **Penetration** | Better through plaster, brick, concrete | Worse through dense materials |
+| **Latency / jitter** | Higher (interference) | Lower (less interference) |
+
+The summary: **5 GHz is better if you can reach it; 2.4 GHz is for
+everywhere 5 GHz can't reach.**
+
+## Which devices belong where
+
+A practical rule of thumb:
+
+**On 5 GHz:**
+- Your phone, tablet, and laptop, when within 2–3 walls of the
+  router
+- Streaming devices (Apple TV, Roku, Fire TV, Chromecast) — they
+  benefit from the throughput
+- Game consoles in or near the same room
+- Anything you make video calls or play games on
+
+**On 2.4 GHz:**
+- Smart-home devices in distant corners (smart bulbs in the
+  basement, garage door openers, thermostats)
+- Wi-Fi-connected appliances that don't need bandwidth (coffee
+  makers, scales, thermometers)
+- Older laptops and printers that don't support 5 GHz
+- Anything in a room where 5 GHz signal is too weak to be reliable
+
+If a device only needs to send a few bytes a minute (a temperature
+reading, a "doorbell pressed" event), 2.4's longer range is more
+valuable than 5's higher speed.
+
+## Why your devices keep ending up on 2.4
+
+Most home routers ship with **band steering** turned on, which
+broadcasts both bands under a single SSID and lets the router
+pick. In theory: brilliant. In practice: many routers' steering
+algorithms are *weirdly* eager to push devices onto 2.4 GHz to
+"reduce 5 GHz congestion", even when 5 GHz is fine.
+
+The result is a phone sitting 8 feet from the router, on 2.4 GHz,
+getting 60 Mbps when it should be getting 400 Mbps.
+
+If you're seeing this:
+
+1. **Log into your router's admin page** (usually `192.168.1.1` or
+   `192.168.0.1`).
+2. **Find Wi-Fi settings** and look for an option to **split the
+   bands** — give 2.4 GHz and 5 GHz different SSIDs (e.g.
+   `MyWiFi` and `MyWiFi-5G`).
+3. **Connect each device manually** to the band you want for that
+   device.
+
+Yes, this is more work than band steering. It's also dramatically
+more reliable.
+
+If you'd rather keep band steering on, look for a "5 GHz
+preferred" option (most ASUS, TP-Link, and Netgear routers have
+one). That biases the steering algorithm toward putting capable
+devices on 5 GHz.
+
+## How to verify a device is on the right band
+
+iPhone: **Settings → Wi-Fi → (i) next to your network name** shows
+the channel and band. Channels 1–11 are 2.4 GHz; channels
+36–165 (the exact range varies by region) are 5 GHz.
+
+Android, Mac, Windows: each has its own way to surface this. On
+macOS, hold Option and click the Wi-Fi menu — the "Channel" line
+will show "5 GHz, 80 MHz" or similar.
+
+WiFi Buddy's Signal tab shows the live latency and jitter to a
+known target so you can A/B test: connect to 2.4, take a reading,
+then connect to 5, take another. The numerical difference is
+almost always shocking.
+
+## Wi-Fi 6E and 6 GHz: worth it?
+
+Wi-Fi 6E added a third band at 6 GHz, available on iPhone 15 Pro
+and newer, recent iPads, and a growing list of Android phones. It
+offers the speed of 5 GHz with even *less* crowding (because
+fewer devices support it yet) and roughly the same wall-penetration
+behavior.
+
+If you're buying a new router in 2026, getting one with 6 GHz
+support is sensible future-proofing. If you have a working Wi-Fi 6
+router and only the latest phones to put on it, the practical
+benefit of upgrading is small for most homes — wait until 6 GHz
+is genuinely crowded (years from now) or until your existing
+router needs replacing.
+
+## TL;DR
+
+For each device, ask: "do I need range or do I need speed?" Range
+is 2.4. Speed is 5. Don't trust your router's band steering; if
+you have one slow device that doesn't make sense, manually pin it
+to the band you actually want.

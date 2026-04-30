@@ -1,0 +1,102 @@
+---
+title: "How to find unknown devices on your home Wi-Fi"
+description: "A step-by-step guide to finding every device on your home Wi-Fi — including the 'Unknown' ones — and figuring out whether they're you, your family, or a neighbor."
+pubDate: 2026-04-10
+keywords: ["unknown devices wifi", "who is on my wifi", "device discovery", "network security home"]
+---
+
+You opened your router's admin page, saw "47 devices connected", and
+panicked. That's a normal reaction. The truth is most of those
+devices are yours — you just forgot how many smart bulbs, watches,
+streaming sticks, and door sensors you've accumulated. Some of them
+are also genuinely hard to identify, and a small number might
+actually be unwanted.
+
+Here's a methodical way to figure out what's what.
+
+## Why so many devices?
+
+Pull a quick mental inventory. A modest household with two adults
+and two kids will easily have:
+
+- **4× phones, 2× iPads, 2× laptops** (10)
+- **2× smart TVs + 1× Apple TV / Roku / Fire TV** (3)
+- **6–10× smart bulbs and switches** (8)
+- **2× smart speakers** (Echo / HomePod)
+- **2× game consoles** (PS5, Switch)
+- **1× printer**, **1× thermostat**, **1× video doorbell**
+- **2× watches** (Apple Watch, kids' watch)
+- **2× e-readers** (Kindle)
+- **MAC randomization** on the four phones effectively gives you
+  4–8 *additional* "phantom" devices over a few weeks
+
+That's already 35–45 devices in a household nobody would describe
+as a "smart home". Everyone has more than they think.
+
+## How to identify them
+
+The router's device list is usually a frustrating mess of MAC
+addresses, IP addresses, and partial hostnames. Use a real device
+scanner instead. WiFi Buddy's Devices tab uses
+[8 identification layers](/devices) — Bonjour, SSDP, port
+fingerprinting, ARP-table reads, OUI lookup, reverse DNS, and more
+— so most devices end up correctly labeled with both a friendly
+name (e.g. "Justin's Echo Dot") and a manufacturer.
+
+For each unidentified device on your network:
+
+### 1. Try to recognize the manufacturer
+
+Even if a device shows up as "Unknown Smart Device", we'll usually
+have a vendor label from its MAC address — "Made by Espressif"
+(generic IoT chip), "Made by Ring", "Made by Tuya", "Made by
+Apple". That alone is often enough to remember "oh right, that's
+the smart plug in the laundry room".
+
+### 2. Check the IP address against your DHCP leases
+
+Your router has a DHCP lease list — IP, MAC, and the hostname each
+device announced when it joined. Even just the hostname (e.g.
+`Justins-iPhone`, `LIVING-ROOM-TV`, `Roomba-i7`) usually solves it.
+
+### 3. Power-cycle and watch
+
+If you really can't identify something, unplug or turn off
+candidates one at a time and re-scan. The unidentified device
+disappears from the scan when you find the right one.
+
+### 4. Check Bluetooth too
+
+Some devices show up on Bluetooth but don't actively advertise on
+Wi-Fi. Apple's home-screen "Find My" app, plus Bluetooth scanning
+on a Mac (`system_profiler SPBluetoothDataType`), can flush out
+devices that Wi-Fi tools miss.
+
+## When it really might not be yours
+
+In ~15 years of doing this in homes and apartments, the actual
+intruder rate is dramatically lower than the panic rate. But it's
+not zero. Genuine red flags:
+
+- A device whose MAC vendor is a router/AP manufacturer (TP-Link,
+  Ubiquiti, Cisco) that you didn't install — could be a Wi-Fi
+  extender plugged into your network by someone else.
+- An old device you forgot you'd given the password to (a former
+  roommate, a contractor, a neighbor's kid) that you can't account
+  for now.
+- More devices in the list than people in your house, by a factor
+  large enough that even smart-home accounting can't explain it.
+
+If you see any of those, the right move is straightforward: change
+the Wi-Fi password and rejoin all your own devices. Don't bother
+with MAC filtering — it's trivially defeated by anyone technical
+enough to want to be on your network in the first place.
+
+## Make a habit of it
+
+Trust devices you recognize. Then, the next time you scan, WiFi
+Buddy will fire a local notification when a *new* MAC shows up
+("New device on Wi-Fi: <em>Roku Living Room</em>"). That turns
+"who's on my Wi-Fi?" from an occasional panic into a quiet alert
+that tells you the moment a new gadget joins. Notifications are
+local — nothing leaves your phone.

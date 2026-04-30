@@ -1,0 +1,218 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import AppStoreButton from "@/components/AppStoreButton.astro";
+
+const title = "AR Wi-Fi Survey & Insights — How WiFi Buddy works";
+const description =
+  "WiFi Buddy uses ARKit world tracking to plot a real-time Wi-Fi heatmap as you walk, then a deterministic insights engine grades the survey, finds dead zones, and tells you what to change first.";
+---
+
+<BaseLayout title={title} description={description}>
+  <Section pad="lg">
+    <p class="text-sm uppercase tracking-wider text-[--color-signal-blue]">Features</p>
+    <h1 class="mt-2 font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+      Walk your home in AR. Get a graded Wi-Fi report. Know what to fix.
+    </h1>
+    <p class="mt-5 max-w-3xl text-lg text-[--color-fg-muted]">
+      WiFi Buddy is built around a single insight: a number on a screen
+      tells you nothing about <em>where</em> your signal dies. Mapping
+      latency to a real walked path turns a fuzzy "Wi-Fi feels slow"
+      complaint into a list of specific rooms and specific fixes.
+    </p>
+  </Section>
+
+  <Section pad="md">
+    <div class="grid gap-10 md:grid-cols-5" data-reveal-stagger>
+      <div class="md:col-span-3">
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          AR walk-and-paint survey
+        </h2>
+        <p class="mt-3 text-[--color-fg-muted]">
+          The Survey tab uses Apple's <strong>ARWorldTrackingConfiguration</strong>
+          (the same engine that powers Apple's Measure app and AR
+          shopping) to track your iPhone's position in real-world meters.
+          As you walk, your position is projected onto a 2D floor plan
+          and TCP-latency probes are fired at Google DNS in the
+          background. Each sample becomes a colored dot — green for
+          excellent, amber for fair, red for a dead zone.
+        </p>
+        <p class="mt-3 text-[--color-fg-muted]">
+          To start: tap your starting position on the floor plan, hit
+          <em>Start Survey</em>, and walk. Need to correct drift after a
+          long walk? Tap <em>Re-anchor Here</em> and tap the spot on the
+          map you're standing in — WiFi Buddy will also infer the map
+          rotation from the first re-anchor segment so you don't have to
+          tell the app "which way is forward".
+        </p>
+        <p class="mt-3 text-[--color-fg-muted]">
+          When you stop, the trail and heatmap stay on the map for
+          review. Pinch to zoom, drag to pan, and tap any waypoint to
+          see the exact latency captured at that step.
+        </p>
+      </div>
+      <aside class="md:col-span-2 card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">Why AR</p>
+        <h3 class="mt-2 font-display text-lg font-semibold">Pedometer + compass isn't accurate enough</h3>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          Earlier prototypes used Core Motion's pedometer with magnetic
+          heading. Indoors, magnetic heading drifts badly (rebar,
+          appliances, the laptop you're holding) and the pedometer
+          quantizes too coarsely for room-scale resolution. ARKit's
+          visual-inertial odometry uses the camera and the IMU together,
+          which is dramatically more stable indoors.
+        </p>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          The camera feed is used by ARKit only — it is never recorded,
+          screenshotted, or sent anywhere.
+        </p>
+      </aside>
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <div data-reveal>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+        The Insights Engine: a real report, not a heatmap
+      </h2>
+      <p class="mt-3 max-w-3xl text-[--color-fg-muted]">
+        Most heatmap apps stop at colored dots. WiFi Buddy runs a
+        <strong>SurveyInsightsEngine</strong> over your trail when you stop
+        walking. It's a pure-Swift, on-device analytics pass that produces
+        a graded report — same trail in, same report out, every time.
+      </p>
+    </div>
+
+    <div class="mt-8 grid gap-4 md:grid-cols-3" data-reveal-stagger>
+      <div class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">Step 1</p>
+        <h3 class="mt-2 font-display text-lg font-semibold">Score &amp; grade</h3>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          A weighted score (60% coverage mix, 40% median latency, with a
+          p95 spike penalty) maps to an A–F grade plus a one-sentence
+          headline so the user understands the grade at a glance.
+        </p>
+      </div>
+      <div class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">Step 2</p>
+        <h3 class="mt-2 font-display text-lg font-semibold">Cluster dead zones</h3>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          Single-link clustering with a 1.8 m merge threshold groups poor
+          samples into named dead zones — "2 dead zones (master closet,
+          back patio)" instead of an ambiguous fog of red dots.
+        </p>
+      </div>
+      <div class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">Step 3</p>
+        <h3 class="mt-2 font-display text-lg font-semibold">Recommend</h3>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          A tailored "what to do next" list — mesh vs. extender vs.
+          reposition vs. channel change vs. 5 GHz switch — keyed off
+          dead-zone count, jitter ratio, and median latency.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-10 card p-6 md:p-8" data-reveal>
+      <h3 class="font-display text-xl font-bold">Insights the engine surfaces</h3>
+      <ul class="mt-4 grid gap-3 sm:grid-cols-2 text-sm text-[--color-fg-muted]">
+        <li>
+          <strong class="text-[--color-fg]">Coverage breakdown.</strong> Excellent /
+          fair / poor percentages with a stacked bar.
+        </li>
+        <li>
+          <strong class="text-[--color-fg]">Dead-zone count.</strong> Worst zone
+          highlighted by sample count and latency.
+        </li>
+        <li>
+          <strong class="text-[--color-fg]">Latency profile.</strong> Catches the
+          "median is fine but p95 is awful" case that plain averages
+          miss — the one-bad-room failure mode that drops video calls.
+        </li>
+        <li>
+          <strong class="text-[--color-fg]">Stability warning.</strong> Fires only
+          when jitter/median ≥ 0.5 <em>and</em> jitter ≥ 20 ms — so a 3
+          ms wobble on a 25 ms baseline doesn't trigger a false alarm.
+        </li>
+        <li>
+          <strong class="text-[--color-fg]">Router direction hint.</strong> Pearson
+          correlation between distance-from-start and latency. Surfaced
+          only when |r| ≥ 0.35 and you've walked ≥ 3 m.
+        </li>
+        <li>
+          <strong class="text-[--color-fg]">What to do next.</strong> Mesh vs.
+          reposition vs. 5 GHz switch — concrete, not generic.
+        </li>
+      </ul>
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <div class="grid gap-8 md:grid-cols-2" data-reveal-stagger>
+      <div>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          Real speed test, real ISP context
+        </h2>
+        <p class="mt-3 text-[--color-fg-muted]">
+          The Speed tab runs a four-phase test: server selection → ping →
+          download → upload. Download and upload each use 8 concurrent
+          streams against Cloudflare for true throughput, and we surface
+          the chosen Cloudflare colo plus your ISP — so when an ISP
+          routes your test traffic 800+ miles to a distant POP, you see
+          it instead of blaming your Wi-Fi.
+        </p>
+      </div>
+      <div>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          Live network topology
+        </h2>
+        <p class="mt-3 text-[--color-fg-muted]">
+          ISP → Router → Device, each hop with its own real-time TCP
+          latency probe and traffic-light health classification. The
+          packet-flow connectors animate only while a hop is actually
+          carrying traffic — so a glance at the dashboard tells you
+          whether your problem is upstream of the router or inside your
+          home.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <div class="card p-8 md:p-10" data-reveal>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+        Klaus, your AI Wi-Fi sidekick
+      </h2>
+      <p class="mt-3 max-w-3xl text-[--color-fg-muted]">
+        Klaus is a pixel-art assistant fronting a curated knowledge base
+        of 24 home-Wi-Fi questions — coverage, gaming, streaming,
+        security, mesh upgrades, MAC randomization, port forwarding, and
+        more. He doesn't call an LLM and he doesn't make a single
+        network request: it's a deterministic keyword scorer over
+        hand-written answers, so the same question always gets the same
+        explanation. Free users get one question per install; Pro
+        unlocks unlimited chat.
+      </p>
+      <p class="mt-3 max-w-3xl text-[--color-fg-muted]">
+        The motivation is simple: AI assistants in utility apps tend to
+        overpromise and underdeliver. A focused FAQ with personality
+        beats a flaky chatbot that hallucinates router model numbers.
+      </p>
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <div class="card p-8 md:p-10 flex flex-col items-start gap-4" data-reveal>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+        Try it on your own home.
+      </h2>
+      <p class="text-[--color-fg-muted]">
+        Free Speed, Signal &amp; Devices tabs. WiFi Buddy Pro from
+        {/* Pricing pulled from src/lib/site.ts so it stays in sync */}
+        <strong class="text-[--color-fg]">$3.99/mo</strong> with a
+        3-day free trial.
+      </p>
+      <AppStoreButton size="lg" class="cta-press" />
+    </div>
+  </Section>
+</BaseLayout>

@@ -1,0 +1,212 @@
+---
+import "@/styles/global.css";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import { SITE } from "@/lib/site";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Per-page canonical path. Defaults to current URL path. */
+  canonicalPath?: string;
+  /** Open Graph / Twitter image, absolute or root-relative path. */
+  image?: string;
+  /** Hide from search engines (e.g. for staging routes). */
+  noindex?: boolean;
+  /** Optional inline structured-data JSON-LD object(s). */
+  jsonLd?: Record<string, unknown> | Array<Record<string, unknown>>;
+  /** Optional `bodyClass` for hero glow / page-specific bg. */
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description = SITE.description,
+  canonicalPath,
+  image = "/og-default.svg",
+  noindex = false,
+  jsonLd,
+  bodyClass = "",
+} = Astro.props;
+
+// If the page-supplied title is just the brand name, expand it to
+// brand + tagline (homepage). If the title already contains the brand
+// (e.g. "WiFi Buddy vs NetSpot — …"), don't append the brand again. In
+// every other case, append the brand once for context in search results.
+const fullTitle =
+  title === SITE.name
+    ? `${SITE.name} — ${SITE.tagline}`
+    : title.includes(SITE.name)
+      ? title
+      : `${title} — ${SITE.name}`;
+const currentPath = canonicalPath ?? Astro.url.pathname;
+const canonicalUrl = new URL(currentPath, SITE.url).toString();
+const ogImage = new URL(image, SITE.url).toString();
+
+// Default MobileApplication JSON-LD published on every page so Google
+// Knowledge Panel + AI overviews can read the App Store offer regardless
+// of which route the crawler hits first.
+const appJsonLd: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "MobileApplication",
+  name: SITE.name,
+  description: SITE.description,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "iOS 17.0",
+  url: SITE.url,
+  installUrl: SITE.appStoreUrl,
+  downloadUrl: SITE.appStoreUrl,
+  offers: [
+    {
+      "@type": "Offer",
+      name: "WiFi Buddy Pro Monthly",
+      price: SITE.pricing.monthly.replace(/[^0-9.]/g, ""),
+      priceCurrency: "USD",
+      category: "subscription",
+    },
+    {
+      "@type": "Offer",
+      name: "WiFi Buddy Pro Yearly",
+      price: SITE.pricing.yearly.replace(/[^0-9.]/g, ""),
+      priceCurrency: "USD",
+      category: "subscription",
+    },
+  ],
+  ...(SITE.rating
+    ? {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: SITE.rating.value,
+          ratingCount: SITE.rating.count,
+        },
+      }
+    : {}),
+};
+
+const jsonLdArray: Array<Record<string, unknown>> = jsonLd
+  ? Array.isArray(jsonLd)
+    ? [appJsonLd, ...jsonLd]
+    : [appJsonLd, jsonLd]
+  : [appJsonLd];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+
+    <meta name="theme-color" content="#28282C" />
+    <meta name="format-detection" content="telephone=no" />
+
+    {/* Mark the document as JS-capable BEFORE first paint so the
+        reveal-on-scroll CSS can hide opt-in elements. Crawlers and
+        no-JS visitors never get the `js` class, so they always see
+        fully rendered content. */}
+    <script is:inline>
+      document.documentElement.classList.add("js");
+    </script>
+
+    {/* Open Graph */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="en_US" />
+
+    {/* Twitter */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {/* Apple smart-banner (App Store ID is appended once the real ID lands) */}
+    {/* <meta name="apple-itunes-app" content="app-id=APPSTOREID" /> */}
+
+    {/* Structured data */}
+    {jsonLdArray.map((data) => (
+      <script
+        type="application/ld+json"
+        set:html={JSON.stringify(data)}
+      />
+    ))}
+  </head>
+  <body class={bodyClass}>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-black"
+    >
+      Skip to main content
+    </a>
+    <Header />
+    <main id="main" class="min-h-[60vh]">
+      <slot />
+    </main>
+    <Footer />
+
+    {/* Reveal-on-scroll: any element already in the viewport at script
+        run time is marked visible synchronously (no flash). Anything
+        below the fold is handed to IntersectionObserver to be revealed
+        as the user scrolls. Falls back to "always visible" when the
+        browser lacks IntersectionObserver or the user prefers reduced
+        motion. Astro bundles + defers this automatically. */}
+    <script>
+      const reveal = (): void => {
+        const els = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            "[data-reveal], [data-reveal-stagger]"
+          )
+        );
+        if (els.length === 0) return;
+
+        const reduceMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
+
+        if (!("IntersectionObserver" in window) || reduceMotion) {
+          els.forEach((el) => el.classList.add("is-visible"));
+          return;
+        }
+
+        const io = new IntersectionObserver(
+          (entries, observer) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("is-visible");
+                observer.unobserve(entry.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -8% 0px", threshold: 0.05 }
+        );
+
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        for (const el of els) {
+          // If the element is already on screen when the script runs,
+          // reveal it synchronously to avoid a one-frame flash. Only
+          // off-screen elements get handed to the observer.
+          const rect = el.getBoundingClientRect();
+          if (rect.top < vh && rect.bottom > 0) {
+            el.classList.add("is-visible");
+          } else {
+            io.observe(el);
+          }
+        }
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", reveal, { once: true });
+      } else {
+        reveal();
+      }
+    </script>
+  </body>
+</html>

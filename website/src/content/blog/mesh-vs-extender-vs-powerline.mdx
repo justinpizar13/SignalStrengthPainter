@@ -1,0 +1,133 @@
+---
+title: "Mesh vs extender vs Powerline: which actually fixes dead zones"
+description: "A no-nonsense comparison of the three most common Wi-Fi-extension options — mesh systems, range extenders, and powerline adapters — with honest guidance on which to pick for your situation."
+pubDate: 2026-04-02
+keywords: ["mesh vs extender", "powerline adapter", "wifi extender", "fix wifi dead zone"]
+---
+
+If your router is fine but a back bedroom is a dead zone, you have
+three categories of "make the Wi-Fi reach further": **mesh
+systems**, **range extenders**, and **powerline adapters**. Most
+articles on this lump them together. They're very different in
+practice. Here's how to pick.
+
+## TL;DR
+
+- **You want it to just work, you have ~$200, and you're flexible
+  about replacing your current router** → buy a mesh kit.
+- **You have a router you like, and the dead zone is one specific
+  spot, not far from a covered area** → range extender is fine.
+- **You can't run ethernet, and the dead zone is far from your
+  router (basement, garage, ADU)** → powerline / MoCA is the
+  sleeper pick.
+
+The rest of the post is the reasoning.
+
+## Mesh systems (Eero, Nest Wifi, TP-Link Deco, ASUS ZenWiFi)
+
+A mesh kit replaces your single router with 2–3 coordinated nodes,
+each acting as an access point on the same SSID. Your devices roam
+between nodes automatically. Modern kits use a dedicated radio for
+node-to-node "backhaul" so you keep most of your bandwidth.
+
+**Pros:**
+- Single SSID across the whole house — no manual switching.
+- Excellent app-based setup; non-technical users genuinely can
+  install one in 10 minutes.
+- Most kits support wired backhaul — if you can run ethernet to
+  even *one* of the satellite nodes, your performance jumps.
+- Good firmware update story; security patches roll out
+  automatically.
+
+**Cons:**
+- Replaces your router. If you have a fancy router you bought, a
+  mesh kit probably means demoting it to bridge mode or selling it.
+- Usually $200–500 for the kit. Worth it for permanent coverage,
+  pricey for a single problem room.
+- Some kits force you to make an account and route your data
+  through their cloud (Eero is owned by Amazon; this matters to
+  some people).
+
+**When mesh is the right answer:** Your house is bigger than ~1500
+sq ft, you have multiple dead zones, and you want a single
+network. Mesh is genuinely the easy button.
+
+## Range extenders (Netgear EX, TP-Link RE, etc.)
+
+A range extender is a single device you plug into a wall outlet
+between the router and the dead zone. It picks up your existing
+Wi-Fi and re-broadcasts it.
+
+**Pros:**
+- Cheap ($30–80).
+- Works with any existing router.
+- Good for *one specific spot* — the back bedroom, the garage, the
+  patio.
+
+**Cons:**
+- Bandwidth penalty. A traditional extender uses the same radio to
+  receive *and* re-transmit, which roughly halves your bandwidth
+  at the extender. Dual-band extenders are better but still slower
+  than the source link.
+- The extender's coverage is only as good as the signal it's
+  receiving. If you put it in the dead zone, it has nothing to
+  re-broadcast. It needs to live in the *boundary* between covered
+  and uncovered area.
+- Usually creates a separate SSID (e.g. `MyWiFi_EXT`) which means
+  manual switching as you walk around. Some smart-home devices
+  hate this.
+
+**When an extender is the right answer:** You have one specific
+spot, the price difference matters, you're not running calls or
+gaming over it.
+
+## Powerline / MoCA adapters
+
+Powerline adapters use your home's electrical wiring to carry
+ethernet between two adapters. MoCA (Multimedia over Coax) does
+the same thing but over your cable-TV coax. Both are the trick a
+lot of people don't know about.
+
+**Pros:**
+- Bypasses Wi-Fi entirely between the two ends. Latency is great,
+  bandwidth is much better than a wireless extender.
+- Works through floors, brick walls, distance — anything Wi-Fi
+  struggles with.
+- Plug-and-play. No drilling required.
+- When paired with a small access point at the far end you
+  essentially get wired backhaul "for free" — the killer move.
+
+**Cons:**
+- Powerline performance is wildly variable. Newer wiring (15+
+  years) on a single circuit phase: 200–500 Mbps. Older houses
+  with mixed circuit phases: 50–150 Mbps. Older still: it might
+  not work at all.
+- MoCA needs coax in the right spots, which not every house has.
+- Less mainstream — fewer "just works" kits, more shopping
+  required.
+
+**When powerline / MoCA is the right answer:** You have a finished
+basement or detached garage, you can't run ethernet, mesh-node
+wireless backhaul wouldn't reach. Pair the powerline / MoCA
+adapter with a $40 access point or a spare router in bridge mode
+at the far end.
+
+## How to decide
+
+After you've moved and elevated your router (you did, right?
+[See our dead-zones guide](/blog/fix-wifi-dead-zones)), survey the
+house. WiFi Buddy will tell you exactly how many dead zones you
+have and roughly where they are.
+
+- **0 dead zones, just slow:** You don't need any of this. Try
+  switching your devices to 5 GHz first.
+- **1 dead zone, adjacent to a covered area:** Range extender, $50.
+- **1 dead zone, far from any covered area:** Powerline / MoCA + a
+  $40 access point.
+- **2+ dead zones:** Mesh kit. Don't try to fix multiple zones with
+  multiple extenders — that way lies network insanity.
+
+Whatever you pick, **re-survey after you install it**. The
+purpose of the original survey was to find the rooms that are
+broken. The purpose of the post-install survey is to confirm those
+specific rooms got better.

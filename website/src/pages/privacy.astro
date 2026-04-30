@@ -1,0 +1,23 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import { getEntry, render } from "astro:content";
+
+const entry = await getEntry("legal", "privacy");
+if (!entry) {
+  throw new Error("Privacy markdown missing — did sync-legal.mjs run?");
+}
+const { Content } = await render(entry);
+
+const title = "Privacy Policy";
+const description =
+  "WiFi Buddy's privacy policy. We don't run servers. We don't have accounts. We don't run analytics. Your survey, device, and chat history live only on your device.";
+---
+
+<BaseLayout title={title} description={description}>
+  <Section pad="md" width="narrow">
+    <article class="prose">
+      <Content />
+    </article>
+  </Section>
+</BaseLayout>

@@ -1,0 +1,110 @@
+---
+title: "What is jitter and why does it ruin video calls"
+description: "Jitter is the variation in your network's latency over time — and it's the single biggest reason video calls feel bad even when your speed test looks great. Here's what causes it and how to fix it."
+pubDate: 2026-04-12
+keywords: ["jitter", "video call quality", "wifi jitter", "low jitter wifi"]
+---
+
+Speed and ping are easy to think about. **Jitter** is the one most
+people ignore — and it's the metric that explains why your speed
+test says you have 600 Mbps but the kid's Zoom class still freezes
+every two minutes.
+
+This post explains what jitter actually is, why it dominates the
+real-world feel of voice and video calls, and what to do about it.
+
+## What jitter actually is
+
+Latency is the round-trip time of a single packet — say, 25 ms.
+Jitter is how much that latency *varies* between packets. If every
+packet round-trips in exactly 25 ms, your jitter is zero. If they
+vary between 20 ms and 80 ms, your jitter is roughly 30 ms.
+
+A common formula is "the average absolute change in latency between
+consecutive packets" — that's the one WiFi Buddy uses in its
+SurveyInsightsEngine. The exact math doesn't matter much; what
+matters is the intuition: **jitter measures unpredictability**.
+
+## Why this kills video calls specifically
+
+Video calls (Zoom, FaceTime, Google Meet, Teams) work by streaming
+audio and video frames in tiny packets, in order, in real time.
+Every receiver maintains a small buffer to absorb network
+unpredictability — usually a few hundred milliseconds. Packets that
+show up "on time" go straight into playback. Packets that show up
+late are either:
+
+1. Stretched into the buffer (you hear a slight delay), or
+2. Dropped entirely if they're *too* late (you see a frozen frame, a
+   robotic-voice glitch, or a "Bob, you're cutting out" moment).
+
+The killer combination is **low average latency, high jitter**. The
+average is fine — the speed test will pass — but the unpredictable
+spikes overflow the buffer and cause exactly the kind of stutter
+that makes you say "I think my Wi-Fi is bad?".
+
+A connection with 25 ms ping and 5 ms jitter feels great. A
+connection with 25 ms ping and 60 ms jitter feels worse than a
+connection with 100 ms ping and 5 ms jitter — even though the
+"slower" one is technically four times slower.
+
+## What causes jitter at home
+
+Almost all home jitter is **interference** at the Wi-Fi layer:
+
+- **2.4 GHz crowding.** Microwaves, Bluetooth, neighbor networks,
+  IoT devices. 2.4 GHz has only 3 non-overlapping channels and
+  everyone in your apartment building shares them.
+- **Channel changes.** Modern routers will hop channels if they
+  detect interference, and during the hop you get a latency spike.
+- **Background traffic on your own network.** A backup running, a
+  laptop pulling a 4 GB Xcode update, a smart-TV uploading
+  diagnostics — all eat into the same airtime your call needs.
+- **Distance from the AP.** As signal strength drops, the radio
+  retransmits more packets to recover from errors, and each
+  retransmission shows up as latency variance.
+
+The thing it's *usually not*: your ISP. ISP backbone jitter on a
+healthy fiber/cable connection is typically 1–3 ms. If you're
+seeing 30+ ms of jitter, it's between you and the router.
+
+## How to measure your jitter
+
+WiFi Buddy reports jitter in two places:
+
+1. **Speed Test** — the post-test report includes a jitter number
+   alongside ping. If you're sitting in your home office and your
+   jitter is 40+ ms, that's your problem.
+2. **Survey** — every walked sample contributes to a per-survey
+   jitter calculation, surfaced in the Insights report. The
+   stability warning fires only when jitter/median ≥ 0.5 *and*
+   jitter ≥ 20 ms — so a small wobble on a healthy baseline doesn't
+   trigger a false alarm.
+
+If you don't have WiFi Buddy, run `ping -c 100 8.8.8.8` from a
+terminal. Look at the **mdev** (mean deviation) value at the bottom
+— that's your jitter.
+
+## How to fix it
+
+In rough order:
+
+1. **Get on 5 GHz.** This is the single biggest jitter improvement
+   for most homes. 2.4 GHz crowding is the #1 cause of high jitter
+   and 5 GHz is dramatically less crowded.
+2. **Move closer to the router or add a mesh node.** Distance
+   matters more for jitter than for raw bandwidth. A weak signal
+   means more retransmits means more variance.
+3. **Pause the backup.** Time Machine, iCloud Photos, and Windows
+   Backup can saturate your upload while you're on a call. Most
+   apps have a "pause for an hour" option.
+4. **Wire the call.** If you have ethernet anywhere near where you
+   take calls, use it. A wired connection has near-zero jitter.
+5. **Enable QoS on your router.** Most modern routers (Eero, Nest,
+   ASUS, Netgear) have a "prioritize video calls" or "Adaptive QoS"
+   toggle. Turn it on.
+
+If none of those help and your jitter is still bad, you have an
+interference source you haven't found yet. Run a Wi-Fi survey, see
+where the jitter is worst, and look for the appliance that's
+sitting next to that spot. (It's usually the microwave.)

@@ -1,0 +1,121 @@
+---
+title: "How to fix Wi-Fi dead zones in your house"
+description: "A practical, vendor-neutral guide to diagnosing and eliminating Wi-Fi dead zones — from router placement to mesh systems, with the order of operations that actually works."
+pubDate: 2026-04-15
+keywords: ["wifi dead zones", "fix wifi dead spots", "wifi coverage", "wifi survey"]
+---
+
+There's a specific moment when you realize you have a Wi-Fi dead zone:
+the FaceTime drops in the bedroom. Netflix buffers in the home office.
+The smart bulb in the back closet refuses to provision. You've tried
+restarting the router (twice) and nothing changed.
+
+This post walks through how to find dead zones, what causes them, and
+the **order of operations** for fixing them — cheapest move first,
+spendiest last.
+
+## Step 1: Map the problem before you spend money
+
+Before you buy anything, find out where your dead zones actually are.
+"Slow Wi-Fi" feels like a global problem; it almost never is. A
+walk-the-house survey will reveal that 80% of your house has fine
+coverage and there are one or two specific spots — usually a corner
+bedroom or a basement — where the signal collapses.
+
+If you have an iPhone, [WiFi Buddy](/) does this in two minutes
+without any extra hardware: tap a starting point on a floor plan,
+walk the house, and a graded heatmap appears. If you don't, the
+NetSpot desktop app does the same thing on a Mac or PC.
+
+The point isn't the tool. The point is that **walking the building
+beats guessing**, and once you have a map you can stop fighting the
+wrong battle.
+
+## Step 2: Move the router before you replace it
+
+Most home routers were placed by whoever installed the internet,
+which means they're sitting next to the cable jack — usually in a
+corner, at floor level, behind a TV. That's the worst possible spot.
+Wi-Fi radiates roughly spherically, so half the signal is going into
+the wall behind the router and into the floor below.
+
+Fixes that cost nothing:
+
+- **Centralize.** Move the router toward the geometric center of the
+  area you want covered, even if that means a longer ethernet run
+  from the modem.
+- **Elevate.** Put it on a shelf, not on the floor. Six feet up makes
+  a measurable difference.
+- **Open it up.** Don't put it inside a media cabinet, behind a TV,
+  or sitting on top of another appliance.
+- **Stand antennas vertical.** External antennas should be vertical
+  (their pattern is a horizontal donut). One vertical, one horizontal
+  is *not* a coverage strategy on a 2-antenna router.
+
+Re-survey after moving it. You'll often find that the dead zones
+shrink dramatically without buying a thing.
+
+## Step 3: Switch to 5 GHz where you can
+
+Most routers broadcast a 2.4 GHz network and a 5 GHz network. 2.4
+travels further but is **massively** more crowded — your microwave,
+Bluetooth headphones, neighbor's network, smart bulbs, and that one
+old garage-door opener are all in the same band. 5 GHz is faster and
+cleaner, with the trade-off that walls knock it down harder.
+
+If your devices support both bands but keep landing on 2.4, log into
+your router and either: split the SSIDs (give the bands different
+names, then connect each device to the one you want), or enable band
+steering and let the router pick.
+
+This often fixes "intermittent" problems where the *signal* looks
+fine but the *experience* is bad. That's almost always a 2.4 GHz
+interference issue, not a coverage issue.
+
+## Step 4: Mesh, extender, or wired backhaul?
+
+If you've moved the router, gone vertical, and the dead zones are
+still there, you have a coverage problem. The next step is adding
+infrastructure. Three options, in order of "actually fixes it":
+
+1. **Wired backhaul (best).** Run an ethernet cable to a second
+   access point in the dead zone. This gives you full bandwidth,
+   zero added latency, and a single SSID that hands off cleanly.
+   Hard to retrofit, but unbeatable when possible.
+2. **Mesh (good).** A mesh kit (Eero, Google Nest Wifi, TP-Link
+   Deco, ASUS ZenWiFi) replaces your single router with 2–3
+   coordinated nodes. The nodes use a dedicated radio to talk to
+   each other, so you keep most of your bandwidth. Modern mesh kits
+   are fire-and-forget.
+3. **Range extender (last resort).** A traditional Wi-Fi extender
+   re-broadcasts your existing network. They work, but they
+   typically halve your bandwidth at the extender and create
+   handoff issues. Worth trying if you have one in a drawer; not
+   worth buying new.
+
+For a deeper dive on the choice see our post on
+[mesh vs. extender vs. powerline](/blog/mesh-vs-extender-vs-powerline).
+
+## Step 5: Re-survey
+
+This is the step everyone skips. After you change anything — moving
+the router, changing the band, adding a mesh node — **walk the house
+again**. The whole point of the original survey was to identify the
+specific rooms that were broken. The point of the second survey is
+to confirm those specific rooms got better.
+
+WiFi Buddy schedules re-survey reminders at 30, 90, and 180 days
+after each completed walk for exactly this reason. Wi-Fi changes —
+neighbors get new routers, you buy new IoT devices, the band you
+were on gets crowded. A snapshot today doesn't predict next month.
+
+## When to call your ISP (and when not to)
+
+If your speed test result is *consistently* less than half your plan,
+in a room with a strong signal, after you've tried the above — call
+the ISP. They can run a line test from their end. If your speed test
+is fine in some rooms and bad in others, the ISP can't help you;
+that's a Wi-Fi problem, not a line problem.
+
+For a deeper dive on the speed-test confusion specifically see
+[why your speed test result and ISP plan don't match](/blog/speed-test-vs-isp-plan).

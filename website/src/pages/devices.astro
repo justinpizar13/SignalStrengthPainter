@@ -1,0 +1,188 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import AppStoreButton from "@/components/AppStoreButton.astro";
+
+const title = "How WiFi Buddy identifies every device on your Wi-Fi";
+const description =
+  "WiFi Buddy uses an 8-layer device-discovery scanner — Bonjour, SSDP/UPnP, port fingerprinting, ARP table reading, OUI lookup, reverse DNS, and more — to label every device on your Wi-Fi, even ones using MAC randomization.";
+
+// HowTo schema is the right type for "how this scanner works" content —
+// Google often pulls bullet structure into the AI overview.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline: title,
+  description,
+  author: {
+    "@type": "Organization",
+    name: "WiFi Buddy",
+  },
+  about: [
+    "Bonjour service discovery",
+    "SSDP / UPnP",
+    "TCP port fingerprinting",
+    "ARP table",
+    "MAC OUI lookup",
+    "Reverse DNS",
+  ],
+};
+---
+
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <Section pad="lg">
+    <p class="text-sm uppercase tracking-wider text-[--color-signal-orange]">Devices</p>
+    <h1 class="mt-2 font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+      Eight ways WiFi Buddy figures out what's on your Wi-Fi.
+    </h1>
+    <p class="mt-5 max-w-3xl text-lg text-[--color-fg-muted]">
+      "Find unknown devices on your home Wi-Fi" sounds like a one-liner.
+      In practice, modern smart-home gear, MAC randomization, and
+      firewalled IoT devices make it surprisingly hard to put a friendly
+      name next to every IP. WiFi Buddy stacks eight identification
+      layers so almost everything on your network ends up correctly
+      labeled — without you having to log into your router.
+    </p>
+  </Section>
+
+  <Section pad="md">
+    <ol class="grid gap-4 md:grid-cols-2" data-reveal-stagger>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 1</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">Bonjour service discovery</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          We browse 19 Bonjour service types — <code>_airplay._tcp</code>,
+          <code>_homekit._tcp</code>, <code>_companion-link._tcp</code>,
+          <code>_smb._tcp</code>, <code>_googlecast._tcp</code>,
+          <code>_apple-mobdev2._tcp</code>, and more — and resolve each
+          discovered service back to an IP. Bonjour-named devices are
+          always included even if no TCP ports respond.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 2</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">TCP port fingerprinting</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          21 ports per host, probed concurrently with an 800 ms timeout.
+          Open-port patterns drive classification: 62078 → Apple device,
+          548 → Mac/AFP, 22 → SSH/computer, 9100/631 → printer, 7000 →
+          AirPlay/TV, 1883 → MQTT/IoT.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 3</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">TCP liveness probe</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          Hosts with no open ports get a secondary check on 443 / 80 / 7
+          / 1. A fast TCP RST (under 500 ms) proves the host is alive
+          even if every probed port is firewalled — which is how we
+          catch hardened IoT cameras and routers.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 4</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">SSDP / UPnP discovery</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          We send M-SEARCH multicasts to <code>239.255.255.250:1900</code>
+          with three different ST values 100 ms apart, then parse the
+          unicast HTTP-style replies. This finds Echo Dots in sleep
+          mode, Ring doorbells, Roku, Sonos, and the rest of the UPnP
+          ecosystem that Bonjour doesn't surface.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 5</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">UPnP device description</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          For any device that gave us an SSDP <code>LOCATION</code> URL,
+          we fetch the device-description XML and pull
+          <code>&lt;friendlyName&gt;</code>, <code>&lt;manufacturer&gt;</code>,
+          and <code>&lt;modelName&gt;</code>. That's how
+          "Justin's Echo Dot" wins over a generic "Smart speaker" label.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 6</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">Reverse DNS lookup</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          A <code>getnameinfo</code> reverse lookup against the host
+          gives us hostnames like <code>Justins-MacBook-Pro.local</code>.
+          We strip the suffixes (<code>.local</code>, <code>.lan</code>,
+          <code>.fritz.box</code>) and use the cleaned name both as the
+          display label and as input to keyword classification.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 7</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">ARP table reading</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          We read the iOS kernel ARP table directly via
+          <code>sysctl(NET_RT_FLAGS)</code> — no root, no entitlements —
+          to get the IP-to-MAC mapping for every host the router has
+          recently spoken to. Parsing the packed
+          <code>rt_msghdr</code> stream is fiddly (the C structs aren't
+          bridged to Swift), but it's how we get a real MAC even when a
+          device refuses to advertise anything else.
+        </p>
+      </li>
+      <li class="card p-6">
+        <p class="text-xs uppercase tracking-wider text-[--color-signal-blue]">Layer 8</p>
+        <h2 class="mt-2 font-display text-lg font-semibold">OUI vendor lookup</h2>
+        <p class="mt-2 text-sm text-[--color-fg-muted]">
+          The first three bytes of a MAC address are the OUI — the
+          manufacturer code assigned by the IEEE. Our curated database
+          covers ~300 common consumer-electronics vendors (Apple,
+          Amazon, Google, Sonos, Roku, Philips Hue, Ring, Nintendo,
+          Espressif, Tuya, and more), so devices that evade Bonjour /
+          SSDP / HTTP still get a "Made by …" label.
+        </p>
+      </li>
+    </ol>
+  </Section>
+
+  <Section pad="md">
+    <div class="grid gap-8 md:grid-cols-2" data-reveal-stagger>
+      <div>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          MAC address randomization, handled.
+        </h2>
+        <p class="mt-3 text-[--color-fg-muted]">
+          Modern iPhones, iPads, and Android phones rotate their MAC
+          addresses on each network for privacy — which means the same
+          phone can show up as a different "device" every time it
+          reconnects. We detect locally-administered MACs (the second
+          bit of the first byte is set) and label them as randomized so
+          you don't get spooked by your own phone reappearing under a
+          new name. Read more in our deep dive on
+          <a href="/blog/mac-randomization-ios">MAC randomization on iOS</a>.
+        </p>
+      </div>
+      <div>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          Trust &amp; new-device alerts
+        </h2>
+        <p class="mt-3 text-[--color-fg-muted]">
+          You can mark devices as <em>trusted</em>; trust state persists
+          per-network. Once a network has trusted devices, WiFi Buddy
+          watches for genuinely new MAC addresses on subsequent scans
+          and sends a local notification ("New device on Wi-Fi: <em>Roku
+          Living Room</em>"). When 3+ unknowns show up at once we
+          coalesce into a single alert so you're not spammed when you
+          rejoin a network you haven't surveyed in a while.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <div class="card p-8 md:p-10 flex flex-col items-start gap-4" data-reveal>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+        Find every gadget on your Wi-Fi.
+      </h2>
+      <p class="text-[--color-fg-muted]">
+        Free on the Devices tab — no subscription required.
+      </p>
+      <AppStoreButton size="lg" class="cta-press" />
+    </div>
+  </Section>
+</BaseLayout>

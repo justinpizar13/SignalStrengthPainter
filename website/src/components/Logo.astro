@@ -1,0 +1,64 @@
+---
+// Reusable WiFi Buddy mark. Geometry mirrors AppLogoView.swift exactly:
+//   cy = 0.695, outer/middle/inner arc radii 0.445 / 0.315 / 0.185,
+//   stroke = 0.080, dot radius = 0.055, arc sweep 225° → 315°.
+// Colors are the same flat traffic-light palette used by both the in-app
+// logo and the 1024×1024 home-screen icon.
+//
+// Renders on a transparent background so it composes cleanly over both
+// the dark site chrome and the dark-gray squircle tile.
+
+interface Props {
+  size?: number;
+  withTile?: boolean;
+  class?: string;
+}
+
+const { size = 56, withTile = false, class: className = "" } = Astro.props;
+
+const VB = 1000;
+const cx = VB / 2;
+const cy = VB * 0.695;
+const stroke = VB * 0.08;
+const radii = [VB * 0.445, VB * 0.315, VB * 0.185];
+const dotR = VB * 0.055;
+
+// Compute SVG arc paths for the 90° fan (225° → 315° in SwiftUI's y-down
+// convention is the upper fan, which maps to a horizontal-axis-up arc in
+// SVG: the path goes from (cx - r·sin45°, cy - r·cos45°) up over the top
+// of the circle back to (cx + r·sin45°, cy - r·cos45°).
+function arcPath(r: number): string {
+  const sin45 = Math.SQRT1_2;
+  const start = { x: cx - r * sin45, y: cy - r * sin45 };
+  const end = { x: cx + r * sin45, y: cy - r * sin45 };
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 0 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+const colors = ["#4DD966", "#FAD138", "#FA8538"];
+---
+
+<span
+  class={`inline-flex items-center justify-center ${withTile ? "rounded-[22%] bg-[#28282C]" : ""} ${className}`}
+  style={`width:${size}px;height:${size}px;`}
+  aria-hidden="true"
+>
+  <svg
+    width={size}
+    height={size}
+    viewBox={`0 0 ${VB} ${VB}`}
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    style="display:block"
+  >
+    {radii.map((r, i) => (
+      <path
+        d={arcPath(r)}
+        stroke={colors[i]}
+        stroke-width={stroke}
+        stroke-linecap="round"
+        fill="none"
+      />
+    ))}
+    <circle cx={cx} cy={cy} r={dotR} fill="#FA5252" />
+  </svg>
+</span>

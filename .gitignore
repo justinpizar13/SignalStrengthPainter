@@ -17,3 +17,10 @@ xcuserdata/
 *.mode1v3
 *.mode2v3
 *.perspectivev3
+
+# Marketing website build output
+website/node_modules/
+website/dist/
+website/.astro/
+website/src/content/legal/
+

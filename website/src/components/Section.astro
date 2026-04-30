@@ -1,0 +1,22 @@
+---
+interface Props {
+  /** Maximum content width. Defaults to 6xl (72rem). */
+  width?: "narrow" | "default" | "wide";
+  /** Vertical padding scale. */
+  pad?: "sm" | "md" | "lg";
+  class?: string;
+  id?: string;
+}
+
+const { width = "default", pad = "md", class: className = "", id } = Astro.props;
+const widthClass =
+  width === "narrow" ? "max-w-3xl" : width === "wide" ? "max-w-7xl" : "max-w-6xl";
+const padClass =
+  pad === "sm" ? "py-12" : pad === "lg" ? "py-24" : "py-16";
+---
+
+<section id={id} class={`${padClass} ${className}`}>
+  <div class={`mx-auto px-5 ${widthClass}`}>
+    <slot />
+  </div>
+</section>

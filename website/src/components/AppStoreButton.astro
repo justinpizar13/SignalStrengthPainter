@@ -1,0 +1,54 @@
+---
+// Apple-styled "Download on the App Store" CTA. Uses the official Apple
+// badge artwork (sourced from
+// https://developer.apple.com/app-store/marketing/guidelines/) served
+// from /public/app-store-badge.svg so we don't risk modifying it.
+//
+// Apple's App Store Marketing Guidelines stipulate:
+//  - Display the badge at a minimum height of 40 px on web.
+//  - Preserve the badge's aspect ratio (≈ 2.99:1).
+//  - Keep at least 1/10 of badge-height as clear space around it.
+//  - Do not modify the artwork (no recoloring, no rounded corners, etc).
+// We honor all four — sizing scales the height, width auto-tracks the
+// aspect ratio, and surrounding sections already provide ample padding.
+import { SITE } from "@/lib/site";
+
+interface Props {
+  size?: "sm" | "md" | "lg";
+  class?: string;
+}
+
+const { size = "md", class: className = "" } = Astro.props;
+
+// Heights chosen so even the smallest size meets the 40 px minimum and
+// every size is a nice round multiple. The width auto-tracks aspect
+// ratio so the badge never gets stretched.
+const heightPx: Record<NonNullable<Props["size"]>, number> = {
+  sm: 40,
+  md: 48,
+  lg: 56,
+};
+const h = heightPx[size];
+
+// Official badge intrinsic size (matches the SVG's viewBox).
+const intrinsicW = 119.66407;
+const intrinsicH = 40;
+const w = Math.round((h * intrinsicW) / intrinsicH);
+---
+
+<a
+  href={SITE.appStoreUrl}
+  rel="noopener"
+  class={`inline-flex shrink-0 items-center transition hover:opacity-90 active:opacity-80 ${className}`}
+  aria-label={`Download ${SITE.name} on the App Store`}
+>
+  <img
+    src="/app-store-badge.svg"
+    alt="Download on the App Store"
+    width={w}
+    height={h}
+    style={`height:${h}px;width:auto;`}
+    loading="eager"
+    decoding="async"
+  />
+</a>

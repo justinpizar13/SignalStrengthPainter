@@ -1,0 +1,32 @@
+---
+interface Props {
+  icon?: string;
+  title: string;
+  body: string;
+  accent?: "green" | "yellow" | "orange" | "red" | "blue";
+}
+
+const { icon, title, body, accent = "blue" } = Astro.props;
+
+const accentColor: Record<NonNullable<Props["accent"]>, string> = {
+  green: "var(--color-signal-green)",
+  yellow: "var(--color-signal-yellow)",
+  orange: "var(--color-signal-orange)",
+  red: "var(--color-signal-red)",
+  blue: "var(--color-signal-blue)",
+};
+---
+
+<article class="card p-6 h-full flex flex-col gap-3">
+  {icon && (
+    <span
+      class="feature-icon inline-flex h-10 w-10 items-center justify-center rounded-lg"
+      style={`background:color-mix(in oklab, ${accentColor[accent]} 15%, transparent);color:${accentColor[accent]};`}
+      aria-hidden="true"
+    >
+      <Fragment set:html={icon} />
+    </span>
+  )}
+  <h3 class="font-display text-lg font-semibold tracking-tight">{title}</h3>
+  <p class="text-[--color-fg-muted] text-sm leading-relaxed">{body}</p>
+</article>

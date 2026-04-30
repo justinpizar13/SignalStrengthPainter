@@ -1,0 +1,121 @@
+---
+title: "Why your Wi-Fi speed test result and ISP plan don't match"
+description: "Your ISP says 1 Gbps. Your speed test says 230 Mbps. Both can be telling the truth. Here's how to read a speed-test result, and what to actually do when the numbers don't match."
+pubDate: 2026-04-05
+keywords: ["wifi speed test", "internet speed test", "isp speed", "speed test inaccurate"]
+---
+
+You pay for 1 Gbps. Your speed test says 230 Mbps. You're furious
+at your ISP, except that your ISP's app says 940 Mbps.
+
+Both numbers are probably correct. Speed tests measure different
+things, in different places, against different servers, and the
+result is genuinely informative once you know what each test is
+telling you.
+
+## What a speed test actually measures
+
+A speed test is **not a measurement of your ISP plan**. It's a
+measurement of the path between your phone and one specific
+server, at one specific moment. That path includes:
+
+1. The Wi-Fi link from your phone to your router
+2. Your router's WAN port to the modem
+3. The modem to the ISP's local infrastructure
+4. The ISP's regional and backbone network
+5. The internet between your ISP and the speed-test server
+6. The speed-test server's own capacity
+
+Any of those six can be the bottleneck. When your speed test
+underperforms, you have to figure out which.
+
+## The three reasons your speed test "lies"
+
+### 1. The Wi-Fi link is the bottleneck
+
+This is the single most common cause. Even if you have a Gigabit
+ISP plan, your phone's Wi-Fi to the router is **frequently** the
+slowest link.
+
+A few realities of home Wi-Fi:
+
+- An iPhone on a 2.4 GHz network typically maxes out around
+  100 Mbps in good conditions, much lower at distance.
+- A 5 GHz Wi-Fi 5 (802.11ac) iPhone in the same room as the router
+  will hit 400–600 Mbps on a clean channel. In another room,
+  150–300 Mbps is more typical.
+- Wi-Fi 6 / 6E iPhones in the same room can pass 800 Mbps. Through
+  a wall, 400–600 is typical.
+
+So 230 Mbps from a phone at the kitchen table on Wi-Fi is *exactly
+what you'd expect* on a 1 Gbps plan. The ISP didn't lie. The
+physics of Wi-Fi is the limit.
+
+The way to confirm: plug a laptop directly into your router with
+ethernet and re-run the speed test. If you suddenly see 940 Mbps,
+your plan is fine. If you still see 230, the bottleneck is
+upstream of your router.
+
+### 2. The speed-test server is far away
+
+Speed-test apps use a network of test servers and *try* to pick a
+nearby one. They don't always succeed. Cloudflare's
+`speed.cloudflare.com` is Anycast-routed, which means your traffic
+should land at the nearest Cloudflare data center automatically —
+but BGP and ISP peering quirks can send it to a distant one.
+
+A famous example: some Cox / Centurylink customers in Phoenix get
+routed to Dallas (an 890-mile detour) because of a peering
+preference. The speed test still completes, but every packet has
+~25 ms of extra latency *and* you're sharing congested transit
+links you wouldn't normally touch. Result: a perfectly healthy
+gigabit connection benchmarks at 200–400 Mbps.
+
+WiFi Buddy surfaces the chosen Cloudflare colo (e.g. "Cloudflare
+DFW · Dallas, TX") and the great-circle distance from your IP. If
+that distance is 500+ miles, we explicitly warn you that your
+result probably isn't representative — your real speeds to Netflix,
+GitHub, and apps that don't use Anycast are likely much higher.
+
+This is also why ISP apps tend to look better than third-party
+speed tests: ISPs run their own server inside their own network,
+so the test doesn't traverse any peering links. It's measuring a
+shorter path. That doesn't mean the ISP is cheating — it means
+they're measuring something more flattering.
+
+### 3. Your ISP is shaping or congested
+
+Less common, but real: at peak hours (7–11 PM in most US time
+zones), shared-medium ISPs (cable and some fiber) can experience
+local congestion. Your peak-hour speed test will be 30–50% slower
+than your 6 AM speed test. If that pattern is clear and persistent,
+your plan is being oversubscribed and a call to your ISP is
+warranted.
+
+## How to read a speed test like a pro
+
+For each speed test, ask three questions:
+
+1. **What's my Wi-Fi link?** Same-room speed test on a phone → most
+   accurate Wi-Fi-realistic number. Wired laptop → most accurate
+   plan-capacity number. The gap between them is your Wi-Fi
+   ceiling.
+2. **Where did the test go?** WiFi Buddy shows the colo and
+   distance. If it's hundreds of miles away, repeat the test or
+   note that the result is pessimistic.
+3. **Is it consistent across times of day?** Run a speed test at
+   2 PM and at 9 PM. If they're similar, your ISP plan is fine. If
+   they differ by more than ~25%, peak-hour congestion is the
+   suspect.
+
+## When to actually call the ISP
+
+Call your ISP when **all three** of these are true:
+
+- Your wired (ethernet) speed test from a laptop in the same room
+  as the modem is consistently less than 60% of your plan
+- The colo / test-server distance looks reasonable
+- The result is the same at peak and off-peak hours
+
+Otherwise the ISP can't help you, and the bottleneck is inside your
+walls.

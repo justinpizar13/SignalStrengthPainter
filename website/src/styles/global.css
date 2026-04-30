@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+/* Brand tokens mirror the iOS app's AppLogoView traffic-light palette
+   on dark gray. Keep these in sync with AppLogoView.swift if the brand
+   palette is ever revised. */
+@theme {
+  --color-bg: oklch(20% 0.01 250);
+  --color-bg-card: oklch(24% 0.01 250);
+  --color-bg-elevated: oklch(28% 0.012 250);
+  --color-border: oklch(32% 0.012 250);
+  --color-fg: oklch(98% 0 0);
+  --color-fg-muted: oklch(78% 0.01 250);
+  --color-fg-dim: oklch(60% 0.01 250);
+
+  /* Traffic-light Wi-Fi palette */
+  --color-signal-green: #4dd966;
+  --color-signal-yellow: #fad138;
+  --color-signal-orange: #fa8538;
+  --color-signal-red: #fa5252;
+  --color-signal-blue: #3b82f6;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "SF Pro Display",
+    Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    ui-sans-serif, system-ui, -apple-system, "SF Pro Display", Inter,
+    "Helvetica Neue", sans-serif;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+/* Subtle radial accent behind hero sections. The gradient drifts very
+   slowly so the page feels alive without distracting from the copy. */
+.hero-glow {
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% 0%,
+      color-mix(in oklab, var(--color-signal-blue) 18%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 80% 10%,
+      color-mix(in oklab, var(--color-signal-green) 10%, transparent) 0%,
+      transparent 65%
+    ),
+    var(--color-bg);
+  background-attachment: fixed, fixed, fixed;
+  animation: hero-glow-drift 22s ease-in-out infinite alternate;
+}
+@keyframes hero-glow-drift {
+  from {
+    background-position:
+      48% -2%,
+      78% 8%,
+      0 0;
+  }
+  to {
+    background-position:
+      52% 4%,
+      82% 14%,
+      0 0;
+  }
+}
+
+/* Card styling shared across the site. Slight lift + accent ring on
+   hover gives every grid section a tactile response without being loud. */
+.card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.35s ease,
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(
+      in oklab,
+      var(--color-signal-blue) 40%,
+      var(--color-border)
+    );
+    background-color: color-mix(
+      in oklab,
+      var(--color-bg-card) 92%,
+      white
+    );
+    box-shadow:
+      0 14px 40px -18px
+        color-mix(in oklab, var(--color-signal-blue) 35%, transparent),
+      0 0 0 1px
+        color-mix(in oklab, var(--color-signal-blue) 18%, transparent) inset;
+  }
+}
+
+/* The square accent tile on FeatureCard responds to its parent card's
+   hover so the whole card feels like a single unit. */
+.feature-icon {
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.card:hover .feature-icon {
+  transform: scale(1.08) rotate(-3deg);
+}
+
+/* Slow vertical float for hero device screenshots. */
+.float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Animated underline for primary nav links. */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.35rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-signal-blue);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    background-color 0.2s ease;
+  opacity: 0.85;
+}
+.nav-link:hover::after,
+.nav-link:focus-visible::after {
+  transform: scaleX(1);
+}
+.nav-link.is-active::after {
+  transform: scaleX(1);
+  background: var(--color-fg);
+}
+
+/* Generic CTA polish — a tiny scale on hover for buttons that opt in. */
+.cta-press {
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
+}
+@media (hover: hover) {
+  .cta-press:hover {
+    transform: translateY(-1px);
+  }
+  .cta-press:active {
+    transform: translateY(0);
+  }
+}
+
+/* Reveal-on-scroll system. Initial hidden state is only applied when JS
+   is available (the inline boot script in BaseLayout adds `js` to <html>),
+   so crawlers and no-JS visitors see fully rendered content. */
+html.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity, transform;
+}
+html.js [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger children of a [data-reveal-stagger] container. The container
+   itself becomes visible on intersection; its direct children animate
+   in with a small delay-cascade. */
+html.js [data-reveal-stagger] > * {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity, transform;
+}
+html.js [data-reveal-stagger].is-visible > * {
+  opacity: 1;
+  transform: none;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(2) {
+  transition-delay: 60ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(3) {
+  transition-delay: 120ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(4) {
+  transition-delay: 180ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(5) {
+  transition-delay: 240ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(6) {
+  transition-delay: 300ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(7) {
+  transition-delay: 360ms;
+}
+html.js [data-reveal-stagger].is-visible > *:nth-child(8) {
+  transition-delay: 420ms;
+}
+
+/* Honor user preference: no decorative motion if the OS asks us to. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow,
+  .float-slow {
+    animation: none !important;
+  }
+  html.js [data-reveal],
+  html.js [data-reveal-stagger] > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .card,
+  .feature-icon,
+  .nav-link::after,
+  .cta-press {
+    transition: none !important;
+  }
+}
+
+/* Markdown / prose tweaks for blog and legal pages */
+.prose {
+  color: var(--color-fg);
+  line-height: 1.7;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  color: var(--color-fg);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.prose h1 {
+  font-size: 2.25rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+.prose h2 {
+  font-size: 1.625rem;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+}
+.prose h3 {
+  font-size: 1.25rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+.prose p {
+  margin: 0.75rem 0 1rem;
+  color: var(--color-fg-muted);
+}
+.prose a {
+  color: var(--color-signal-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose a:hover {
+  color: color-mix(in oklab, var(--color-signal-blue) 80%, white);
+}
+.prose strong {
+  color: var(--color-fg);
+}
+.prose ul,
+.prose ol {
+  margin: 0.75rem 0 1.25rem;
+  padding-left: 1.5rem;
+  color: var(--color-fg-muted);
+}
+.prose li {
+  margin: 0.25rem 0;
+}
+.prose code {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  font-size: 0.9em;
+}
+.prose blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1rem;
+  color: var(--color-fg-muted);
+  margin: 1rem 0;
+  font-style: italic;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 2rem 0;
+}

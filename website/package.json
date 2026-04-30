@@ -1,0 +1,23 @@
+{
+  "name": "wifi-buddy-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-legal": "node scripts/sync-legal.mjs",
+    "predev": "npm run sync-legal",
+    "prebuild": "npm run sync-legal",
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^4.3.14",
+    "@astrojs/sitemap": "^3.7.2",
+    "@tailwindcss/vite": "^4.2.4",
+    "astro": "^5.18.1",
+    "tailwindcss": "^4.2.4"
+  }
+}

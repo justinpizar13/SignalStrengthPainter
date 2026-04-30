@@ -1,0 +1,76 @@
+---
+import Logo from "./Logo.astro";
+import { FOOTER_NAV, SITE } from "@/lib/site";
+
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-24 border-t border-[--color-border] bg-[--color-bg]">
+  <div class="mx-auto max-w-6xl px-5 py-12 grid gap-10 md:grid-cols-4">
+    <div class="md:col-span-2">
+      <a href="/" class="inline-flex items-center gap-3" aria-label={`${SITE.name} — home`}>
+        <Logo size={36} withTile />
+        <span class="font-display text-lg font-bold tracking-tight">
+          {SITE.name}
+        </span>
+      </a>
+      <p class="mt-3 text-sm text-[--color-fg-muted] max-w-sm">
+        {SITE.description}
+      </p>
+      <p class="mt-4 text-xs text-[--color-fg-dim]">
+        Made for iPhone. Privacy-first. No accounts, no servers, no analytics.
+      </p>
+    </div>
+
+    <div>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-[--color-fg-dim]">
+        Product
+      </h2>
+      <ul class="mt-3 space-y-2">
+        {FOOTER_NAV.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class="text-sm text-[--color-fg-muted] hover:text-[--color-fg]"
+            >
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-[--color-fg-dim]">
+        Company
+      </h2>
+      <ul class="mt-3 space-y-2">
+        <li>
+          <a
+            href="/releases"
+            class="text-sm text-[--color-fg-muted] hover:text-[--color-fg]"
+          >
+            Release notes
+          </a>
+        </li>
+        <li>
+          <a
+            href={`mailto:${SITE.supportEmail}`}
+            class="text-sm text-[--color-fg-muted] hover:text-[--color-fg]"
+          >
+            Contact
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div class="border-t border-[--color-border]">
+    <div class="mx-auto max-w-6xl px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[--color-fg-dim]">
+      <p>© {year} {SITE.name}. All rights reserved.</p>
+      <p>
+        WiFi Buddy and the Wi-Fi mark are trademarks of their respective owners.
+        Apple, the Apple logo, and App Store are trademarks of Apple Inc.
+      </p>
+    </div>
+  </div>
+</footer>

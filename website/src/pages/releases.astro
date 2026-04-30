@@ -1,0 +1,186 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Section from "@/components/Section.astro";
+import AppStoreButton from "@/components/AppStoreButton.astro";
+
+const title = "Release notes — what's new in WiFi Buddy";
+const description =
+  "Every WiFi Buddy release at a glance. See what's new, what's improved, and what's been fixed in each version of the app.";
+
+// Releases are written newest-first. Each release has a version, an
+// ISO date, an optional tagline, and one or more change-group sections
+// (New / Improvements / Fixes). When we ship 1.1+, prepend the new
+// release object to the top of `releases`.
+type ChangeGroup = {
+  label: string;
+  accent: "green" | "blue" | "yellow" | "orange" | "red";
+  items: string[];
+};
+
+type Release = {
+  version: string;
+  date: string;
+  tagline?: string;
+  groups: ChangeGroup[];
+};
+
+const releases: Release[] = [
+  {
+    version: "1.0",
+    date: "2026-04-29",
+    tagline: "The first release. Five tabs, one walking heatmap.",
+    groups: [
+      {
+        label: "What's new",
+        accent: "green",
+        items: [
+          "Speed tab: live ISP \u2192 Router \u2192 Device topology with real-time TCP latency probes per hop, plus a Cloudflare-backed multi-stream speed test (download, upload, ping, jitter).",
+          "Wi-Fi Report: every speed test produces a plain-English report rating your connection for streaming, gaming, video calls, home office, and browsing.",
+          "Survey tab (Pro): walk your home in AR while WiFi Buddy paints a live signal-strength heatmap onto a floor plan \u2014 no extra hardware, just your iPhone.",
+          "Survey insights engine: every completed walk produces an A\u2013F graded coverage report, dead-zone detection with single-link clustering, latency profile (median, p95, jitter), and a tailored \u201cwhat to do next\u201d list (mesh vs. extender vs. reposition vs. channel change).",
+          "Signal tab: real-time connection-quality check with traffic-light grading and one-tap access to Klaus.",
+          "Devices tab: 8-layer device discovery (Bonjour, SSDP/UPnP, TCP port fingerprinting, ARP-table MAC + OUI lookup, reverse DNS, hostname keywords) with trusted-device tracking and new-device alerts on networks you trust.",
+          "Klaus, your AI Wi-Fi sidekick: a pixel-art assistant with 24 curated answers covering coverage, gaming, streaming, security, mesh upgrades, MAC randomization, and more. Free users get one question per install; Pro unlocks unlimited chat.",
+          "Floor plan templates: choose Blank, Apartment, or Upstairs for the survey backdrop \u2014 with editable room names so the heatmap matches your home.",
+          "Re-survey reminders at 30 / 90 / 180 days so you can spot whether your dead zones moved after a router move, neighbor's new microwave, or firmware update.",
+        ],
+      },
+      {
+        label: "Pro & pricing",
+        accent: "yellow",
+        items: [
+          "WiFi Buddy Pro: $3.99/month or $34.99/year, with a 3-day free trial on first purchase.",
+          "Trial-aware paywall copy: \u201cStart 3-Day Free Trial\u201d CTA, charge-date timeline, and a \u201ccancel anytime in Settings\u201d disclosure.",
+          "Billing-retry grace period: a failed renewal won't yank Pro features mid-session \u2014 a slim banner explains the retry window so you can update your payment method without interruption.",
+        ],
+      },
+      {
+        label: "Privacy & platform",
+        accent: "blue",
+        items: [
+          "Privacy by construction: surveys, device lists, and chat history live only on your device. No accounts. No analytics. No servers.",
+          "Camera feed is used by ARKit only \u2014 it's never recorded, screenshotted, or sent anywhere.",
+          "iOS 17+ universal app for iPhone and iPad, with light/dark/system appearance and a fresh traffic-light Wi-Fi app icon.",
+        ],
+      },
+    ],
+  },
+];
+
+const fmtDate = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const accentClass: Record<ChangeGroup["accent"], string> = {
+  green: "border-[--color-signal-green]/40 text-[--color-signal-green]",
+  blue: "border-[--color-signal-blue]/40 text-[--color-signal-blue]",
+  yellow: "border-[--color-signal-yellow]/40 text-[--color-signal-yellow]",
+  orange: "border-[--color-signal-orange]/40 text-[--color-signal-orange]",
+  red: "border-[--color-signal-red]/40 text-[--color-signal-red]",
+};
+
+const accentDotClass: Record<ChangeGroup["accent"], string> = {
+  green: "bg-[--color-signal-green]",
+  blue: "bg-[--color-signal-blue]",
+  yellow: "bg-[--color-signal-yellow]",
+  orange: "bg-[--color-signal-orange]",
+  red: "bg-[--color-signal-red]",
+};
+---
+
+<BaseLayout title={title} description={description}>
+  <Section pad="lg">
+    <p class="text-sm uppercase tracking-wider text-[--color-signal-blue]">Releases</p>
+    <h1 class="mt-2 font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+      What's new in WiFi Buddy.
+    </h1>
+    <p class="mt-5 max-w-3xl text-lg text-[--color-fg-muted]">
+      Every WiFi Buddy release at a glance. We'll keep this page
+      up-to-date with what shipped, what improved, and what was fixed in
+      each version.
+    </p>
+    <div class="mt-8">
+      <AppStoreButton size="lg" class="cta-press" />
+    </div>
+  </Section>
+
+  <Section pad="md">
+    <ol class="space-y-12">
+      {releases.map((release) => (
+        <li data-reveal>
+          <article class="card p-8 md:p-10">
+            <header class="flex flex-wrap items-end justify-between gap-3 border-b border-[--color-border] pb-5">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-[--color-fg-dim]">
+                  Version
+                </p>
+                <h2 class="mt-1 font-display text-3xl font-extrabold tracking-tight">
+                  {release.version}
+                </h2>
+                {release.tagline && (
+                  <p class="mt-2 max-w-xl text-[--color-fg-muted]">
+                    {release.tagline}
+                  </p>
+                )}
+              </div>
+              <p class="text-sm text-[--color-fg-muted]">
+                <time datetime={release.date}>{fmtDate(release.date)}</time>
+              </p>
+            </header>
+
+            <div class="mt-6 grid gap-6">
+              {release.groups.map((group) => (
+                <section>
+                  <p
+                    class={`inline-flex items-center gap-2 rounded-full border bg-white/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-wider ${accentClass[group.accent]}`}
+                  >
+                    <span
+                      class={`inline-block h-1.5 w-1.5 rounded-full ${accentDotClass[group.accent]}`}
+                      aria-hidden="true"
+                    ></span>
+                    {group.label}
+                  </p>
+                  <ul class="mt-3 space-y-2.5">
+                    {group.items.map((item) => (
+                      <li class="flex gap-3 text-sm text-[--color-fg-muted] leading-relaxed">
+                        <span
+                          class={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${accentDotClass[group.accent]}`}
+                          aria-hidden="true"
+                        ></span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </article>
+        </li>
+      ))}
+    </ol>
+  </Section>
+
+  <Section pad="md">
+    <div class="card p-8 md:p-10 flex flex-col items-start gap-4" data-reveal>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+        Have feedback on a release?
+      </h2>
+      <p class="max-w-2xl text-[--color-fg-muted]">
+        WiFi Buddy is a one-person indie project. If a feature feels off,
+        a translation is wrong, or you've thought of something useful for
+        the next release, we want to hear about it.
+      </p>
+      <a
+        href="mailto:support@wifibuddy.app"
+        class="cta-press inline-flex items-center gap-2 rounded-xl border border-[--color-border] bg-white/[0.03] px-5 h-12 text-base font-medium text-[--color-fg] hover:bg-white/[0.06]"
+      >
+        Email support@wifibuddy.app
+      </a>
+    </div>
+  </Section>
+</BaseLayout>

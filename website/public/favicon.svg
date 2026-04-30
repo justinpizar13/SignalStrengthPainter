@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="WiFi Buddy">
+  <rect width="1000" height="1000" rx="220" fill="#28282C"/>
+  <path d="M185.36 379.36 A 445 445 0 0 1 814.64 379.36" stroke="#4DD966" stroke-width="80" stroke-linecap="round" fill="none"/>
+  <path d="M272.27 466.27 A 315 315 0 0 1 727.73 466.27" stroke="#FAD138" stroke-width="80" stroke-linecap="round" fill="none"/>
+  <path d="M364.18 558.18 A 185 185 0 0 1 635.82 558.18" stroke="#FA8538" stroke-width="80" stroke-linecap="round" fill="none"/>
+  <circle cx="500" cy="695" r="55" fill="#FA5252"/>
+</svg>
