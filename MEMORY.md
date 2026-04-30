@@ -1162,6 +1162,192 @@ The previous GitHub blob URLs (`/blob/main/PrivacyPolicy.md`,
 are still in the repo — but the website URLs are the canonical
 public face going forward.
 
+## App Review rejection — round 3 (April 30, 2026)
+
+The follow-up build (rounds 2 fixes shipped) was rejected again under
+**Guideline 2.1(b) — Performance: App Completeness**. Apple's note this
+time was specifically:
+
+> The In-App Purchase products in the app exhibited one or more bugs
+> which create a poor user experience. Specifically, an error appears
+> when we tap on 'Start 3 day free trial'.
+>
+> Review device details: iPad Air 11-inch (M3), iPadOS 26.4.2.
+
+The Paid Apps Agreement is already in effect, so the round-2 follow-up
+on the Business → Agreements page wasn't the gap.
+
+### What the symptom tells us
+
+The reviewer **sees** the `"Start 3-Day Free Trial"` CTA, taps it, and
+hits an error. That tells us:
+
+1. `Product.products(for:)` is returning both subscriptions in the
+   review sandbox. (If it weren't, the CTA would either not render or
+   the paywall would surface the empty-products diagnostic from
+   `loadProducts()`.)
+2. `Product.SubscriptionInfo.isEligibleForIntroOffer` is returning
+   `true` for the selected plan. (If it weren't, the CTA would fall
+   through to the bare `"Subscribe"` branch in `buyButtonLabel`.)
+3. So the introductory offer **is** at least partially configured in
+   App Store Connect — that resolves the round-2 gap.
+
+The failure is therefore **inside** `product.purchase()` itself — the
+system StoreKit sheet either can't display the offer, can't authorize
+the purchase, or returns a verification failure. Pre-round-3 the catch
+block in `ProStore.purchase(_:)` collapsed every one of those failure
+modes into a single `"Purchase failed. Please try again."` alert,
+which is exactly what the App Reviewer would have screenshotted. That
+gives us no signal to act on.
+
+### Code change — surface the real StoreKit failure
+
+`ProStore.swift` was edited to keep the user-friendly recovery hint
+but tag the alert with the concrete failure class:
+
+- New `purchaseErrorMessage(for:)` helper that switches on
+  `Product.PurchaseError` (`.productUnavailable`,
+  `.purchaseNotAllowed`, `.ineligibleForOffer`,
+  `.invalidOfferIdentifier`, `.invalidOfferPrice`,
+  `.invalidOfferSignature`, `.missingOfferParameters`,
+  `.invalidQuantity`) and `StoreKitError` (`.networkError`,
+  `.systemError`, `.notAvailableInStorefront`, `.notEntitled`,
+  `.userCancelled`, `.unknown`). Falls through to a typed
+  `"\(type(of: error)): \(localizedDescription)"` capture for any
+  unknown `Error` subclass.
+- The same idea applied to `loadProducts()` — its `catch` now prefixes
+  the alert with the error type so a `StoreKitError.systemError` from
+  the products fetch is distinguishable from a thrown
+  `PurchaseError.productUnavailable` at the buy step.
+- We deliberately avoid using `error.localizedDescription` *alone*
+  because StoreKit collapses most failures into the generic "Cannot
+  connect to iTunes Store" line — useless when triaging real config
+  bugs like a missing intro-offer territory.
+
+Why the diagnostic suffix is acceptable in shipping copy: it sits in
+parentheses after the recovery hint, and it's only ever shown after a
+user has already tapped Buy. The win on review screenshots and on
+real-user support emails ("send me a screenshot of the error") far
+outweighs the readability cost. The string is not localized — fine,
+because the rest of the paywall isn't either yet (single-locale ship).
+
+### App Store Connect items to verify before resubmitting
+
+The CTA appearing means SOME of the IAP config is reaching the
+sandbox, but not all of it. Going from most → least likely cause of
+the round-3 failure:
+
+1. **Both IAPs must be attached to the v1.0 build under review.**
+   App Store Connect → My Apps → WiFi Buddy → App Store tab → version
+   1.0 → "In-App Purchases and Subscriptions" section. Both
+   `com.wifibuddy.pro.monthly` and `com.wifibuddy.pro.yearly` must
+   be explicitly added there. A subscription can be "Approved" but
+   not attached to a specific version review — and attached to the
+   binary is what the reviewer's sandbox actually trusts. New apps
+   submitting IAPs for the first time hit this constantly.
+2. **Tax Category** must be set on both subscriptions
+   (Subscriptions → Tax Category → e.g., "App Store Software"). A
+   missing tax category is a frequent cause of "purchase fails after
+   the system sheet appears."
+3. **Subscription Group display name** must have at least one
+   localization. Subscriptions → WiFi Buddy Pro group → Localizations
+   → US English (matches `Configuration.storekit`'s "WiFi Buddy Pro"
+   localization).
+4. **Each subscription's localizations** (Display Name + Description)
+   must be present for at least US English. Match the storekit:
+   `"WiFi Buddy Pro Monthly"` / `"WiFi Buddy Pro Yearly"` displays
+   and the descriptions from the storekit file.
+5. **Introductory Offer status.** The offer itself can be in a "Ready
+   to Submit" state independent of the parent subscription. If the
+   subscription is approved but the offer isn't actually attached to
+   the version review, the reviewer will see the eligibility flag but
+   fail to actually purchase. Confirm both intro offers say "Ready to
+   Submit" *and* are listed under the version's IAP section.
+6. **Pricing/availability** for the reviewer's storefront. The
+   reviewer's account is typically US (matches `Configuration.storekit`
+   `"_storefront": "USA"`), but verify both products are "Cleared for
+   Sale" in US.
+7. **Subscription Review Information** — Apple requires a screenshot
+   *per subscription product* for review (in addition to the App
+   Store screenshots). Subscriptions → product → Review Information
+   → upload a paywall screenshot showing the trial copy + the
+   product. Missing review screenshots can cause the reviewer's
+   purchase attempt to fail.
+8. **Apple Developer Program License Agreement** — separate from the
+   Paid Apps Agreement. Account → Agreements, Tax, and Banking. Any
+   pending agreement update there blocks IAP transactions in review.
+
+### Resolution Center reply (recommended)
+
+Apple Reviewers will share the screenshot of the error if asked. Reply
+in the Resolution Center asking:
+
+> Could you share a screenshot of the error message that appeared when
+> tapping "Start 3-Day Free Trial"? The app surfaces the specific
+> StoreKit failure code in the alert, which will let me identify the
+> root cause precisely. The build under review now includes more
+> detailed error reporting in the paywall.
+
+(Apple typically responds within 24–48h with the screenshot.)
+
+### Pre-resubmission test plan
+
+Before rolling another build, this sequence catches everything:
+
+1. Build a TestFlight build with the round-3 changes (this commit).
+2. On a **real iPhone** (not the Simulator, since Sandbox testers
+   only work on physical devices), Settings → App Store → Sandbox
+   Account → sign in with a fresh Sandbox tester (create one in App
+   Store Connect → Users and Access → Sandbox Testers).
+3. **Critical**: detach `Configuration.storekit` first or run the
+   TestFlight build (TestFlight ignores the storekit config), so the
+   purchase actually goes through App Store Connect's products and
+   not the local file.
+4. Tap "Start 3-Day Free Trial" on both Monthly and Yearly. Confirm:
+   - System sheet shows "Try It Free" / "Confirm" with the trial
+     terms.
+   - Confirming starts the trial and `isProUser` flips to `true`.
+   - `Transaction.currentEntitlements` reflects the trial transaction
+     (visible in the paywall's debug-only state if needed).
+5. **Also test on iPad** — Apple is reviewing on an iPad Air running
+   the iPhone-only build in iPhone-compatibility mode. Repeat step 4
+   on a physical iPad to verify the system StoreKit sheet presents
+   correctly inside that compatibility window. If it doesn't (and
+   nothing else identifies a Connect-side cause), include "Tested on
+   iPhone X / iPhone Y / iPad in compatibility mode — trial purchase
+   succeeds in all three" in the App Review note for the next
+   submission so the reviewer knows it's not a device-specific issue
+   they should expect.
+
+### Files touched in this round
+
+- `SignalStrengthPainter/ProStore.swift` — new
+  `purchaseErrorMessage(for:)`, replaces the generic `"Purchase
+  failed. Please try again."` catch in `purchase(_:)`. `loadProducts()`
+  catch now also surfaces the error type. No behavior change in the
+  success path; only the alert text on failure paths becomes more
+  specific.
+- `MEMORY.md` (this section).
+
+### Future-proofing
+
+If round-4 ever happens despite the above, the next concrete
+escalations are:
+
+1. Switch to **server-side receipt validation** so the app can log the
+   full `error` object server-side (not just a string in an alert)
+   and we can correlate review failures with timestamps.
+2. Add a **dev-build-only "diagnostic" toggle** that dumps the full
+   `Transaction` and `Product` state to a sharable file on the
+   Settings tab — useful for handing back to App Review.
+3. Move the trial wholesale to the **system-rendered offer code
+   redemption sheet** instead of an in-app paywall flow, so the trial
+   is presented entirely by Apple's UI and the only failure modes are
+   Apple-Store-side.
+
+These are bigger lifts and not warranted yet — the round-3 diagnostic
+upgrade should resolve "we don't know what error fired" on its own.
+
 ### Single-source-of-truth check (for future edits)
 
 A simple pre-resubmission diff verifies the legal docs haven't

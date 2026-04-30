@@ -144,11 +144,14 @@ final class ProStore: ObservableObject {
                 #endif
             }
         } catch {
-            #if DEBUG
-            lastError = "Couldn't load subscription options: \(error.localizedDescription)"
-            #else
-            lastError = "Couldn't load subscription options. Check your connection and try again."
-            #endif
+            // Same rationale as `purchaseErrorMessage(for:)` — Apple
+            // reviewers screenshot whatever ends up here, so identify
+            // the concrete failure rather than collapsing to a generic
+            // line. `error.localizedDescription` is fine for product
+            // loading because the StoreKit errors that surface here
+            // (network, storefront, system) localize meaningfully.
+            let typeTag = String(describing: type(of: error))
+            lastError = "Couldn't load subscription options (\(typeTag)): \(error.localizedDescription). Check your connection and try again."
         }
     }
 
@@ -223,9 +226,68 @@ final class ProStore: ObservableObject {
             lastError = "We couldn't verify that purchase with the App Store."
             return false
         } catch {
-            lastError = "Purchase failed. Please try again."
+            // App Review screenshots only show whatever is in `lastError`,
+            // so a generic "Purchase failed. Please try again." gives us
+            // nothing to act on when a rejection comes back. Capture the
+            // concrete StoreKit failure mode (sandbox unavailable, intro
+            // offer ineligible, network, system error, …) so the alert
+            // identifies *which* error class fired. The user-friendly
+            // recovery hint stays first; the diagnostic suffix is short
+            // enough to coexist on a single screenshot.
+            lastError = Self.purchaseErrorMessage(for: error)
             return false
         }
+    }
+
+    /// Translate a `Product.purchase()` thrown error into a human-readable
+    /// alert that *also* identifies the specific StoreKit failure for App
+    /// Review screenshots. We deliberately avoid `error.localizedDescription`
+    /// alone because StoreKit's localized strings collapse most failures to
+    /// "Cannot connect to iTunes Store" — useless when triaging an actual
+    /// configuration bug like a missing intro-offer territory or an
+    /// unavailable product.
+    private static func purchaseErrorMessage(for error: Error) -> String {
+        let recovery = "Please try again."
+        let detail: String
+
+        switch error {
+        case let purchaseError as Product.PurchaseError:
+            switch purchaseError {
+            case .productUnavailable:
+                detail = "Product unavailable. The subscription isn't currently available for purchase in your region."
+            case .purchaseNotAllowed:
+                detail = "Purchases aren't allowed on this device. Check Screen Time / parental controls in Settings."
+            case .ineligibleForOffer:
+                detail = "This Apple ID isn't eligible for the introductory offer."
+            case .invalidQuantity:
+                detail = "Invalid purchase quantity."
+            case .invalidOfferIdentifier, .invalidOfferPrice, .invalidOfferSignature, .missingOfferParameters:
+                detail = "Subscription offer configuration is invalid."
+            @unknown default:
+                detail = "Purchase failed (PurchaseError: \(purchaseError))."
+            }
+        case let storeError as StoreKitError:
+            switch storeError {
+            case .userCancelled:
+                detail = "Cancelled."
+            case .networkError:
+                detail = "Network error. Check your connection and try again."
+            case .systemError:
+                detail = "iOS reported a system-level StoreKit error."
+            case .notAvailableInStorefront:
+                detail = "Not available in this App Store storefront."
+            case .notEntitled:
+                detail = "Apple ID not entitled to make this purchase."
+            case .unknown:
+                detail = "Unknown StoreKit error."
+            @unknown default:
+                detail = "Purchase failed (StoreKitError: \(storeError))."
+            }
+        default:
+            detail = "Purchase failed (\(type(of: error)): \(error.localizedDescription))."
+        }
+
+        return "\(detail) \(recovery)"
     }
 
     /// Implements the "Restore Purchase" button.
