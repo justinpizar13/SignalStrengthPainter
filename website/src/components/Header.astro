@@ -37,12 +37,125 @@ function isActive(href: string): boolean {
       ))}
     </nav>
 
-    <a
-      href={SITE.appStoreUrl}
-      rel="noopener"
-      class="cta-press hidden sm:inline-flex items-center gap-2 rounded-lg bg-white px-3.5 h-9 text-sm font-semibold text-black hover:bg-white/90"
-    >
-      Get the app
-    </a>
+    <div class="flex items-center gap-2">
+      <a
+        href={SITE.appStoreUrl}
+        rel="noopener"
+        class="cta-press hidden sm:inline-flex items-center gap-2 rounded-lg bg-white px-3.5 h-9 text-sm font-semibold text-black hover:bg-white/90"
+      >
+        Get the app
+      </a>
+
+      {/* Mobile menu toggle — visible only below md breakpoint */}
+      <button
+        type="button"
+        id="mobile-menu-toggle"
+        class="md:hidden inline-flex items-center justify-center rounded-lg border border-[--color-border] bg-white/[0.03] h-10 w-10 text-[--color-fg] hover:bg-white/[0.06] transition"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <svg
+          class="menu-icon-open"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+        <svg
+          class="menu-icon-close hidden"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  {/* Mobile menu drawer — slides down from below the header */}
+  <div
+    id="mobile-menu"
+    class="md:hidden border-t border-[--color-border] bg-[--color-bg]/95 backdrop-blur-md hidden"
+  >
+    <nav class="mx-auto max-w-6xl px-5 py-4 flex flex-col gap-1" aria-label="Mobile">
+      {PRIMARY_NAV.map((item) => (
+        <a
+          href={item.href}
+          class={`rounded-lg px-3 py-3 text-base font-medium transition ${
+            isActive(item.href)
+              ? "text-[--color-fg] bg-white/[0.06]"
+              : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-white/5"
+          }`}
+        >
+          {item.label}
+        </a>
+      ))}
+      <a
+        href={SITE.appStoreUrl}
+        rel="noopener"
+        class="mt-3 inline-flex items-center justify-center rounded-lg bg-white px-3.5 h-11 text-sm font-semibold text-black hover:bg-white/90"
+      >
+        Get the app
+      </a>
+    </nav>
   </div>
 </header>
+
+<script>
+  const toggle = document.getElementById("mobile-menu-toggle");
+  const menu = document.getElementById("mobile-menu");
+  const iconOpen = toggle?.querySelector(".menu-icon-open");
+  const iconClose = toggle?.querySelector(".menu-icon-close");
+
+  if (toggle && menu && iconOpen && iconClose) {
+    const setOpen = (open: boolean): void => {
+      menu.classList.toggle("hidden", !open);
+      iconOpen.classList.toggle("hidden", open);
+      iconClose.classList.toggle("hidden", !open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    };
+
+    toggle.addEventListener("click", () => {
+      const isOpen = !menu.classList.contains("hidden");
+      setOpen(!isOpen);
+    });
+
+    // Close menu when a nav link is tapped (so anchor-style nav works as expected)
+    menu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => setOpen(false));
+    });
+
+    // Close on Escape for keyboard users
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !menu.classList.contains("hidden")) {
+        setOpen(false);
+        (toggle as HTMLButtonElement).focus();
+      }
+    });
+
+    // Reset state when crossing the md breakpoint so the menu doesn't stay open
+    const mq = window.matchMedia("(min-width: 768px)");
+    mq.addEventListener("change", (e) => {
+      if (e.matches) setOpen(false);
+    });
+  }
+</script>

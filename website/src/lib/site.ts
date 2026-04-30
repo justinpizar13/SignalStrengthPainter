@@ -6,7 +6,7 @@ export const SITE = {
   name: "WiFi Buddy",
   tagline: "See your Wi-Fi. Walk your home. Find every dead zone.",
   description:
-    "WiFi Buddy turns your iPhone into a walking Wi-Fi heatmap. Survey your home in AR, see exactly where the dead zones are, and get personalized fixes — plus an 8-layer device scanner that names every gadget on your network.",
+    "WiFi Buddy turns your iPhone into a walking Wi-Fi heatmap. Find dead zones, get personalized fixes, and see every device on your network — all in one beautifully simple app.",
   url: "https://wifibuddy.app",
   // Replace `idTODO` with the real App Store ID once the listing is live.
   // We use the Smart App Banner-friendly canonical URL so Apple gets

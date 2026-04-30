@@ -21,27 +21,27 @@ const tour: Array<{
 }> = [
   {
     src: "/screenshots/speed-test.png",
-    alt: "WiFi Buddy Speed tab showing live ISP \u2192 Router \u2192 Device topology and a 462 Mbps download / 93.1 Mbps upload result",
+    alt: "WiFi Buddy Speed tab showing a 462 Mbps download / 93.1 Mbps upload result with a clean network diagram",
     label: "Speed",
-    caption: "Live ISP \u2192 Router \u2192 Device topology, real Cloudflare-backed throughput.",
+    caption: "Real download, upload, ping, and jitter — with a clear picture of how your network is connected.",
   },
   {
     src: "/screenshots/survey-walk.png",
-    alt: "WiFi Buddy AR survey heatmap painting a green walked path onto a floor plan",
+    alt: "WiFi Buddy heatmap painting a green walked path onto a floor plan",
     label: "Survey (Pro)",
-    caption: "Walk the space and watch a Wi-Fi heatmap paint itself onto your floor plan.",
+    caption: "Walk your space and watch a Wi-Fi heatmap paint itself onto your floor plan.",
   },
   {
     src: "/screenshots/signal-tab.png",
     alt: "WiFi Buddy Signal tab showing an excellent rating with 17 ms latency",
     label: "Signal",
-    caption: "Instant connection-quality check with a one-tap line into Klaus.",
+    caption: "An at-a-glance check of how good your Wi-Fi feels right now.",
   },
   {
     src: "/screenshots/devices-tab.png",
     alt: "WiFi Buddy Devices tab listing 5 connected devices including a router, IoT lights, and a Smart TV",
     label: "Devices",
-    caption: "8-layer device discovery names every gadget on your Wi-Fi.",
+    caption: "See every device on your Wi-Fi, named and labeled — no router login required.",
   },
 ];
 ---
@@ -60,9 +60,9 @@ const tour: Array<{
           Find every dead zone.
         </h1>
         <p class="mt-5 max-w-xl text-lg text-[--color-fg-muted]">
-          WiFi Buddy turns your iPhone into a walking heatmap. Survey any
-          space in AR &mdash; no extra hardware &mdash; and get a graded report
-          telling you where your signal dies and what to do about it.
+          WiFi Buddy turns your iPhone into a walking Wi-Fi heatmap.
+          Survey any room in minutes, get a clear report on where your
+          signal is weak, and learn exactly what to do about it.
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-3">
           <AppStoreButton size="lg" class="cta-press" />
@@ -70,7 +70,7 @@ const tour: Array<{
             href="/features"
             class="cta-press inline-flex items-center gap-2 rounded-xl border border-[--color-border] bg-white/[0.03] px-5 h-14 text-base font-medium text-[--color-fg] hover:bg-white/[0.06]"
           >
-            How it works
+            See features
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
           </a>
         </div>
@@ -84,7 +84,7 @@ const tour: Array<{
         <div class="float-slow relative mx-auto w-full max-w-[300px] overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-2xl ring-1 ring-white/5">
           <img
             src="/screenshots/survey-results.png"
-            alt="WiFi Buddy survey insights screen showing a 'D' grade for weak coverage with 31% excellent / 69% fair, latency range, coverage breakdown, and a 'What to do next' card"
+            alt="WiFi Buddy survey results showing a graded coverage report with dead-zone count, latency range, and a 'What to do next' card"
             width="472"
             height="1024"
             loading="eager"
@@ -101,38 +101,38 @@ const tour: Array<{
     <div class="grid gap-4 md:grid-cols-3" data-reveal-stagger>
       <FeatureCard
         accent="green"
-        title="AR walk-and-paint survey"
-        body="Tap a start point on the floor plan, walk the space, and watch signal strength paint itself onto a live heatmap. ARKit world tracking — no extra hardware, no router login."
+        title="Walk-and-paint Wi-Fi survey"
+        body="Tap a starting point, walk your home, and watch a live heatmap paint itself onto a floor plan. No extra hardware. No router login. Just your iPhone."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
       />
       <FeatureCard
         accent="blue"
-        title="Insights engine, not just dots"
-        body="Every survey produces a graded report — coverage breakdown, dead-zone clusters, jitter analysis, and a personalized fix list (mesh, channel change, router relocation)."
+        title="A real report, not just dots"
+        body="Every survey produces a graded coverage report — where your dead zones are, how bad they are, and a personalized list of what to try first."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>'
       />
       <FeatureCard
         accent="orange"
-        title="Identifies every device"
-        body="An 8-layer scanner (Bonjour, SSDP/UPnP, port fingerprint, ARP-table MAC + OUI lookup, reverse DNS, more) labels every gadget on your Wi-Fi — even the ones using MAC randomization."
+        title="Know what's on your Wi-Fi"
+        body="See every device on your network, automatically named and labeled. Mark the ones you trust, and get an alert the next time something new shows up."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
       />
       <FeatureCard
         accent="yellow"
-        title="Real speed test, real ISP context"
-        body="Cloudflare-backed download/upload with multi-stream throughput, plus a server-selection step that flags when your ISP is routing to a far-off POP — the AZ → DFW failure mode that makes ISP apps look fast and yours look slow."
+        title="A speed test you can trust"
+        body="Real download, upload, ping, and jitter — measured the way your apps actually use your connection. No vague bars, no number tricks."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
       />
       <FeatureCard
         accent="green"
-        title="Privacy by construction"
-        body="No accounts. No servers. No analytics. Surveys, device lists, and chat history live only on your device. Speed-test traffic is the only data that ever leaves your phone."
+        title="Privacy by design"
+        body="No accounts. No servers. No analytics. Your surveys, device lists, and chat history stay on your iPhone — full stop."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
       />
       <FeatureCard
         accent="blue"
-        title="Live network topology"
-        body="ISP → Router → Device, each hop with its own real-time TCP probe and traffic-light health classification. A glance tells you whether the slowdown is upstream or inside your home."
+        title="A clear view of your network"
+        body="A simple ISP → Router → Device picture, with a live health check on each hop. One glance tells you whether the slowdown is your home or your provider."
         icon='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><line x1="7" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="17" y2="12"/></svg>'
       />
     </div>
@@ -147,20 +147,19 @@ const tour: Array<{
             Meet Klaus
           </p>
           <h2 class="mt-4 font-display text-3xl sm:text-4xl font-bold tracking-tight">
-            Klaus, your AI Wi-Fi sidekick.
+            Klaus, your friendly Wi-Fi sidekick.
           </h2>
           <p class="mt-4 text-[--color-fg-muted]">
             Klaus is a pixel-art Wi-Fi assistant living on the Signal
             tab. Ask him anything &mdash; from <em>&ldquo;why is my 5 GHz
             slower than 2.4?&rdquo;</em> to <em>&ldquo;should I buy a
             mesh system?&rdquo;</em> &mdash; and get a plain-English
-            answer pulled from a curated knowledge base of the questions
-            we hear most often.
+            answer you can actually use.
           </p>
           <ul class="mt-5 grid gap-2 text-sm text-[--color-fg-muted] sm:grid-cols-2">
             <li class="flex items-start gap-2">
               <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-              24 hand-written Wi-Fi answers
+              Clear, no-jargon answers
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
@@ -168,7 +167,7 @@ const tour: Array<{
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-              Suggested follow-up questions
+              Smart follow-up questions
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
@@ -176,7 +175,7 @@ const tour: Array<{
             </li>
           </ul>
           <p class="mt-5 text-sm text-[--color-fg-dim]">
-            Free accounts get one question per install. WiFi Buddy Pro
+            Free accounts get a question to try. WiFi Buddy Pro
             unlocks unlimited chat with Klaus from {SITE.pricing.monthly}/mo.
           </p>
         </div>
@@ -185,7 +184,7 @@ const tour: Array<{
           <div class="relative mx-auto w-full max-w-[280px] overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-2xl ring-1 ring-white/5">
             <img
               src="/screenshots/klaus-chat.png"
-              alt="Screenshot of the Klaus chat sheet inside WiFi Buddy showing a user question 'How can I make my Wi-Fi signal better?' with Klaus's bullet-point answer about router placement, 5 GHz, and reboots"
+              alt="Screenshot of Klaus chatting inside WiFi Buddy with a bullet-point answer about router placement, 5 GHz, and reboots"
               width="472"
               height="1024"
               loading="lazy"
@@ -244,11 +243,11 @@ const tour: Array<{
           The whole home, one walk.
         </h2>
         <p class="mt-3 text-[--color-fg-muted]">
-          Most "Wi-Fi analyzer" apps show a single number for the spot
-          you're standing in. WiFi Buddy plots latency at every step on a
-          live floor plan, then tells you in plain English where the
-          weak spots are and what to change first. It's the difference
-          between a thermometer and a weather forecast.
+          Most Wi-Fi apps show one number for the spot you're standing in.
+          WiFi Buddy paints your signal across the whole space, then tells
+          you in plain English where the weak spots are and what to change
+          first. It's the difference between a thermometer and a weather
+          forecast.
         </p>
         <ul class="mt-5 grid gap-2 text-sm text-[--color-fg-muted] sm:grid-cols-2">
           <li class="flex items-start gap-2">
@@ -257,23 +256,23 @@ const tour: Array<{
           </li>
           <li class="flex items-start gap-2">
             <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-            Dead-zone clustering with room labels
+            Dead zones grouped by room
           </li>
           <li class="flex items-start gap-2">
             <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-            Jitter + p95 latency, not just averages
+            Catches the rooms that drop video calls
           </li>
           <li class="flex items-start gap-2">
             <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-            Re-survey reminders at 30 / 90 / 180 days
+            Reminders to re-survey after changes
           </li>
           <li class="flex items-start gap-2">
             <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-            New-device alerts on trusted networks
+            Alerts when a new device joins
           </li>
           <li class="flex items-start gap-2">
             <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[--color-signal-green]" aria-hidden="true"></span>
-            Mesh vs extender vs reposition guidance
+            Mesh vs. extender vs. reposition guidance
           </li>
         </ul>
       </div>
