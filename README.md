@@ -132,7 +132,7 @@ MEMORY.md                                Session memory / detailed architecture 
 
 - The shared scheme already references `Configuration.storekit` under **Run → Options → StoreKit Configuration**, so Buy / Restore work in the Simulator without an Apple ID.
 - On a **physical device** launched from Xcode, StoreKit also uses the local config. If you detach the device and relaunch from the home screen, `Product.products(for:)` returns empty (the storekit config is scheme-scoped, not bundled in the app). Test purchases on-device either by staying attached to Xcode, by using the Simulator, or by configuring real products in App Store Connect and signing in with a Sandbox tester.
-- Product IDs (`com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly`) are declared in two places — `ProStore.swift` and `Configuration.storekit`. Keep them in sync when renaming.
+- Product IDs (`com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly`) are declared in two places — `ProStore.swift` and `Configuration.storekit`. Keep them in sync when renaming.
 
 ### Running the Survey without a device
 
@@ -166,7 +166,7 @@ When preparing a new build for App Store Connect, double-check:
 - `Info.plist` has the four usage-description strings plus `ITSAppUsesNonExemptEncryption`, the orientation arrays, `UIRequiresFullScreen`, and `UIRequiredDeviceCapabilities`.
 - `PrivacyInfo.xcprivacy` is present in the target's **Copy Bundle Resources** phase (the project wires it in automatically).
 - `PrivacyPolicy.md` and `TermsOfUse.md` are in **Copy Bundle Resources**.
-- StoreKit product IDs (`com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly`) exist in App Store Connect with matching pricing tiers, and a 3-day free trial is configured on the yearly SKU if that funnel is enabled.
+- StoreKit product IDs (`com.wifibuddy.pro.sub.monthly`, `com.wifibuddy.pro.sub.yearly`) exist in App Store Connect with matching pricing tiers, and a 3-day free trial is configured on the yearly SKU if that funnel is enabled.
 - App Review Notes include: "Survey tab uses ARKit; please run on a physical device to exercise world tracking. Paywall disclosures and Privacy/Terms links are on the Pro tab."
 
 ## Further reading

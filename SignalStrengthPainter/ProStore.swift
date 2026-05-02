@@ -25,8 +25,8 @@ final class ProStore: ObservableObject {
     // mark them `nonisolated` to let nonisolated contexts (e.g. SwiftUI
     // previews, Sendable closures, `@ViewBuilder` bodies) reference them
     // without having to hop to the main actor first.
-    nonisolated static let monthlyProductID = "com.wifibuddy.pro.monthly"
-    nonisolated static let yearlyProductID = "com.wifibuddy.pro.yearly"
+    nonisolated static let monthlyProductID = "com.wifibuddy.pro.sub.monthly"
+    nonisolated static let yearlyProductID = "com.wifibuddy.pro.sub.yearly"
     nonisolated static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
 
     /// Persisted flag that stops us from re-scheduling the T+48h trial

@@ -344,7 +344,7 @@ npm run preview # serves the production build locally
 - **Grace period UI:** `ProStore.refreshGracePeriodStatus(hasActiveEntitlement:)` checks `Product.SubscriptionInfo.RenewalInfo.gracePeriodExpirationDate` on every entitlement refresh. If a subscriber is in Apple's billing-retry window, `gracePeriodExpiration` is populated, `isProUser` **stays true** (we do not rip features away mid-renewal), and `MainTabView` renders a `GracePeriodBanner` as a safe-area inset above the TabView prompting the user to update their payment method before the grace period expires. This matches Apple's own UX and avoids the "my subscription didn't auto-renew and suddenly the app locked me out" failure mode that drives refund requests and 1-star reviews.
 - **Tab behavior:** "Buy Now" kicks off a StoreKit 2 purchase; on success `isPresented = false` flips back to Speed. "Not now" and X also switch away without charging.
 - **StoreKit 2 integration is live** via `ProStore.swift` (April 2026):
-  - Product IDs: `com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly` (constants at the top of `ProStore.swift`). Change in one place if you rename.
+  - Product IDs: `com.wifibuddy.pro.sub.monthly`, `com.wifibuddy.pro.sub.yearly` (constants at the top of `ProStore.swift`). Change in one place if you rename. **(May 2026 rename:** previously `com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly`; the originals were deleted in App Store Connect during the subscription rebuild and Apple blocks reuse of deleted product IDs, so the `.sub.` infix is permanent.)
   - Entitlement source of truth is `Transaction.currentEntitlements` — we never persist `isProUser` in `UserDefaults`. A jailbroken user can flip `@AppStorage("isProUser")` but cannot forge a `VerificationResult.verified` transaction (JWS-signed by Apple, validated on-device). Refunds populate `revocationDate` and `isProUser` drops to `false` on the next refresh.
   - A detached `Transaction.updates` listener runs for the lifetime of the app so Ask-to-Buy / family-sharing / refund transactions that arrive outside a direct purchase flow still update `isProUser`.
   - `restore()` calls `AppStore.sync()` and re-derives entitlements — used by the "Restore Purchase" link.
@@ -777,7 +777,7 @@ Locked the project down for App Store Connect submission. All of the blockers th
 
 ### Identity and build settings (`project.pbxproj`)
 
-- **Bundle ID** renamed from `com.example.SignalStrengthPainter` → `com.wifibuddy.app` in both the Debug and Release configurations of the `SignalStrengthPainter` target. The StoreKit product IDs (`com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly`) already lived under the same `com.wifibuddy.*` namespace, so nothing else needed renaming in `ProStore.swift` or `Configuration.storekit`.
+- **Bundle ID** renamed from `com.example.SignalStrengthPainter` → `com.wifibuddy.app` in both the Debug and Release configurations of the `SignalStrengthPainter` target. The StoreKit product IDs (`com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly`, formerly `com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly` before the May 2026 ASC rebuild) already lived under the same `com.wifibuddy.*` namespace, so nothing else needed renaming in `ProStore.swift` or `Configuration.storekit`.
 - **Removed six dead `INFOPLIST_KEY_*` build settings** from both configs: `INFOPLIST_KEY_UIApplicationSceneManifest_Generation`, `INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents`, `INFOPLIST_KEY_UILaunchScreen_Generation`, `INFOPLIST_KEY_UIRequiresFullScreen`, `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad`, `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone`. These were silently ignored because the target uses a static `Info.plist` (`GENERATE_INFOPLIST_FILE = NO`) — Xcode only merges `INFOPLIST_KEY_*` when it's generating the plist for you. Keeping them around was misleading; the static plist is now the single source of truth for every Info.plist key.
 
 ### `Info.plist` additions
@@ -966,7 +966,7 @@ three places: `Support.md`, `PrivacyPolicy.md` (root), and
 
 ## Possible follow-ups (not done here)
 
-- **Register the two product IDs in App Store Connect** (`com.wifibuddy.pro.monthly`, `com.wifibuddy.pro.yearly`) as auto-renewing subscriptions in a single subscription group before flipping the build on in production. Local simulator testing already works via `Configuration.storekit`, but `Product.products(for:)` will return empty on TestFlight / App Store builds until the products exist in App Store Connect. If different IDs are preferred, edit the two `static let` constants at the top of `ProStore.swift` and the matching `productID` fields in `Configuration.storekit`.
+- **Register the two product IDs in App Store Connect** (`com.wifibuddy.pro.sub.monthly`, `com.wifibuddy.pro.sub.yearly`) as auto-renewing subscriptions in a single subscription group before flipping the build on in production. Local simulator testing already works via `Configuration.storekit`, but `Product.products(for:)` will return empty on TestFlight / App Store builds until the products exist in App Store Connect. If different IDs are preferred, edit the two `static let` constants at the top of `ProStore.swift` and the matching `productID` fields in `Configuration.storekit`.
 - **Gate additional Pro features behind `isProUser`** — three gates are live as of April 2026: Survey tab via `ContentView.handlePrimaryAction` (hard paywall on Start Survey, no free first walk), Chat with Klaus via `WiFiAssistantView.freeMessageLimit`, and post-survey insights as a safety-net via `LockedInsightsCard`. All three pass `store` in as an `@ObservedObject` from `MainTabView` rather than using an `@EnvironmentObject` because `ProStore` is already owned by `MainTabView` as a `@StateObject`. Apply the same pattern for future gates (e.g., advanced insights, device identification depth): accept `store: ProStore` as a parameter, check `store.isProUser`, and never read the persisted `@AppStorage("isProUser")` flag from within the gate.
 - **Win-back offer (iOS 18+ `winBackOffer`) + weekly price-anchor plan ($4.99/wk)** are both called out in the monetization plan but not yet implemented. Win-back needs a cancelled-user detection path via `SubscriptionStatus` observation and a one-time sheet on re-launch; the weekly plan wants to sit behind an A/B flag before commitment since it lifts revenue 30–50% in top utility apps but raises support load.
 - Replace sample floor plans with **user-provided image** + proper **scale/rotation** calibration (the three built-in `FloorPlanTemplate`s cover the common "main-floor apartment" and "upstairs" cases but still aren't the user's actual space).
@@ -1045,7 +1045,7 @@ trialing fine. The App Store Connect manual step is documented in the
 
 **Manual ASC steps for resubmission:**
 1. App Store Connect → Subscriptions → WiFi Buddy Pro group → for
-   **both** `com.wifibuddy.pro.monthly` AND `com.wifibuddy.pro.yearly`,
+   **both** `com.wifibuddy.pro.sub.monthly` AND `com.wifibuddy.pro.sub.yearly`,
    add an **Introductory Offer** of type **Free Trial**, duration
    **3 Days**, eligibility **New Subscribers**. Localized for at least
    the primary App Store country (US English).
@@ -1240,7 +1240,7 @@ the round-3 failure:
 1. **Both IAPs must be attached to the v1.0 build under review.**
    App Store Connect → My Apps → WiFi Buddy → App Store tab → version
    1.0 → "In-App Purchases and Subscriptions" section. Both
-   `com.wifibuddy.pro.monthly` and `com.wifibuddy.pro.yearly` must
+   `com.wifibuddy.pro.sub.monthly` and `com.wifibuddy.pro.sub.yearly` must
    be explicitly added there. A subscription can be "Approved" but
    not attached to a specific version review — and attached to the
    binary is what the reviewer's sandbox actually trusts. New apps

@@ -83,10 +83,10 @@
           "displayPrice" : "3.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "33333333-3333-4333-8333-333333333333",
+          "internalID" : "060B6927-5472-4586-BA15-6494058BC324",
           "introductoryOffer" : {
             "displayPrice" : "0.00",
-            "internalID" : "55555555-5555-4555-8555-555555555555",
+            "internalID" : "4095C44D-E1D2-4984-9D92-E5EC83B26AEF",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P3D"
@@ -98,7 +98,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.wifibuddy.pro.monthly",
+          "productID" : "com.wifibuddy.pro.sub.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "WiFi Buddy Pro Monthly",
           "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
@@ -114,10 +114,10 @@
           "displayPrice" : "34.99",
           "familyShareable" : false,
           "groupNumber" : 2,
-          "internalID" : "44444444-4444-4444-8444-444444444444",
+          "internalID" : "BDB8333F-3603-4417-AA39-84FBDF7AE28C",
           "introductoryOffer" : {
             "displayPrice" : "0.00",
-            "internalID" : "66666666-6666-4666-8666-666666666666",
+            "internalID" : "9F4AAAF0-AB70-42EF-B404-EB6FBC670C02",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P3D"
@@ -129,7 +129,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.wifibuddy.pro.yearly",
+          "productID" : "com.wifibuddy.pro.sub.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "WiFi Buddy Pro Yearly",
           "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
