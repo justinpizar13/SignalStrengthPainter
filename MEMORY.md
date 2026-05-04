@@ -53,7 +53,7 @@ Accepts a `size` parameter; everything scales proportionally. Used in tab header
 | `SurveyInsightsView.swift` | Renderer for `SurveyInsightsReport`. Grade header, 2×2 stat grid, coverage mix bar, latency range strip with map legend hint, ranked insight cards. Has sibling `SurveyInsightsPlaceholder` for short walks. |
 | `MACAddressResolver.swift` | Reads kernel ARP table via `sysctl(NET_RT_FLAGS)` and returns `[IP: MAC]`. Also `isLocallyAdministered(_:)` and `oui(from:)`. |
 | `OUIDatabase.swift` | Curated `~300`-entry `[OUI: Manufacturer]` lookup. `manufacturer(forMAC:)` is the eighth identification layer. |
-| `WiFiAssistantView.swift` | Klaus chat sheet from Signal tab. Holds 24-entry `AssistantQA` knowledge base, `WiFiAssistantEngine` keyword matcher, `ThinkingBubble`, chat UI. No LLM, no network. Free-tier counter persisted via `@AppStorage("klaus.freeMessagesSent")`. |
+| `WiFiAssistantView.swift` | Klaus chat sheet from Signal tab. Holds the curated `AssistantQA` knowledge base, the `KlausContextHub` singleton, `WiFiAssistantEngine` (intent classifier + live-data replies + voice modulation), `ThinkingBubble`, and chat UI. No LLM, no network. Free-tier counter persisted via `@AppStorage("klaus.freeMessagesSent")`. |
 | `KlausMascotView.swift` | Animated pixel-art mascot. Loads `KlausMascot` (full body, 336×446) or `KlausMascotHead` (head crop, 336×220) from `Assets.xcassets` as `NSDataAsset` GIFs. Decoded with `ImageIO`, rendered through a `UIImageView`-backed `UIViewRepresentable` with nearest-neighbor filters. Implements `sizeThatFits` and clamps content priorities so SwiftUI doesn't blow up the intrinsic size. |
 | `NetworkScanner.swift` | Device discovery engine. **Eight identification layers** (see "Device discovery" section below). Manages trusted-device + custom-name state per network. |
 | `DeviceDiscoveryView.swift` | **Devices tab.** Network info card, scan button, device list with type icons, Bonjour/DNS names, latency badges, port-hint subtitles, TRUSTED badges. Detail sheet shows hostname, open ports, services, MAC, vendor, "Is this yours?" tips, Trust / Rename. |
@@ -228,18 +228,31 @@ Both GIFs ship as `NSDataAsset`s (not imagesets) because SwiftUI's `Image` doesn
 
 **Personality (copy only):** Greeting "Beep boop — hi there! I'm Klaus…", fallback "Hmm, my little antenna didn't quite pick that one up…", 14 thinking phrases ("Booting up my brain", "Recalibrating my dish", etc.). The 24 curated Q&A answers themselves are unchanged.
 
-### WiFi Buddy Assistant (pseudo-AI chat)
+### WiFi Buddy Assistant (Klaus chat)
 
-Full-screen chat sheet from the Signal tab's "Chat with Klaus" CTA. Entirely offline.
+Full-screen chat sheet from the Signal tab's "Chat with Klaus" CTA. Entirely offline. Goal is to feel like a real Wi-Fi expert, not a canned FAQ — Klaus reads live in-app metrics, classifies user intent across smalltalk / live-data / curated topics / follow-ups, and varies his voice across turns.
 
-`WiFiAssistantView.swift` has four pieces:
+All of this lives in `WiFiAssistantView.swift`:
 
-1. **Knowledge base (`WiFiAssistantKnowledge.entries`)** — 24 `AssistantQA` structs across Coverage / Reliability / Setup / Streaming / Security / Speed / Gaming. Each cross-references the relevant tab where applicable.
-2. **Matching engine (`WiFiAssistantEngine`)** — `sanitize` (strips control chars, caps at 300 chars), `tokenize` (lowercase, `CharacterSet.alphanumerics.inverted`, drops a ~40-entry English stopword set), `findBestAnswer(for:in:)` (counts keyword matches per QA, returns highest score ≥ 1), `relatedQuestions(for:count:)`, `fallbackSuggestions(count:)`, `starterQuestions`.
-3. **Chat UI** — `ScrollViewReader` + `ScrollView` auto-scrolls. User bubbles right-aligned (gradient). Assistant bubbles left-aligned with Klaus avatar. Suggested-question chips horizontally scrolling under each assistant message. Multi-line `TextField` input bar pinned to bottom.
-4. **Thinking indicator (`ThinkingBubble`)** — every reply preceded by a 1.4–2.2 s `Task.sleep` delay during which a randomly-picked thinking phrase animates with a `. / .. / ...` `Timer.publish(every: 0.45)` cycle. Replaces by `id` so concurrent submissions stay ordered.
+1. **`KlausContextHub` singleton** — `@MainActor` `ObservableObject` exposing a `KlausChatContext` snapshot with current connection type, signal latency, gateway/ISP latency, last Speed Test (down/up/ping/jitter/server/ISP), last Survey grade + dead-zone count + median + distance, and last device-scan tallies (total/trusted/randomized-MAC). Producers across the app push updates: `NetworkTopologyMonitor.refresh` (gateway + ISP RTT), `SpeedTestManager` after upload phase, `NetworkScanner` after each scan, `SignalDetailView.measureSignal`, and `ContentView.insightsSection.onAppear` (survey report). All state is in-memory only — never persisted to disk, mirroring the rest of the app's privacy posture. The hub also subscribes to `NetworkInterfaceMonitor.shared.$status` so `connectionStatus` stays current even when no other producer fires.
 
-Wired in `SignalDetailView` via `@State showAssistant` + `.sheet(isPresented:) { WiFiAssistantView().withAppTheme() }`. Free-tier counter is `@AppStorage("klaus.freeMessagesSent")` (see "Tab-based UI"); reset via the DEBUG dev panel button.
+2. **Knowledge base (`WiFiAssistantKnowledge.entries`)** — 40+ `AssistantQA` structs across Coverage / Reliability / Setup / Streaming / Security / Speed / Gaming. Each entry has a `topic` key, `keywords`, **multiple `answers`** (the engine picks one at random per turn so back-to-back asks of the same question read differently), and `followUps` ("tell me more" extensions served from `AssistantTurnMemory.followUpsServed` so the same one isn't repeated).
+
+3. **Intent classifier (`WiFiAssistantEngine.classifyIntent`)** — pattern-matches the lowercased input against ordered groups: live-data queries (ping / speed / survey / devices / topology / summary) → follow-ups (only when `lastTopic` is set) → smalltalk (identity / capabilities / mood / bye / thanks / greeting) → QA token-overlap fallback → generic fallback. More-specific intents are matched first so "what's my ping?" doesn't get caught by the greeting matcher and "hi" doesn't keyword-match a QA.
+
+4. **Reply composition** — different intents go to different code paths:
+   - **Smalltalk**: random pick from a per-intent reply list (`identityReplies`, `thanksReplies`, `byeReplies`, `moodReplies`, `fallbackReplies`).
+   - **Live-data**: `livePingReply` / `liveSpeedReply` / `liveSurveyReply` / `liveDevicesReply` / `liveTopologyReply` / `liveSummaryReply` — all read `KlausChatContext`, weave the real numbers into prose, and gracefully redirect to the right tab when the field is `nil` ("hop into the Speed tab and run a test"). `liveSummaryReply` reuses `liveSummarySnippets` so the greeting can render the same rundown as a one-liner.
+   - **QA**: picks a random `answers` variant, optionally prefixes a one-line `liveOverlay` ("Quick context: your last Survey graded B with 1 dead zone flagged."), then runs `dressUp` to occasionally add a Klaus-voice opener and/or closer (50% raw / 25% opener / 15% closer / 10% both). Live overlays are scoped per-topic — `improve-signal` and `gaming-peak` get the latency overlay, `extender-vs-mesh` gets the survey overlay, etc.
+   - **Follow-up**: rotates through unused `followUps` for the current `lastTopic`, then falls back to a different answer variant on the same topic.
+
+5. **`AssistantTurnMemory`** — `lastTopic` + `followUpsServed: Set<String>`. The chat view snapshots memory before composing each reply (so the engine doesn't accidentally treat a fresh question as a follow-up to itself), and updates `lastTopic` only when the new reply has a topic.
+
+6. **Markdown in bubbles** — assistant replies are rendered through `AttributedString(markdown:)` so live-data answers can use `**bold**` for the actual numbers. Falls back to plain text on parse failure.
+
+7. **Thinking indicator (`ThinkingBubble`)** — 1.4–2.2 s `Task.sleep` delay before each reply, animating a randomly-picked phrase from a 29-entry `thinkingPhrases` list with a `. / .. / ...` `Timer.publish(every: 0.45)` cycle. Replaced by `id` so concurrent submissions stay ordered.
+
+Wired in `SignalDetailView` via `@State showAssistant` + `.sheet(isPresented:) { WiFiAssistantView(store: store).withAppTheme() }`. Free-tier counter is `@AppStorage("klaus.freeMessagesSent")` (see "Tab-based UI"); reset via the DEBUG dev panel button.
 
 ## Device discovery & classification
 

@@ -206,6 +206,18 @@ final class NetworkTopologyMonitor: ObservableObject {
         ispLatencyMs = isp
         gatewayLatencyMs = gw
         lastUpdated = Date()
+
+        // Publish to Klaus's live-context hub so the chat assistant
+        // can read the current topology without re-probing the network
+        // itself. Runs on every refresh because the data is cheap to
+        // copy and the chat is the only consumer.
+        KlausContextHub.shared.update { ctx in
+            ctx.localIP = self.localIP
+            ctx.gatewayIP = self.gatewayIP
+            ctx.gatewayLatencyMs = self.gatewayLatencyMs
+            ctx.ispLatencyMs = self.ispLatencyMs
+            ctx.topologyUpdatedAt = self.lastUpdated
+        }
     }
 
     // MARK: - Probing

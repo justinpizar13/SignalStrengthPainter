@@ -247,16 +247,39 @@ struct ContentView: View {
             // The A–F grade, dead-zone clustering and router-direction
             // hint are the real paid payoff. Free users have already
             // seen the raw heatmap above; the *report* stays locked.
-            if store.isProUser {
-                SurveyInsightsView(report: report)
-            } else {
-                LockedInsightsCard {
-                    showHardPaywall = true
+            Group {
+                if store.isProUser {
+                    SurveyInsightsView(report: report)
+                } else {
+                    LockedInsightsCard {
+                        showHardPaywall = true
+                    }
                 }
             }
+            .onAppear { publishSurveyToKlaus(report) }
         } else {
             let rated = viewModel.trail.filter { $0.latencyMs != nil }.count
             SurveyInsightsPlaceholder(sampleCount: rated)
+        }
+    }
+
+    /// Mirror the freshly-computed report into `KlausContextHub` so the
+    /// chat assistant can speak to "your last Survey graded X" without
+    /// reaching into the view model directly. Done from `.onAppear`
+    /// (rather than at body-build time) so updating the published
+    /// snapshot doesn't loop with a re-render.
+    private func publishSurveyToKlaus(_ report: SurveyInsightsReport) {
+        KlausContextHub.shared.update { ctx in
+            ctx.lastSurveyGrade = report.grade.rawValue
+            ctx.lastSurveyHeadline = report.grade.headline
+            ctx.lastSurveyMedianMs = report.medianLatencyMs
+            ctx.lastSurveyP95Ms = report.p95LatencyMs
+            ctx.lastSurveyJitterMs = report.jitterMs
+            ctx.lastSurveyDeadZoneCount = report.deadZones.count
+            ctx.lastSurveyDistanceMeters = report.distanceWalkedMeters
+            ctx.lastSurveyExcellentPct = report.excellentPercentage
+            ctx.lastSurveyPoorPct = report.poorPercentage
+            ctx.lastSurveyAt = Date()
         }
     }
 

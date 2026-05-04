@@ -105,6 +105,32 @@ final class SpeedTestManager: ObservableObject {
             await runUploadPhase()
             phase = .complete
             isTesting = false
+            publishCompletedRunToKlaus()
+        }
+    }
+
+    /// Push the freshly-finished test results into `KlausContextHub`
+    /// so the chat assistant can speak to "your last Speed Test was X
+    /// down / Y up" without rerunning the test itself. Called once per
+    /// completed run from inside the test task.
+    private func publishCompletedRunToKlaus() {
+        let info = serverInfo
+        let download = downloadSpeed
+        let upload = uploadSpeed
+        let ping = pingMs
+        let jitter = jitterMs
+        let date = testDate
+        KlausContextHub.shared.update { ctx in
+            ctx.lastDownloadMbps = download
+            ctx.lastUploadMbps = upload
+            ctx.lastSpeedPingMs = ping
+            ctx.lastSpeedJitterMs = jitter
+            ctx.lastSpeedTestAt = date
+            ctx.ispOrganization = info?.clientISP
+            ctx.serverColo = info?.coloCode
+            ctx.serverCity = info?.coloCity
+            ctx.distanceMiles = info?.distanceMiles
+            ctx.isLikelySuboptimalRoute = info?.isLikelySuboptimal ?? false
         }
     }
 

@@ -650,6 +650,24 @@ final class NetworkScanner: ObservableObject {
 
             isScanning = false
             scanStatusMessage = "Scan complete — \(devices.count) device\(devices.count == 1 ? "" : "s") found"
+            publishScanResultsToKlaus()
+        }
+    }
+
+    /// Push the latest scan tallies into `KlausContextHub` so Klaus can
+    /// speak to "your last scan saw N devices, M trusted" without
+    /// re-running the scan. Called once at the end of each scan pass.
+    private func publishScanResultsToKlaus() {
+        let total = devices.count
+        let trusted = devices.filter { $0.isTrusted }.count
+        let randomized = devices.filter { $0.hasRandomizedMAC }.count
+        let unknown = max(0, total - trusted)
+        KlausContextHub.shared.update { ctx in
+            ctx.deviceCount = total
+            ctx.trustedDeviceCount = trusted
+            ctx.unknownDeviceCount = unknown
+            ctx.randomizedMacCount = randomized
+            ctx.lastScanAt = Date()
         }
     }
 

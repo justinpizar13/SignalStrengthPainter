@@ -653,6 +653,13 @@ struct SignalDetailView: View {
         probe.measureLatency { value in
             latestLatencyMs = value
             isMeasuring = false
+            // Publish the fresh reading to Klaus's live-context hub so
+            // the chat assistant can speak to "your latest ping was X
+            // ms" without re-running the probe itself.
+            KlausContextHub.shared.update { ctx in
+                ctx.signalLatencyMs = value
+                ctx.signalLatencyAt = Date()
+            }
         }
     }
 }
