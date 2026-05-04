@@ -2253,6 +2253,917 @@ Newer generations don't just add speed — they add smarter multi-device handlin
                 "The speed jumps between generations are marketing numbers in ideal conditions. Real-world Wi-Fi 6 vs Wi-Fi 5 in most homes is maybe 20-40% faster, not the 'triple the speed' that boxes advertise."
             ],
             category: "Setup"
+        ),
+        AssistantQA(
+            topic: "find-wifi-password",
+            question: "How do I find my Wi-Fi password?",
+            keywords: ["password", "find", "forgot", "lost", "recover", "remember", "saved", "network", "key"],
+            answers: [
+                """
+A few easy places to look:
+
+• **On the router itself.** Most routers ship with the default password printed on a sticker on the back or bottom (often labeled "Wi-Fi Password" or "Network Key"). If nobody changed it, that's the one.
+• **On a device that's already connected.** On iPhone (iOS 16+) or Mac, go to Settings → Wi-Fi → tap the connected network → Password (Face ID required). On Windows, it's Settings → Network → Properties → "View Wi-Fi security key."
+• **On the router admin page.** Open the **Speed** tab — I've got your gateway IP in the topology card. Type that into a browser, log in, and look under Wireless settings.
+
+Last resort: factory-reset the router (recessed button on the back) and the password reverts to the printed sticker default. Every other device will need to reconnect, though.
+""",
+                """
+Three reliable methods:
+
+1. **Look at the sticker on the router.** Default passwords are printed there from the factory.
+2. **Already on Wi-Fi from an iPhone or Mac?** Settings → Wi-Fi → (i) on the network → Password. Authenticate with Face ID/Touch ID and it shows up.
+3. **Log into the router admin** — gateway IP from the Speed tab → in any browser → Wireless section.
+
+If the password got changed and nobody knows what it is anymore, a factory reset is the nuclear option. Works, but resets every other custom setting too.
+"""
+            ],
+            followUps: [
+                "Pro tip: once you find it, save it in your password manager (or even iCloud Keychain). Wi-Fi passwords get rediscovered far more often than people expect.",
+                "If you've got an iPhone or Mac in the house, you can AirDrop or share the Wi-Fi password to a guest's device without typing or saying it out loud — built into iOS 11+ and macOS High Sierra+."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "buy-vs-rent-router",
+            question: "Should I buy my own router instead of renting from my ISP?",
+            keywords: ["buy", "rent", "rental", "own", "isp", "modem", "fee", "monthly", "save", "money"],
+            answers: [
+                """
+Almost always yes — buying your own router pays for itself in under a year.
+
+• **Rental fees are real.** Most ISPs charge $10–15/month. Over two years that's $240–360 — more than a quality mesh system costs.
+• **Your hardware is usually better.** ISP-provided gateways are built down to a price. A $150 Wi-Fi 6 router beats almost every rental box on coverage, speed, and update support.
+• **You keep settings when you switch ISPs.** Rentals get returned. Yours stays.
+
+The one catch: if your service includes a *modem* (cable, fiber ONT, DSL), you usually still need that part — but you can disable its built-in Wi-Fi and run your own router behind it.
+""",
+                """
+Yes, with a small asterisk.
+
+The math is overwhelming on the rental side ($10–15/month forever), and a one-time $150–300 router is almost always nicer hardware. The asterisk: cable and fiber services need the modem (or ONT) to actually decode the signal — so you might still rent the modem half but skip the router half. Ask the ISP for a "modem-only" or "bridge mode" config.
+
+Once you go this route, you also get to control firmware updates and security patches yourself instead of waiting on the ISP.
+"""
+            ],
+            followUps: [
+                "If you're cable, the modem needs to be **DOCSIS 3.1** to handle gigabit plans without bottlenecking. Older DOCSIS 3.0 modems still work but can cap your speed.",
+                "When you buy your own, make sure to call the ISP and explicitly cancel the rental — they don't always notice the returned hardware on their own, and the fee keeps quietly billing."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "moving-house-wifi",
+            question: "How do I set up Wi-Fi when I move into a new place?",
+            keywords: ["moving", "move", "new", "house", "apartment", "set", "up", "setup", "first", "day"],
+            answers: [
+                """
+Beep boop — the moving-day Wi-Fi playbook:
+
+1. **Schedule the ISP install** at least a week before you move. Earlier is better — most ISPs are booked solid in summer.
+2. **Bring your own router** (if you have one) — works with any ISP, no rental fees, no waiting on a tech to bring one.
+3. **Day-of**: the modem (or fiber ONT) goes wherever the cable enters the house. The router can sit there too, or — better — be moved to a central spot using a long Ethernet run.
+4. **Walk the place**: open the **Survey** tab in WiFi Buddy and map your coverage. You'll know within 10 minutes whether you need a mesh node or just a router move.
+5. **Reconnect everything**: phones first, then computers, then smart-home devices. (IoT gear is the slowest because it usually needs a 2.4 GHz network and an app pairing flow.)
+""",
+                """
+The order I'd do it in:
+
+• Confirm ISP install date before you sign the moving truck.
+• Bring your own router if possible — saves the rental fee from day one.
+• When the tech leaves, walk the home with the **Survey** tab so you know where the dead zones are *before* you commit to a permanent router spot.
+• Reconnect the high-priority stuff first (phones, work laptop), and save the smart-home reconnect for the weekend — it's tedious.
+
+If anything feels weird in the first few days, run a Speed Test in the **Speed** tab and compare to your plan. ISPs often start new accounts on a temporary throttle that lifts after 24–48 hours.
+"""
+            ],
+            followUps: [
+                "If your new place is wired with **Ethernet jacks in the walls**, that's a huge gift — you can put one router/access point per floor connected by Ethernet and get near-perfect coverage with zero mesh latency.",
+                "Don't auto-trust the previous tenant's router. If one was left behind, factory-reset it before connecting anything — old credentials and port-forwards from a stranger are a real security risk."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "smart-camera-offline",
+            question: "Why does my security camera or doorbell keep going offline?",
+            keywords: ["camera", "cameras", "doorbell", "ring", "nest", "arlo", "blink", "offline", "disconnect", "drops"],
+            answers: [
+                """
+Outdoor cameras and doorbells are notorious for dropping. Usually one of these:
+
+• **Weak signal at the install spot.** They sit on the perimeter — exterior walls, the front porch — which is exactly where 2.4 GHz starts to die. Run a Survey out to the doorbell location and check the rating.
+• **2.4 GHz only.** Most doorbells/cameras refuse to use 5 GHz. If your router is broadcasting only 5 GHz on a single SSID with band steering, the camera may not see a band it can use.
+• **Battery cameras throttle.** Battery-powered models lower their transmit power to save juice, which makes a marginal connection unstable.
+• **Power glitches.** Hardwired doorbells reboot every time the doorbell transformer dips. Old transformers (under 16 V AC) are a common culprit.
+
+Quickest win: move your router (or a mesh node) closer to that side of the house, and double-check that the 2.4 GHz network is broadcasting where the camera can hear it.
+""",
+                """
+The boring truth about smart cameras: they're all 2.4 GHz, they all sit at the edge of the house, and they all flake when the signal is weak.
+
+Three fixes that almost always work:
+
+1. **Add a mesh node within 20 feet of the camera.** Distance is the killer.
+2. **Make sure 2.4 GHz is its own SSID.** If your router auto-steers everything onto 5 GHz, cameras can disappear.
+3. **For battery-powered cams, charge them.** A camera at 15% battery cuts radio power to stretch life — which makes them drop.
+"""
+            ],
+            followUps: [
+                "Microwaves, baby monitors, and old cordless phones all crowd 2.4 GHz. If your camera goes offline at the same time of day every day, look for the household routine that overlaps.",
+                "Some routers offer **client isolation** on the IoT/2.4 GHz network — turn it OFF temporarily if a camera is failing to connect. Some camera apps need to talk to your phone on the same subnet during pairing."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "smart-speaker-offline",
+            question: "Why is my Alexa or Google Home offline?",
+            keywords: ["alexa", "echo", "google", "home", "nest", "speaker", "smart", "offline", "won't", "respond"],
+            answers: [
+                """
+Smart speakers usually go offline for one of three reasons:
+
+• **The router rebooted and the speaker didn't reconnect cleanly.** Pull the speaker's power for 10 seconds and plug it back in — about 80% of "offline" cases fix here.
+• **Wi-Fi password changed.** Smart speakers store the password and don't auto-update. You have to re-pair them in the companion app (Alexa app / Google Home).
+• **2.4 GHz network is gone or renamed.** Most Echos and older Google Homes are 2.4 GHz only. If you split your bands or renamed the SSID, they can't find their old network.
+
+If the speaker shows up in the **Devices** tab but says "offline" in its app, the Wi-Fi part is fine and it's an account/cloud issue — try signing out and back in on the companion app.
+""",
+                """
+Quick triage:
+
+1. **Power-cycle the speaker.** Unplug, wait 10 seconds, plug back in.
+2. **Check the SSID.** If you changed your network name or password, you need to re-pair through the Alexa or Google Home app.
+3. **Look in the Devices tab here in WiFi Buddy.** If you see it on the list, it's reaching the network — the issue is the cloud service, not Wi-Fi. Sign out and back in on its app.
+
+If it keeps dropping daily, it's probably weak 2.4 GHz coverage where you put it. A mesh node nearby is usually the permanent fix.
+"""
+            ],
+            followUps: [
+                "Echo Dots and older Google Homes are 2.4 GHz only. Echo Show 10/15, Nest Hub Max, and the newer Echos can do 5 GHz — but if you have a mix, leave 2.4 GHz broadcasting too.",
+                "If a speaker is in a far room and a mesh node fixes it, that's a hint your phone is also struggling out there even though it doesn't tell you. Run a Survey to confirm."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "find-my-router",
+            question: "Where is my router? What does it look like?",
+            keywords: ["where", "find", "look", "router", "modem", "box", "looks", "like", "what"],
+            answers: [
+                """
+Your router is the box that creates your Wi-Fi network. Here's how to find it:
+
+• **It has antennas (sometimes hidden inside).** Common shapes: a flat rectangle with 2–4 stick antennas, a small cube, a cylindrical tube, a tall white wedge, or a smooth puck (mesh node).
+• **It has lights on the front.** Usually green/blue — power, internet, Wi-Fi, and sometimes a per-ethernet-port indicator.
+• **It's connected to your modem with a short Ethernet cable.** The modem is the box that connects to the wall (cable, phone jack, or fiber ONT). The router is what plugs into that.
+• **In many homes, it's all one box** — an "all-in-one gateway" from the ISP that's both modem and router. That's what Comcast/Spectrum/AT&T usually rent you.
+
+Common hiding spots: behind the TV, in a coat closet, in the basement near where the cable comes in, on top of a kitchen cabinet. Hint: it's almost certainly closer to the front of the house than to the middle.
+""",
+                """
+Picture a small box with blinking lights and either visible antennas or a modern minimalist puck shape. That's your router.
+
+Most homes have it tucked next to where the cable or fiber line enters — often a closet, basement corner, or a shelf near the TV. If you have one box that the ISP gave you (Comcast/Verizon/etc.), it's usually a combo modem+router and that's *it*.
+
+If your router is hidden in a closet, that's actually the #1 cause of weak signal. Wi-Fi can't go through walls, books, and a metal shelf gracefully. Move it out into the open and you'll instantly notice the difference.
+"""
+            ],
+            followUps: [
+                "Want to confirm? Open the **Speed** tab — the topology card shows your router's gateway IP. The closer you stand to the actual hardware, the lower that round-trip number drops.",
+                "If you have **mesh nodes** (Eero, Google Nest, Orbi pucks), the main one connects to the modem and the satellites can be anywhere. They all count as 'your router' for purposes of where the Wi-Fi is coming from."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "choose-new-router",
+            question: "How do I pick a new router?",
+            keywords: ["pick", "choose", "buy", "new", "router", "best", "recommend", "shopping", "which"],
+            answers: [
+                """
+Plain-English buying guide:
+
+• **For a typical apartment (under ~1000 sq ft):** A single Wi-Fi 6 router in the $100–150 range is plenty. Look for "AX1800" or "AX3000" labeling.
+• **For a typical house (1000–2500 sq ft, multi-floor):** A mesh kit with 2 nodes is the right call. Eero 6+, TP-Link Deco X55, Google Nest Wifi Pro, ASUS ZenWifi — all good. $250–400.
+• **For a big house (2500+ sq ft) or thick walls:** 3-node mesh, ideally Wi-Fi 6 or Wi-Fi 6E. $350–600.
+
+Things to actually look for, regardless of size:
+• **Wi-Fi 6 (ax) at minimum.** Wi-Fi 5 (ac) is fine but you're buying yesterday's tech.
+• **MU-MIMO and OFDMA support** — both make busy households much smoother.
+• **Reasonable update history** — check the manufacturer's support page; if the latest firmware is from two years ago, skip.
+""",
+                """
+Three buckets that cover 90% of homes:
+
+1. **Single router, small space:** $100–150 Wi-Fi 6 unit (TP-Link, ASUS, Netgear). Minimal complexity, high value.
+2. **Mesh, normal house:** A 2- or 3-pack from Eero, Nest, Deco, or Orbi. The first time you stop seeing dead zones, you'll feel the upgrade.
+3. **Power-user / gigabit fiber:** Wi-Fi 6E or Wi-Fi 7 mesh, $500+. Worth it only if you're paying for a 1+ Gbps internet plan and have devices that can use it.
+
+Avoid: anything advertising specs from before 2020, anything ISP-branded as "exclusive," and anything where the brand name doesn't survive a Google search.
+"""
+            ],
+            followUps: [
+                "Run a Survey in the current home before you buy. If the grade is C or below in just one room, mesh fixes that. If the grade is bad everywhere, your existing router is the problem and a single new router will work — but mesh is still cleaner.",
+                "Wi-Fi 7 sounds tempting but is overkill for most plans. Until your devices and ISP plan can use Wi-Fi 7 features (multi-link operation, 6 GHz), Wi-Fi 6 or 6E is the sweet spot."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "extender-not-helping",
+            question: "Why isn't my Wi-Fi extender helping?",
+            keywords: ["extender", "booster", "repeater", "not", "helping", "still", "slow", "doesn't", "work"],
+            answers: [
+                """
+Extenders disappoint people for predictable reasons:
+
+• **It's installed where the signal is already weak.** An extender can only rebroadcast what it receives. Place it about halfway between the router and the dead zone — on the *strong-signal side* of where you want to fix.
+• **It cuts speed in half.** A single-radio extender uses the same band to listen to the router and broadcast to your devices. That's a built-in 50% speed loss. Look at "tri-band" extenders if you want to dodge this.
+• **Devices aren't switching to it.** Phones and laptops are stubborn — they hold onto the original router signal until it's almost dead. Toggle Wi-Fi off/on, or let it run a Survey through the room and watch what the latency does.
+• **Your dead zone isn't a coverage problem.** It's an interference problem — neighbor Wi-Fi, microwaves, masonry. An extender on a crowded channel makes it *worse*.
+
+The honest upgrade: replace the extender with a **mesh system**. Mesh handles handoffs and uses dedicated backhaul; a $30 extender almost can't compete.
+""",
+                """
+Three reasons extenders flop:
+
+1. **Bad placement.** They need to sit where the signal from the router is still strong. Put them halfway, not in the dead zone itself.
+2. **Half the speed.** Most extenders rebroadcast on the same band they receive on, which halves throughput. So even if signal looks better, speed feels worse.
+3. **Devices don't roam.** Your phone clings to the old router signal long past when the extender would be better. Forgetting and re-joining the network forces a fresh decision.
+
+If you're still frustrated after fixing those, it's mesh time. The price gap shrunk a lot — entry-level mesh kits run $150 these days.
+"""
+            ],
+            followUps: [
+                "Some extenders create a **second SSID** (often \"Network_EXT\"). If yours does, your phone has to manually switch — auto-roaming basically doesn't happen. Mesh systems share one SSID, which is a big quality-of-life jump.",
+                "If you must keep using an extender, plug it into the wall on a **wired Ethernet backhaul** if you can. That bypasses the half-speed problem and is essentially free mesh."
+            ],
+            category: "Coverage"
+        ),
+        AssistantQA(
+            topic: "phone-cellular-at-home",
+            question: "Why does my phone keep switching to cellular at home?",
+            keywords: ["phone", "iphone", "cellular", "lte", "5g", "switch", "switches", "drops", "wifi", "home"],
+            answers: [
+                """
+Modern phones aggressively fall back to cellular when Wi-Fi looks unreliable. The triggers:
+
+• **Wi-Fi Assist (iOS) / Adaptive Wi-Fi (Android)** — both will silently use cellular when Wi-Fi has high latency or low throughput, even with full bars showing. Toggle Settings → Cellular → Wi-Fi Assist OFF (iPhone) to test.
+• **Captive portal expired.** Your phone connected to a network that needs a sign-in (xfinitywifi, AT&T-Hotspot, etc.) and now silently won't trust it.
+• **Weak signal in this room.** Walk to the router and see if it sticks. If yes, the issue is coverage, not config.
+• **DNS issue.** If the router's DNS stopped responding, your phone marks the Wi-Fi unusable and falls to cellular even though signal looks fine.
+
+Open the **Signal** tab — if latency reads above ~250 ms or fails outright, that's exactly the kind of network iOS will quietly route around.
+""",
+                """
+Two main reasons this happens:
+
+1. **iOS's "Wi-Fi Assist" or Android's smart network switch.** Both watch the connection quality and silently use cellular when Wi-Fi looks rough. Helpful on the road, frustrating at home. You can toggle these off in cellular settings.
+2. **The Wi-Fi network is genuinely unreliable.** Even one room of dead zone is enough to trigger the fallback. Run a Survey to find the weak spot — fixing it usually fixes this complaint too.
+
+If you're seeing this only in a specific room, it's coverage. If you see it across the whole house, the router probably has flaky moments and a reboot helps.
+"""
+            ],
+            followUps: [
+                "On iPhone, you can also forget the Wi-Fi network and rejoin — sometimes a stale captive-portal flag persists invisibly across days.",
+                "If you have an **unlimited cellular plan**, you might not even notice this until you check your data usage and find your phone burned a few GB at home. That's a giveaway your Wi-Fi is degrading more than you realize."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "bluetooth-wifi-conflict",
+            question: "Does Bluetooth interfere with my Wi-Fi?",
+            keywords: ["bluetooth", "wifi", "conflict", "interfere", "interference", "headphones", "airpods", "speaker"],
+            answers: [
+                """
+Yes, but only on the 2.4 GHz band — and modern devices coordinate well enough that it's usually subtle.
+
+Here's the technical truth:
+
+• Bluetooth and 2.4 GHz Wi-Fi share the same chunk of spectrum (2400–2483 MHz).
+• Bluetooth hops across 79 narrow channels constantly, while Wi-Fi sits on a single 20–40 MHz channel. They collide briefly, both retransmit, and you get small hiccups.
+• Apple, Intel, Qualcomm, and most chip vendors have implemented "coexistence" features that time-slice the radio so the two protocols actively avoid each other on the same device.
+
+When this *does* hurt:
+• Cheap Bluetooth gadgets without coexistence (no-name speakers, generic dongles).
+• Many Bluetooth devices in close range during a heavy Wi-Fi session.
+• Dual-radio chips at very close range where the antennas almost touch.
+
+Quick fix: move anything Wi-Fi-critical to **5 GHz** — Bluetooth doesn't reach there.
+""",
+                """
+A little, in the same way two cars share a road. Bluetooth and 2.4 GHz Wi-Fi both live in the 2.4 GHz slice of spectrum, so they technically compete.
+
+In practice, modern phones and laptops handle the coexistence so well that you almost never notice. The exceptions:
+
+• Cheap Bluetooth devices in a 2.4 GHz-heavy environment.
+• Listening on AirPods while streaming 4K to the same iPhone over 2.4 GHz Wi-Fi (just put the iPhone on 5 GHz instead).
+
+If gaming or video calls feel rough on Wi-Fi while AirPods are connected, that's the experiment to try.
+"""
+            ],
+            followUps: [
+                "Bluetooth Low Energy (BLE) is even less of a problem because the bursts are tiny. Smart-home sensors and fitness trackers basically don't bother Wi-Fi at all.",
+                "If you're routing audio via AirPlay (Wi-Fi) instead of Bluetooth, you sidestep the issue entirely — AirPlay rides the same Wi-Fi network instead of fighting for radio time."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "microwave-kills-wifi",
+            question: "My microwave kills my Wi-Fi — why?",
+            keywords: ["microwave", "kitchen", "kills", "drops", "while", "running", "cooking", "interference"],
+            answers: [
+                """
+Real thing, real physics — not your imagination.
+
+Microwave ovens operate at exactly **2.45 GHz**, which sits dead center in the 2.4 GHz Wi-Fi band. Even a perfectly sealed microwave leaks a few milliwatts of RF, which is enough to drown out Wi-Fi signals nearby for the duration of the cook.
+
+Symptoms:
+
+• Wi-Fi drops only on **2.4 GHz** devices in the room. 5 GHz is unaffected.
+• Drop lasts only while the microwave runs.
+• Old microwaves (over ~10 years) leak more than newer ones.
+
+Fixes:
+
+• Move 2.4 GHz devices (smart speakers, IoT) to a different room or a different band when possible.
+• Switch your phone or laptop to **5 GHz** — the microwave can't touch it.
+• If the microwave is *very* old or has a damaged seal, replace it. (That's also a safety thing.)
+""",
+                """
+The microwave isn't broken and your Wi-Fi isn't broken — they just operate on the same frequency.
+
+Microwave ovens work at 2.45 GHz, the same band 2.4 GHz Wi-Fi uses. While the oven runs, it's blasting that frequency hard enough to overpower a router across the room. Anything on 5 GHz is fine.
+
+Quickest fix: move the cookery-adjacent device to 5 GHz (or to the wired network), or just live with the 90-second blip while popcorn pops.
+"""
+            ],
+            followUps: [
+                "Old cordless phones (especially 2.4 GHz models from the early 2000s) are the other classic offender. If a 90s-style cordless handset still lives in the house, retire it — cell phones cost less per minute now anyway.",
+                "If a microwave is killing Wi-Fi for an unreasonable amount of time after it stops running, the door seal might be failing. That's a safety issue worth a service call or replacement."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "only-one-device-slow",
+            question: "Why is just one of my devices slow on Wi-Fi?",
+            keywords: ["one", "device", "only", "just", "slow", "laptop", "phone", "rest", "fine"],
+            answers: [
+                """
+When everything else is fine and one device is the outlier, the device is almost always the culprit:
+
+• **Old Wi-Fi radio.** A laptop with a Wi-Fi 4 (802.11n) chip will cap around 50–80 Mbps no matter how good your router is. Replacement USB Wi-Fi 6 dongles are $30 and night-and-day.
+• **Driver/firmware.** Especially on Windows, an outdated Intel or Killer Wi-Fi driver tanks throughput. Windows Update doesn't always grab the latest. Get it from the laptop maker's site.
+• **Background bandwidth hog.** OneDrive/iCloud first sync, OS updates, Steam downloads. Run the Speed test, then check Activity Monitor / Task Manager for "Network" sorted by usage.
+• **VPN.** Corporate or privacy VPNs typically halve speed and add jitter. Toggle off and retest.
+• **Connected to the wrong band.** Forget the network and rejoin to land it on 5 GHz instead of a stale 2.4 GHz association.
+
+A great clean test: same Speed Test from the slow device and from any other device, both standing in the same spot. If only one is slow, it's the device.
+""",
+                """
+Step-by-step:
+
+1. **Run a Speed Test from the slow device** in the room next to the router. Record numbers.
+2. **Run the same test from a known-good device** in the same spot. If those numbers are very different, the problem is the slow device, not the network.
+3. From there: update Wi-Fi drivers, check for background uploads, toggle VPNs off, and forget-and-rejoin the SSID to refresh the association.
+
+If both devices are slow in that spot, it's the router or the ISP, not the device.
+"""
+            ],
+            followUps: [
+                "Some streaming sticks and old smart TVs are notorious for capping around 25–50 Mbps even on a strong signal — they ship with cheap radios. The fix is wired Ethernet, if the device supports it.",
+                "On Mac, hold Option and click the Wi-Fi icon for a hidden detail panel — it shows your actual link speed (PHY rate). If that number is in the hundreds of Mbps, the radio is fine; if it's in the tens, the device is the bottleneck."
+            ],
+            category: "Speed"
+        ),
+        AssistantQA(
+            topic: "isp-or-wifi-issue",
+            question: "How do I tell if it's the internet or just my Wi-Fi?",
+            keywords: ["internet", "wifi", "issue", "problem", "isp", "outage", "tell", "diagnose", "is", "it"],
+            answers: [
+                """
+This is the single most useful diagnostic in home networking. Here's how I'd run it:
+
+1. **Plug a laptop directly into the router with Ethernet** and run a Speed Test. If the wired test is fast → Wi-Fi is the issue. If it's also slow → the internet (ISP) is the issue.
+2. **No laptop or no Ethernet?** Open the **Speed** tab. Look at the topology card. The router-RTT and ISP-RTT numbers tell the same story:
+   • Router responsive (under 50 ms) but ISP slow/red → ISP problem.
+   • Router slow → router or local Wi-Fi problem.
+3. **Cellular-side check.** Turn Wi-Fi off and re-test on cellular. If cellular is fast and Wi-Fi-via-router is slow, it's your network.
+
+Once you know which side it is, the fix paths are completely different — so this triage saves a lot of fiddling.
+""",
+                """
+Three quick checks:
+
+• **Wired Ethernet test from a laptop.** If wired is fast, the internet is fine and Wi-Fi is the bottleneck. If wired is also slow, it's the ISP.
+• **The Speed tab's topology card here in the app.** Watch the router and internet RTT colors. Green router + red internet = ISP issue. Red router = local issue.
+• **Cellular comparison.** Disable Wi-Fi briefly. If cellular Speed Test is fast at the same time, your Wi-Fi or router is the problem.
+
+Different fixes — knowing which side it is matters.
+"""
+            ],
+            followUps: [
+                "If it's the ISP, **call them only after rebooting the modem** (unplug 30 seconds, plug back in). Their first-line script will demand it anyway and it fixes a surprising fraction of issues.",
+                "Some ISP outages are area-wide. Type your provider name + your city + 'outage' into search before spending an hour troubleshooting your own gear."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "wired-vs-wireless",
+            question: "Should I use Ethernet or Wi-Fi?",
+            keywords: ["ethernet", "wired", "cable", "wireless", "wifi", "use", "vs", "should", "better"],
+            answers: [
+                """
+The rule of thumb: **wired beats wireless for anything that doesn't move.**
+
+Use Ethernet for:
+
+• Desktop computers
+• Smart TVs and streaming boxes you binge on
+• Game consoles
+• Printers (when reachable)
+• Mesh node backhaul (if your house has Ethernet jacks)
+
+Use Wi-Fi for:
+
+• Phones and tablets (mobility wins)
+• Laptops (when you're moving around)
+• Smart-home stuff that you bought because it's wireless
+• Anything that's not in cabling distance
+
+Why the rule works: Ethernet is faster, more consistent, has no congestion, no interference, and adds zero ping. The trade-off is just running a cable. If you can run one for 30 seconds and never think about Wi-Fi for that device again, it's almost always worth it.
+""",
+                """
+If you can use Ethernet, use Ethernet. Wireless is a convenience, not a quality choice — and consoles, TVs, and desktops never move anyway.
+
+The big wins on wired:
+
+• **Latency drops by 5–20 ms** versus Wi-Fi. Gaming gets noticeably crisper.
+• **Speed is whatever your plan is**, no bottlenecks from band, range, or contention.
+• **Stability is near-perfect.** No buffering hiccups, no random disconnects.
+
+Run a single 25-foot flat Ethernet cable along the baseboard to the TV and the difference for streaming and gaming is immediate.
+"""
+            ],
+            followUps: [
+                "If you can't run a long cable, **MoCA adapters** (use existing coax cable in the walls) or **powerline adapters** (use existing electrical wiring) can give you near-Ethernet speeds in places where running new cable isn't feasible.",
+                "Cat 5e is plenty for gigabit; Cat 6 is overkill for most homes but the price difference is small. Avoid Cat 7/8 marketing hype unless you're running 10 Gbps."
+            ],
+            category: "Speed"
+        ),
+        AssistantQA(
+            topic: "router-running-hot",
+            question: "Is it normal for my router to be hot to the touch?",
+            keywords: ["hot", "warm", "heat", "router", "temperature", "burning", "feel", "touch"],
+            answers: [
+                """
+Warm is normal. Hot enough that you can't keep your hand on it is a problem.
+
+A healthy router runs around 100–115 °F (38–46 °C) on its case — noticeably warm but not uncomfortable. Things that push it past that:
+
+• **Bad ventilation.** Routers stuffed in cabinets, under TVs, or stacked between modems and surge protectors. The vents need air on all sides.
+• **Aging power supply.** External power bricks fail gradually, get hot, and start cooking the router.
+• **Old or dust-clogged hardware.** Pull it out and look — vents full of dust hold heat.
+• **Constant peak load.** Many devices uploading at once (security cameras + cloud backups) keeps the radio hot.
+
+Long-term, heat shortens router life and causes random reboots. If yours feels uncomfortable to touch, give it more air or replace it. Modern Wi-Fi 6/7 routers run cooler than old gear.
+""",
+                """
+A router that's warm to the touch is fine — that's the chip working. A router that's hot enough to be uncomfortable is overheating, which causes flaky disconnects and shortens its lifespan.
+
+Quick fixes:
+
+• Pull it out of the cabinet or shelf, give it open air on all sides.
+• Clean the vents with compressed air.
+• If the case is dirty AND the router is more than 5 years old, that's two reasons to replace it at once.
+
+Heat-related router failures are usually preceded by months of "random reboots" before the router actually dies — so don't ignore it.
+"""
+            ],
+            followUps: [
+                "Power supplies (the wall brick) fail more often than the routers themselves. If your router is overheating *and* the brick is also hot, the brick is probably losing efficiency. Manufacturers will sometimes replace them under warranty.",
+                "Mesh nodes mounted high on a shelf (vs. sitting on the floor) get noticeably better airflow and stay cooler. They also give better Wi-Fi coverage — bonus."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "mesh-sticky-node",
+            question: "Why does my phone stay connected to a far mesh node instead of the closer one?",
+            keywords: ["mesh", "sticky", "stuck", "node", "phone", "roaming", "switch", "stay"],
+            answers: [
+                """
+The "sticky client" problem is one of mesh's oldest annoyances. Phones and laptops are conservative — they hold the existing connection until the signal looks genuinely bad, even when there's a much stronger node 10 feet away.
+
+What helps:
+
+• **Enable 802.11k/v/r** in your router's settings if it's not already on. These protocols let the network *suggest* roams to clients instead of waiting for them to decide.
+• **Update the phone's OS.** Modern iOS and Android handle 802.11k/v/r much better than older versions.
+• **Toggle Wi-Fi off and on.** Forces a fresh association — the phone picks the strongest node visible at that moment.
+• **Disable smart connect** (which fuses 2.4 + 5 GHz into one SSID) only if your specific phone keeps clinging to 2.4 GHz. Some phones roam better with split bands.
+
+A surprising number of "my mesh is bad" complaints are actually "my phone is sticky." Forgetting and rejoining the network usually proves which one it is.
+""",
+                """
+Wi-Fi clients are stubborn. Most phones won't roam to a closer node until the current one is nearly unusable — even if a much stronger one is right there.
+
+Two fixes that move the needle:
+
+1. **Turn on 802.11k/v/r** in your mesh router admin (sometimes called "Fast Roaming" or "Smart Roaming"). It nudges your phone to switch nodes proactively.
+2. **Toggle Wi-Fi off and back on** when you walk to a new room. It's a manual fix, but it works every single time.
+
+If a specific room is always slow because of this, place an additional node closer to it — but the protocol fix above should be tried first.
+"""
+            ],
+            followUps: [
+                "Eero, Google Nest Wifi, Orbi, ASUS, and TP-Link Deco all support 802.11k/v/r. It's usually on by default but worth checking — the option is sometimes hidden in advanced settings.",
+                "Some mesh systems have a 'Move device to closest node' debug button — handy for proving where the issue is. If the manual move fixes everything, you've confirmed the protocol-level roaming is what needs tuning."
+            ],
+            category: "Coverage"
+        ),
+        AssistantQA(
+            topic: "wifi-power-outage",
+            question: "Will my Wi-Fi work during a power outage?",
+            keywords: ["power", "outage", "blackout", "battery", "ups", "during", "without", "electricity"],
+            answers: [
+                """
+Short answer: no. Wi-Fi needs the router powered on, and the router needs wall power.
+
+The longer answer:
+
+• **Cellular still works** during local power outages — towers have battery backup. So your phone's data still works even when home Wi-Fi is dark.
+• **Fiber and DSL service** may technically be live at the curb during a brief outage, but your modem and router need power to use it.
+• **Cable internet** also typically stays live as long as your local node has battery — but again, your end needs power.
+
+If you want home internet during outages: a small **UPS** (uninterruptible power supply, $80–150) plugged into your modem + router gets you 1–4 hours of buffer. Enough to ride out short outages and shut things down safely on long ones.
+
+You can also set your phone to **Personal Hotspot** and tether laptops to it — the cellular connection works whether or not your home is dark.
+""",
+                """
+No. Routers and modems need wall power.
+
+The good news:
+
+• **Phones still work on cellular**, so you can use your phone's hotspot to keep a laptop online.
+• **A small UPS** (battery backup the size of a shoebox) can keep your modem + router running for an hour or two of short outages. Eero and similar mesh systems pull only ~5 watts each, so a $100 UPS goes a long way.
+
+Beyond that, you're on cellular until the lights come back.
+"""
+            ],
+            followUps: [
+                "If you live somewhere with frequent outages, a UPS is a small luxury that pays off the first time you need to keep video calls or online learning going during a brownout.",
+                "For longer outages, a portable power station (Jackery, EcoFlow, etc.) can keep router + modem + a laptop going for many hours. The router uses very little power, so most of that capacity goes to the laptop screen."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "two-routers-home",
+            question: "Can I use two routers in my house?",
+            keywords: ["two", "second", "another", "extra", "router", "routers", "chain", "double"],
+            answers: [
+                """
+Yes, with one important rule: only one of them should be doing the routing (NAT and DHCP). The other should be acting as just a wireless access point.
+
+Three common setups:
+
+• **Mesh kit (recommended).** Designed for this from day one. The nodes share an SSID and roam cleanly. Buy a kit — don't try to mix-and-match brands.
+• **Second router as a wireless access point (AP mode).** Most routers have an "AP mode" toggle. Plug it into the main router via Ethernet, and it just adds Wi-Fi coverage on the same network.
+• **Two routers each doing their own thing (don't do this).** "Double NAT" causes weird issues with games, video calls, and smart home gear. Avoid.
+
+If you have an old router sitting around, AP mode is a free way to extend coverage to a second floor or far room. Just make sure to disable DHCP on the second one.
+""",
+                """
+Absolutely — done correctly, two routers is one of the cleanest ways to extend coverage.
+
+The rule: only the main router should hand out IP addresses. Set the second one to "Access Point mode" (sometimes called "Bridge mode" or "AP mode") so it just rebroadcasts Wi-Fi without creating a second network behind it.
+
+Connect them with an Ethernet cable if you can — that gives near-zero performance loss and is essentially what mesh systems do internally.
+"""
+            ],
+            followUps: [
+                "If both routers are on the same SSID and password, devices roam between them roughly the same way they do in mesh. If they have different SSIDs, you'll have to switch manually — usually a worse experience.",
+                "Avoid double NAT. Two routers each running NAT (the default mode) makes every game, video call, and IoT pairing flow flaky. The fix is always the same: put one in AP mode."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "download-vs-streaming",
+            question: "Why does downloading kill my Wi-Fi but streaming doesn't?",
+            keywords: ["download", "downloading", "streaming", "netflix", "kills", "different", "saturate"],
+            answers: [
+                """
+Streaming and downloading look similar but use bandwidth completely differently.
+
+• **Streaming uses a steady, modest amount.** A 4K Netflix stream runs at ~25 Mbps and barely above. It uses adaptive bitrate to stay smooth — if your network slows, it lowers quality and keeps going.
+• **Downloads grab everything they can.** A Steam download or a system update will saturate every Mbps available, with no manners. Other devices on the network feel that immediately.
+
+The result:
+
+• Netflix on one TV: smooth, no impact on anyone else.
+• Steam download on a desktop: every other device's video stutters, video calls drop, gaming pings spike.
+
+Fix options:
+
+• Use the **Pause** button in Steam/Battle.net/cloud-backup tools when others are gaming or on calls.
+• Schedule big downloads for overnight.
+• Enable **QoS** on your router and tag the desktop's downloads as low priority.
+""",
+                """
+Streaming is bandwidth-polite — it uses what it needs and slows down if the network gets busy. Downloads are bandwidth-greedy — they take everything they can.
+
+A 4K Netflix stream is ~25 Mbps steady. A Steam download will instantly use 100% of whatever your plan can deliver. So during the download, every other device feels the squeeze.
+
+Easiest fix: pause the download when someone else needs the network, or schedule big stuff overnight. Routers with QoS can also de-prioritize known download patterns automatically.
+"""
+            ],
+            followUps: [
+                "Cloud backup tools (iCloud, OneDrive, Backblaze) are the silent culprit version of this — they wake up after long idle periods and start syncing megabytes of photos, killing everyone's Wi-Fi without anyone realizing.",
+                "Many routers have a per-device upload/download cap setting. If one heavy user keeps spoiling things for the rest, capping that device at, say, 50% of plan speed makes the household much happier."
+            ],
+            category: "Speed"
+        ),
+        AssistantQA(
+            topic: "pause-kids-wifi",
+            question: "Can I pause my kids' Wi-Fi at bedtime?",
+            keywords: ["kids", "children", "pause", "bedtime", "schedule", "parental", "time", "limit"],
+            answers: [
+                """
+Yes — and most modern routers make this very easy.
+
+Three ways to do it:
+
+1. **Router app schedule.** Eero, Nest Wifi, Orbi, TP-Link Deco, and ASUS all have per-device scheduling. Add the kid's phone/tablet/console to a profile, set Wi-Fi off from 9 PM to 7 AM. Done.
+2. **Apple Screen Time / Google Family Link.** These pause the *device's* network access regardless of which Wi-Fi it's on (school, friends' houses). Often a better fit than router-level controls for older kids.
+3. **DNS-level filtering.** Services like NextDNS or Pi-hole can block specific categories (social, games) on a schedule without fully cutting Wi-Fi.
+
+For most families, the router app is the right starting point — set it once and it runs every night automatically. Add Apple/Google parental controls on top if you want category filtering and screen-time reports.
+""",
+                """
+Easy — most modern routers and mesh systems have this baked into their app.
+
+The recipe:
+
+1. Open the router's app (Eero, Nest Wifi, etc.).
+2. Add the kid's devices to a profile (or set up a "Kids" profile).
+3. Set a schedule — typically 9 PM to 7 AM on school nights.
+4. Optional: add category filters (block YouTube, social, etc.) for during-the-day boundaries.
+
+If your router doesn't support this directly, **Apple Screen Time** (per device, on any network) and **Google Family Link** (Android) accomplish the same thing without router involvement.
+"""
+            ],
+            followUps: [
+                "Older routers without per-device scheduling can sometimes be retrofitted with **OpenWrt** firmware or a **Pi-hole** for the same functionality — but at that point a $150 mesh kit is usually less work.",
+                "Heads up: kids on **cellular data** will route around router-level pauses. If they have an iPhone or Android with a cell plan, you need device-level controls (Screen Time / Family Link) too."
+            ],
+            category: "Security"
+        ),
+        AssistantQA(
+            topic: "roommate-wifi",
+            question: "How should I share Wi-Fi with roommates?",
+            keywords: ["roommate", "roommates", "share", "sharing", "house", "apartment", "split", "bandwidth"],
+            answers: [
+                """
+The civil-roommate Wi-Fi setup:
+
+• **One router on a plan that can handle everyone.** Plan a minimum of ~25 Mbps download per concurrent heavy user. Four roommates streaming = 100+ Mbps plan minimum.
+• **Use a guest network for visitors.** Keeps strangers off your main network without sharing the password every time.
+• **One person owns the admin.** Pick a tech-comfortable person to handle the router and ISP — distributed ownership leads to nobody fixing things.
+• **Rotate the bill or split equally.** Splitwise/Venmo on the first of the month. ($60–80 ISP plans split four ways = nothing.)
+
+The worst-case version is everyone running their own router on the same modem. Don't do that — double NAT, weird IP collisions, none of it works well.
+""",
+                """
+A few practical tips:
+
+1. **Pick a plan with enough bandwidth.** Multiply expected concurrent heavy users × 25 Mbps. Five gamers/streamers = ~125 Mbps minimum.
+2. **One main Wi-Fi network for everyone, plus a guest network for visitors.** Cleaner than rotating Wi-Fi passwords.
+3. **Designate one router admin.** Ideally the most patient roommate — they call the ISP when things break.
+4. **Be polite about big downloads.** Console game updates can drop everyone else into laggy land. Schedule them for overnight when possible.
+
+If anyone really needs guaranteed quality (work-from-home, streaming income), Ethernet to their room ends every roommate-bandwidth-fight before it starts.
+"""
+            ],
+            followUps: [
+                "If you're sharing across multiple bedrooms in a big apartment, a 2-pack mesh handles whole-place coverage cleanly. Cheaper per square foot than buying a single high-end router.",
+                "Don't share router admin credentials casually. Whoever can log in can see device names, watch traffic patterns, and even kick people off. Keep that to one person."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "vpn-work-laptop",
+            question: "Why is my work laptop slow only when on VPN?",
+            keywords: ["vpn", "work", "laptop", "slow", "corporate", "remote", "company"],
+            answers: [
+                """
+Corporate VPNs add three things to every packet: encryption, a detour to the company's gateway, and aggressive security inspection. All three cost speed.
+
+Typical impact:
+
+• **30–50% throughput loss** is normal. A 200 Mbps Wi-Fi connection feels like 100 Mbps on VPN.
+• **Higher latency** because traffic detours through a corporate hub before reaching its destination. Video calls and remote desktop are most affected.
+• **More jitter** because the detour adds variability.
+
+What you can usually still do:
+
+• **Turn off split tunneling carefully.** Some VPNs route only company traffic; if yours routes everything, ask IT about a split-tunnel option.
+• **Stay on 5 GHz Wi-Fi or wired Ethernet.** The VPN already eats overhead — don't add weak signal on top.
+• **Use the closest VPN gateway.** Many corporate VPNs let you pick a region; the closest one is fastest.
+
+If the laptop is fine *off* VPN and slow *on* VPN, the VPN is doing its job — the slowness is its overhead, not your network.
+""",
+                """
+VPNs are inherently slower than the underlying network — they add encryption, routing detours, and traffic inspection. A 30–50% drop is normal.
+
+Three things you can do:
+
+1. **Use Ethernet** if possible. The cleaner the underlying connection, the less the VPN drag stacks.
+2. **Pick the closest VPN region** if you have a choice (some clients let you pick).
+3. **Ask IT about split tunneling** — if work traffic alone needs the VPN, having Netflix or video calls bypass it can dramatically improve quality.
+
+If your laptop is fast *without* VPN and slow *with* VPN, that's normal VPN overhead — not a Wi-Fi problem.
+"""
+            ],
+            followUps: [
+                "Some corporate VPNs (especially older Cisco AnyConnect setups) are infamous for capping out around 50–80 Mbps no matter how fast your home internet is. That's the VPN concentrator's limit, not yours.",
+                "Personal VPNs (NordVPN, ProtonVPN, etc.) are generally faster than corporate ones because they're optimized for consumer throughput, not enterprise security inspection."
+            ],
+            category: "Speed"
+        ),
+        AssistantQA(
+            topic: "app-overview",
+            question: "What does WiFi Buddy do?",
+            keywords: ["wifibuddy", "buddy", "what", "does", "app", "overview", "features", "tour", "tabs"],
+            answers: [
+                """
+Beep boop — happy to give you the tour. WiFi Buddy has five tabs:
+
+• **Speed** — full speed test (download, upload, ping, jitter), live ISP→Router→Device topology, and a post-test Wi-Fi report on what your numbers are good for.
+• **Survey** — walk your space using AR; the app paints a heatmap of your signal quality on a floor plan and grades the result A–F with a written explanation.
+• **Signal** — a quick "what's my latency right now?" reading and a button to chat with me (Klaus) about anything Wi-Fi-related.
+• **Devices** — scans your network and identifies every device on it (phones, TVs, IoT gear, doorbells, etc.) using eight different identification techniques. You can mark devices as trusted, rename them, and get alerted when something new shows up.
+• **Pro** — explains what unlocks if you upgrade.
+
+Everything runs **on your phone** — no cloud, no analytics, no logging. I'm offline too.
+""",
+                """
+WiFi Buddy is a toolkit for understanding your home Wi-Fi without needing to log into the router.
+
+The five tabs:
+
+1. **Speed** — speed test + live latency to your router and ISP.
+2. **Survey** — walk your home and see a heatmap of where signal is good vs bad.
+3. **Signal** — one-tap latency check + Klaus (me).
+4. **Devices** — full inventory of what's on your network.
+5. **Pro** — subscription details.
+
+Everything is local. Nothing about your network gets sent to a server — including your chats with me.
+"""
+            ],
+            followUps: [
+                "The most underused feature is the **Survey** — most people skip it because walking around feels weird, but it shows you exactly which rooms need help. Five minutes of walking saves hours of guesswork.",
+                "I (Klaus) can read every tab's live data — current ping, last Speed Test, your Survey grade, your device count. Try asking 'how's my network?' and I'll give you a one-shot rundown."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "app-survey-how",
+            question: "How does the AR Survey work?",
+            keywords: ["survey", "ar", "augmented", "reality", "walk", "heatmap", "how", "works", "calibrate"],
+            answers: [
+                """
+The Survey paints a real-time heatmap of your Wi-Fi quality onto a floor plan as you walk through your home.
+
+Here's what's actually happening:
+
+1. **You pick a floor plan** (Blank, Apartment, or Upstairs) and tap a starting point on the map.
+2. **AR locks the origin** to a real-world position using your phone's camera. Your phone now knows where it is in physical space relative to the start.
+3. **As you walk, the app pings the internet every quarter-second** (TCP to a public server) and records the round-trip time at each location.
+4. **Each ping becomes a colored dot** on the map — green = fast, yellow = OK, red = slow. The dots blend into a heatmap.
+5. **When you finish**, I generate a grade (A–F) based on coverage, median latency, and how bad the worst spots are. Plus a written breakdown: dead zones, router-direction hint, what to do next.
+
+It needs ARKit, so iPhones from the last few years all work. No router login, no special setup.
+""",
+                """
+You walk; the app maps. That's the elevator pitch.
+
+Mechanics:
+
+• AR tracks where you are using your phone's camera (no GPS — too imprecise indoors).
+• Every quarter-second, the app pings the internet and records the round-trip time.
+• Those pings turn into colored dots on a floor plan: green/yellow/red.
+• At the end, you get a graded report — coverage %, latency median/p95, dead zones flagged, and recommendations.
+
+Tips: walk normally, don't rush, and re-anchor at a landmark if the dots start drifting from where you actually are.
+"""
+            ],
+            followUps: [
+                "Re-anchoring is the secret sauce. AR drifts a little over long walks; tap **Re-anchor Here** at a known spot and the trail snaps back into place.",
+                "If you don't see a grade at the end, you probably walked under 8 useful samples — try a longer walk (more than ~10 meters) and the report will appear."
+            ],
+            category: "Coverage"
+        ),
+        AssistantQA(
+            topic: "app-pro-features",
+            question: "What does WiFi Buddy Pro unlock?",
+            keywords: ["pro", "premium", "subscription", "unlock", "paid", "features", "buy", "upgrade"],
+            answers: [
+                """
+WiFi Buddy Pro unlocks three things:
+
+1. **AR Wi-Fi Survey.** Walking and painting a heatmap of your home's Wi-Fi signal is Pro-only. Free users see the calibration screen so they know what they're getting, but the actual walk is gated.
+2. **Smart Insights.** The graded post-survey report (grade + dead zones + router-direction hint + tailored recommendations) only renders for Pro users.
+3. **Unlimited Klaus chat** (that's me). Free users get one question; Pro is unlimited.
+
+Everything else — Speed Test, live topology, Signal latency check, full Device discovery — is free, forever.
+
+Pricing: Monthly $3.99 or Yearly $34.99 (saves about 27%). Both come with a **3-day free trial** if you're a new user. Cancel anytime in Settings → Apple ID → Subscriptions.
+""",
+                """
+Pro unlocks:
+
+• **AR Survey** — the actual walk + heatmap.
+• **Smart Insights** — the graded survey report with dead-zone analysis.
+• **Unlimited chat with me** — free users get one question, Pro gets unlimited.
+
+Everything else (Speed Test, live topology, Signal tab, Device discovery, network monitoring) is free.
+
+$3.99/month or $34.99/year, 3-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
+"""
+            ],
+            followUps: [
+                "The free trial doesn't auto-charge silently — Apple sends you a notification 24 hours before it ends, and I send a reminder too.",
+                "If you upgrade and then cancel later, you keep Pro until the end of the period you paid for. Apple doesn't refund partial months for sub cancellations, but you don't lose access early either."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "app-privacy",
+            question: "Does WiFi Buddy collect my data?",
+            keywords: ["privacy", "data", "collect", "tracking", "analytics", "share", "send", "cloud"],
+            answers: [
+                """
+No. WiFi Buddy collects nothing. Every measurement, scan, chat, and setting stays on your iPhone.
+
+Specifics:
+
+• **No analytics SDK.** No Mixpanel, no Amplitude, no Firebase Analytics, nothing.
+• **No cloud servers** other than the public ones used for actual measurements (Cloudflare for speed tests, 8.8.8.8 for latency probes — same as any speed-testing tool).
+• **No account.** You don't sign up, sign in, or hand over an email.
+• **Klaus (me) is offline.** I don't talk to a cloud LLM. I'm a curated knowledge base running on your phone.
+• **Survey results, device names, trust flags, chat history** — all stored only in iOS app storage (UserDefaults), wiped if you delete the app.
+
+The trade-off is honest: I'm not as smart as a cloud AI. But I never leak anything about your network either.
+""",
+                """
+Nope. Everything stays on your phone.
+
+Concrete details:
+
+• No analytics, no telemetry, no ad SDKs.
+• No account or sign-in.
+• Klaus runs offline — chats never leave your device.
+• Survey data, device lists, and settings live only in local app storage.
+
+The only network traffic the app generates is the actual measurements (speed test to Cloudflare, latency probe to 8.8.8.8), which is the same destination every speed-test app uses.
+"""
+            ],
+            followUps: [
+                "The App Store privacy nutrition label says \"Data Not Collected\" across the board. We had to file a Privacy Manifest with Apple to make sure that stays true even if a future SDK changes things.",
+                "If you're really privacy-paranoid, you can verify there's no outbound traffic with a tool like **Little Snitch** or **NextDNS** — only Cloudflare's speed-test endpoints and 8.8.8.8 will appear during normal use."
+            ],
+            category: "Security"
+        ),
+        AssistantQA(
+            topic: "app-trust-device",
+            question: "What does \"Trusting\" a device do in WiFi Buddy?",
+            keywords: ["trust", "trusted", "trust", "device", "rename", "what", "does", "mark"],
+            answers: [
+                """
+Trusting a device tells WiFi Buddy "I recognize this — it belongs here." It's how you build a personal map of *your* network so unfamiliar devices stand out.
+
+When a device is trusted:
+
+• It gets a **TRUSTED** badge in the Devices list.
+• You can give it a **custom name** ("Mom's iPad", "Living Room TV").
+• New unknown devices appearing later trigger a notification — but only if there are already trusted devices on this network (so you don't get spammed at coffee shops).
+
+Important details:
+
+• Trust is **scoped per network**, keyed off your router's MAC address — not the IP. So a stranger's iPad on a different home network won't inherit a "TRUSTED" flag from yours.
+• Trust info is **stored only on your phone**, never synced anywhere.
+• Untrusting a device clears its custom name too.
+""",
+                """
+Trusting a device says "I know this one." It does three things:
+
+1. Adds a **TRUSTED** badge to the device.
+2. Lets you **rename** it (\"Kids' Switch\", \"Backyard Camera\").
+3. Helps the app spot **new unfamiliar devices** by comparing future scans against your trusted list.
+
+It's all local to your phone, scoped to your specific home router. No cloud, no sync.
+"""
+            ],
+            followUps: [
+                "Trust is keyed by your router's MAC address. So if you visit your sister's house and the same IP pattern shows up, you won't accidentally see a stranger's device flagged \"trusted\" — that mistake was a real bug we fixed.",
+                "If you switch ISPs or replace the router, your trust list resets — that's intentional, since the new gateway has a different MAC and the previous trust list might not even apply to the same physical devices."
+            ],
+            category: "Security"
         )
     ]
 

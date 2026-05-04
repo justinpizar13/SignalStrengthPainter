@@ -1,0 +1,72 @@
+---
+description: Anti-bloat rules for editing MEMORY.md (the session-handoff doc)
+globs: MEMORY.md
+alwaysApply: false
+---
+
+# Maintaining `MEMORY.md`
+
+`MEMORY.md` is a primer for future Cursor chats describing the **current state**
+of the project. It is not a changelog and not a timeline — git owns those.
+
+## Hard size budget
+
+**Target: ≤ 600 lines / ≤ 16K tokens.** Before adding new content, check the
+current size with `wc -l MEMORY.md`. If an update would push past the budget,
+**compress an unrelated stale section first** — do not just append.
+
+## Five rules for every edit
+
+1. **Edit in place, don't append.** When a feature changes, update the existing
+   paragraph. Do not add a new section describing the change as a delta from
+   the prior behavior.
+2. **No date stamps in section bodies.** No `(April 2026)` / `(May 2026)` tags.
+   Dates invite indefinite addendums and are how the doc bloats. Run
+   `git blame MEMORY.md` if you need to know when a paragraph last changed.
+3. **No iteration history.** Document only the current answer. If something
+   was tried and reverted, drop the narrative — capture only a one-line
+   "don't do X because Y" gotcha if a future maintainer is plausibly going to
+   re-attempt it.
+4. **No round-by-round debugging postmortems.** App Review rejections,
+   version-bump errors, and per-build narratives belong in commit messages
+   and `CHANGELOG.md`. Capture only the **durable lesson** in 1–3 sentences.
+5. **The "future me" test.** Before writing a paragraph: would future-me, on
+   a fresh chat with this doc attached, find this useful for *answering a new
+   question*? If it only helps to *understand history*, drop it.
+
+## Concrete examples
+
+```markdown
+<!-- ❌ BAD: append-style update with date stamp and iteration narrative -->
+## Klaus update (April 2026)
+
+Originally Klaus rendered as `.full` mode in the assistant header, but his
+tall aspect ratio overflowed the avatar circle. We tried clipping at 44 pt
+which still showed his torso. We then tried a head crop in `KlausMascotView`
+but the `UIImageView` intrinsic content size kept expanding. The final fix
+was to add `sizeThatFits` and clamp content priorities.
+
+<!-- ✅ GOOD: in-place, current-state, gotcha-as-warning -->
+## Klaus mascot
+
+Assistant header uses `.portrait` mode (head crop). `KlausAnimatedImage`
+implements `sizeThatFits` and drops `contentHugging` priorities, otherwise
+SwiftUI consults the GIF's intrinsic 336×446-point size and the mascot
+overflows its frame.
+```
+
+## When you must add a new section
+
+If the change genuinely introduces a new concept (e.g. a new file, a new tab,
+a new platform target), add the section — but follow the rules above for the
+*content* of that section. No date stamp. No iteration history. Current state
+only.
+
+## Compression triggers
+
+Run a compression pass when any of these are true:
+
+- File exceeds 600 lines.
+- Three or more sections contain date stamps in their bodies.
+- A user-visible feature was rewritten and the old behavior is still described
+  alongside the new behavior.
