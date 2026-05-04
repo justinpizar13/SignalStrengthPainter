@@ -13,6 +13,12 @@ struct AboutView: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
 
+    /// Titles of the sections the user has tapped open. All sections start
+    /// collapsed so the page reads as a short, scannable table of contents
+    /// rather than a wall of text. Section titles are unique within this
+    /// view, so they double as IDs.
+    @State private var expandedSections: Set<String> = []
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -266,10 +272,11 @@ struct AboutView: View {
 
     // MARK: - Building blocks
 
-    /// Themed card section with a title row and caller-supplied body.
-    /// `accent` tints the title icon only; the card chrome stays neutral
-    /// so the page reads as one consistent stack rather than a loud
-    /// multi-color list.
+    /// Themed collapsible card section with a tappable title row and
+    /// caller-supplied body. The whole header is the toggle target, with
+    /// a chevron that rotates when expanded. `accent` tints the title icon
+    /// only; the card chrome stays neutral so the page reads as one
+    /// consistent stack rather than a loud multi-color list.
     @ViewBuilder
     private func section<Content: View>(
         title: String,
@@ -277,22 +284,53 @@ struct AboutView: View {
         accent: Color = .blue,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(accent.opacity(0.15))
-                        .frame(width: 30, height: 30)
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(accent)
+        let isExpanded = expandedSections.contains(title)
+
+        VStack(alignment: .leading, spacing: isExpanded ? 14 : 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    if isExpanded {
+                        expandedSections.remove(title)
+                    } else {
+                        expandedSections.insert(title)
+                    }
                 }
-                Text(title)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(theme.primaryText)
-                Spacer()
+            } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(accent.opacity(0.15))
+                            .frame(width: 30, height: 30)
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.tertiaryText)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .contentShape(Rectangle())
             }
-            content()
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityHint(isExpanded ? "Tap to collapse" : "Tap to expand")
+            .accessibilityAddTraits(.isHeader)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 14) {
+                    content()
+                }
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .top)),
+                    removal: .opacity
+                ))
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
