@@ -1349,6 +1349,910 @@ If you're getting 80 Mbps on a 500 Mbps plan, paying for more bandwidth won't ch
                 "Latency and bandwidth are independent. A high-bandwidth/high-latency satellite link feels different from a low-bandwidth/low-latency fiber link."
             ],
             category: "Speed"
+        ),
+        AssistantQA(
+            topic: "what-is-wifi",
+            question: "What is Wi-Fi, actually?",
+            keywords: ["what", "wifi", "wi-fi", "wireless", "explain", "basics", "definition"],
+            answers: [
+                """
+Wi-Fi is radio. Your router is a tiny radio station in your home. Your phone, laptop, TV, and smart gadgets are little radio receivers that can also talk back. Instead of music, they're trading internet data — web pages, video, messages.
+
+The reason everyone has their own Wi-Fi: the radio range is short on purpose. It reaches around your house, and your neighbor has their own radio station doing the same on a different channel. That's why signal fades the further you walk from the router.
+
+"Wi-Fi" is just a brand name, by the way — it doesn't stand for anything. The standard underneath is called IEEE 802.11. Nobody cares about the number, which is why marketing calls it Wi-Fi 6 / Wi-Fi 7 now.
+""",
+                """
+Imagine a walkie-talkie between your phone and your router, but instead of voice, it's sending the pixels of every Netflix frame, every tap on a website, every text message. That's Wi-Fi.
+
+Your router is the 'base station' of this private radio network. It's also plugged into a cable from your internet provider, so it can pass your requests out to the wider internet and bring answers back. Everything wireless in your home is just talking through this one box.
+"""
+            ],
+            followUps: [
+                "Wi-Fi operates on microwave radio frequencies — the same neighborhood as baby monitors, cordless phones, and (literally) microwave ovens. That's why a running microwave in the kitchen can make Wi-Fi wobble for a minute.",
+                "Wi-Fi is half-duplex, which is a fancy way of saying only one device can 'talk' on a channel at a time. Lots of busy devices means they take turns, and that's where the perceived slowness comes from."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "what-is-ssid",
+            question: "What's an SSID or network name?",
+            keywords: ["ssid", "network", "name", "broadcast", "what"],
+            answers: [
+                """
+SSID stands for Service Set Identifier — but forget that acronym. It's just the *name* of your Wi-Fi network. The thing that appears in the list when you tap "Wi-Fi Settings" on your phone.
+
+"MyHomeNetwork", "Linksys_5G", "PrettyFlyForAWiFi" — those are all SSIDs. Your router broadcasts this name every second so devices nearby know what's available. You can change it to whatever you want in the router admin page; the only real rule is don't include personal info like your address.
+""",
+                """
+It's the name of the Wi-Fi. That's it. Your phone sees a list of these in its Wi-Fi settings, you pick one, you enter the password.
+
+Most dual-band routers publish one SSID and silently handle 2.4 GHz / 5 GHz routing behind the scenes. Older setups used two separate SSIDs (one with '_2G', one with '_5G') — you rarely want that anymore.
+"""
+            ],
+            followUps: [
+                "SSIDs are case-sensitive. 'MyHome' and 'myhome' are two different networks as far as your devices are concerned.",
+                "Naming it after yourself or your address is a minor privacy nudge — anyone in range can see the name. Keep it neutral."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "what-is-ip-address",
+            question: "What's an IP address?",
+            keywords: ["ip", "address", "192", "168", "10", "what", "mean", "explain"],
+            answers: [
+                """
+An IP address is the mailing address of a device on a network. Every phone, laptop, TV, and smart plug gets one when it joins your Wi-Fi, and your router uses it to know where to send each piece of incoming data.
+
+Two flavors worth knowing:
+
+• **Private IP** — what your devices have *inside* your home (often starts with `192.168.` or `10.`). Only your router sees these.
+• **Public IP** — what the rest of the internet sees when your router talks out. One per household, usually.
+
+That's why two houses can both have a phone at `192.168.1.5` with no conflict — those addresses only mean something inside each house.
+""",
+                """
+Think of it as the street address for your device. Your router runs a tiny post office and hands out one to every gadget that joins. When you load a webpage, the request goes out tagged with your address so the response knows where to come home to.
+
+The number you see in the Speed tab (like `192.168.1.123`) is your device's private address on your home network. Your 'public' address — the one websites see — is handed to your whole household by the ISP and usually changes every so often.
+"""
+            ],
+            followUps: [
+                "IPv4 addresses (the 'four numbers with dots' format) are running out globally. IPv6 is the newer format — longer, messier-looking — that most modern networks use behind the scenes.",
+                "You can reserve a fixed private IP for a specific device in the router admin page ('DHCP reservation'). Useful for printers, security cameras, or anything that needs a stable address."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "what-is-mac-address",
+            question: "What's a MAC address?",
+            keywords: ["mac", "address", "hardware", "what", "hex", "serial"],
+            answers: [
+                """
+A MAC address is the hardware serial number of a device's Wi-Fi (or Ethernet) chip. It looks like six pairs of letters and numbers — `a4:83:e7:9c:12:4f` — and it's meant to be globally unique per device.
+
+Where you see them:
+
+• Your router's admin page lists them for every connected device.
+• Network-scanner apps like this one read them out of your device's ARP table.
+• The first half of a MAC encodes the *manufacturer* (Apple, Samsung, Amazon, etc.), which is how the Devices tab guesses what a device is even without a name.
+
+Modern phones randomize their MAC per network for privacy — so in a scan they show up as "Uses Private Wi-Fi Address" and look generic. That's expected and almost always your own gear.
+""",
+                """
+MAC = Media Access Control address. It's burned into every Wi-Fi chip at the factory, like a license plate for the hardware. Routers use it to tell one device from another even when IP addresses get shuffled around.
+
+Two useful facts: the first six characters of a MAC identify the manufacturer (that's how scanners guess 'Apple' or 'Samsung'), and modern phones deliberately shuffle their MAC per network so they can't be tracked across coffee shops.
+"""
+            ],
+            followUps: [
+                "MAC addresses only matter inside a single network segment. They don't travel across the internet — only IP addresses do.",
+                "Some older parental-control setups rely on MAC filtering to block specific devices. That breaks the moment the phone randomizes, which is why modern parental control has moved to per-device profiles instead."
+            ],
+            category: "Security"
+        ),
+        AssistantQA(
+            topic: "what-is-dns-basic",
+            question: "What is DNS and how does it work?",
+            keywords: ["what", "dns", "resolve", "lookup", "how", "does", "work", "nameserver"],
+            answers: [
+                """
+DNS is the phonebook of the internet. Humans like to type `netflix.com`; computers need a numeric IP address to actually reach it. DNS is the translation layer in between.
+
+Every time you tap a link:
+
+1. Your device asks a DNS server, "What's the IP for netflix.com?"
+2. The DNS server answers with something like `52.84.14.99`.
+3. Your device connects to that IP.
+4. The page loads.
+
+All of that happens in tens of milliseconds. When DNS is broken, pages feel like they're "stuck loading" even though the rest of the internet is fine — because step 1 never finishes.
+""",
+                """
+Computers talk in IP addresses, you talk in domain names. DNS is the translator.
+
+Your ISP runs one by default. Cloudflare (`1.1.1.1`) and Google (`8.8.8.8`) run public ones. They all do the same job; the differences are speed, privacy, and uptime. If pages suddenly stop loading but a speed test still works, the ISP's DNS is probably down — switching to Cloudflare in router settings fixes it instantly.
+"""
+            ],
+            followUps: [
+                "DNS responses are cached aggressively. Your phone remembers `netflix.com`'s IP for a while so it doesn't have to ask every time. This is why some site changes take 'a few hours to propagate' — everyone's caches have to expire.",
+                "If a website is blocked on one network (school, work) but works on cellular, DNS filtering is often why. The ISP is returning a fake 'not found' answer instead of the real IP."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "what-is-nat",
+            question: "What is NAT and why do I keep hearing about it?",
+            keywords: ["nat", "network", "address", "translation", "double", "strict", "moderate", "open"],
+            answers: [
+                """
+NAT stands for Network Address Translation. Your router uses it to let many devices in your house share one public internet address.
+
+Picture a big office building with one street address but hundreds of people inside. Mail comes in addressed to the building; the receptionist (the router) knows who to route each envelope to. That's NAT.
+
+It's invisible 99% of the time. The exception is **strict NAT** in gaming, where two players behind different NATs can't easily reach each other directly. Enabling UPnP in the router, or manually port-forwarding, fixes that.
+""",
+                """
+NAT is how one internet connection gets shared with every device in your home. Without it, every phone, laptop, and TV would need its own public IP address, and the world ran out of those decades ago.
+
+The router keeps a lookup table of "which device asked for what" so that when answers come back from the internet, it can deliver them to the right gadget inside.
+"""
+            ],
+            followUps: [
+                "**Double NAT** happens when you have two routers in a chain (ISP combo unit + your own router) and both are doing NAT. It breaks UPnP, port forwarding, and some video-calling apps. Fix: put the ISP's box in 'bridge mode'.",
+                "On consoles, 'Open NAT' means the most connectivity flexibility (best for hosting multiplayer), 'Moderate' is fine for most games, 'Strict' causes matchmaking issues."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "access-point-vs-router",
+            question: "What's the difference between a router and an access point?",
+            keywords: ["access", "point", "ap", "difference", "router", "vs", "extra"],
+            answers: [
+                """
+Routers do several jobs: they assign IP addresses (DHCP), run NAT, handle the firewall, and usually also broadcast Wi-Fi. An access point does *only* the Wi-Fi broadcast piece — it's a dumb radio extension plugged into an existing router.
+
+When each makes sense:
+
+• Small home, one location: a single router with Wi-Fi is all you need.
+• Large home or office with Ethernet drops: keep the router central, add access points wired in at far rooms. Rock-solid coverage because each AP has its own Ethernet backhaul.
+• Apartment / renters: a router is fine; access points aren't worth the complexity.
+
+Mesh systems are basically wireless access points pre-paired with a router, so you don't have to wire them in.
+""",
+                """
+A router is a Swiss Army knife. An access point is just the Wi-Fi broadcast part by itself.
+
+The classic pro-tier home setup: one powerful wired router in the basement or closet, plus two or three access points spread through the house on Ethernet. It beats mesh in stability and speed but requires cable runs.
+"""
+            ],
+            followUps: [
+                "You can turn many old routers into an access point by disabling their DHCP/NAT and plugging them into a LAN port on your main router. Free AP instead of throwing it out.",
+                "Ubiquiti, TP-Link EAP, and Aruba are popular access-point brands for people who want to wire their whole house cleanly."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "connected-no-internet",
+            question: "Why does it say 'Connected, no internet'?",
+            keywords: ["connected", "no", "internet", "access", "wifi", "says", "but", "cant", "load"],
+            answers: [
+                """
+That message means your device is talking to the router just fine, but the router isn't talking to the outside world. Two different links, and only the second one is broken.
+
+Work through it in this order:
+
+• Check another device. If your phone works but the laptop doesn't, it's a device problem.
+• If nothing works, reboot the modem and router (unplug 60 seconds, plug back in).
+• Still nothing? Check your ISP's status page or Twitter account — outages are common.
+• If the ISP is fine, it could be a DNS issue. Try switching to `1.1.1.1` or `8.8.8.8` in your device's Wi-Fi settings.
+• A stuck router after a long uptime is the single most common cause. The 60-second power cycle fixes 70% of these.
+
+The Speed tab's topology card tells you exactly which hop is broken — router green + ISP red means "modem or provider."
+""",
+                """
+Classic symptom. The Wi-Fi handshake works (you have a local connection) but the path out to the internet is blocked somewhere.
+
+Fast checklist:
+1. Other devices affected? Reboot the router.
+2. Only this device? Forget the network, rejoin.
+3. Everyone's down? Could be the ISP. Check the Speed tab topology — if the "Internet" node is red and the "Router" node is green, the problem is on the ISP's end.
+"""
+            ],
+            followUps: [
+                "Captive portals (hotel / café Wi-Fi) also show 'Connected, no internet' until you agree to their terms in a browser. Try opening any non-HTTPS page — the portal usually redirects.",
+                "If the issue is only on one app (like streaming) but other apps work, DNS filtering or the service itself is the culprit, not your Wi-Fi."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "printer-wifi",
+            question: "Why won't my printer connect or print over Wi-Fi?",
+            keywords: ["printer", "print", "printing", "cant", "won't", "connect", "hp", "epson", "brother", "canon", "offline"],
+            answers: [
+                """
+Printers are notoriously fussy on Wi-Fi. The single biggest reason: most home printers only speak 2.4 GHz, but your router may be hiding that from them.
+
+Run through this:
+
+• During printer setup, make sure your phone is on the 2.4 GHz band of your Wi-Fi (some routers have a separate network name for it).
+• Move the printer closer to the router — weak 2.4 GHz signal drops printers constantly.
+• Reboot the printer (pull the power for 30 seconds) AND the router.
+• On your computer/phone, remove the printer and re-add it. Stale driver state is a classic source of "offline" even though the printer is on.
+• Some routers isolate the guest network from the main one — if your printer and your phone are on different networks, they can't see each other.
+
+If you print regularly, Ethernet or USB to the printer solves Wi-Fi printing complaints permanently.
+""",
+                """
+Printers and Wi-Fi have a rough relationship. Most home printers have a weak radio, only speak 2.4 GHz, and go to sleep aggressively. Then your computer caches an 'offline' status and stops trying.
+
+The usual cure:
+
+1. Power-cycle the printer.
+2. Power-cycle the router.
+3. Remove the printer on your Mac/PC, add it back.
+4. Print a test page within a couple minutes so the printer radio is awake.
+"""
+            ],
+            followUps: [
+                "If you have a mesh network with separate bands, some mesh brands (Eero especially) silently put printers on 2.4 GHz automatically — but during setup you sometimes need to temporarily disable 5 GHz so the printer can find the network.",
+                "AirPrint (Apple) and Mopria (Android) rely on Bonjour / mDNS discovery. A router with 'AP Isolation' or 'Client Isolation' enabled breaks both — check that setting."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "password-reenter",
+            question: "Why do my devices keep forgetting the Wi-Fi password?",
+            keywords: ["password", "forgetting", "reenter", "reentering", "keeps", "asking", "prompt", "again"],
+            answers: [
+                """
+A few common causes:
+
+• **You changed the password recently** — every old device needs it entered once more.
+• **Router swap or firmware update** — sometimes the router re-generates a session key that invalidates cached credentials on older devices.
+• **Device software bug** — phones occasionally forget saved networks after a major OS update. Re-joining fixes it.
+• **Authentication actually failing** — the password looks saved but the router is rejecting it. Usually a corrupted router setting; a reboot clears it.
+• **Signal drops during handshake** — if signal is weak at the moment of join, the device interprets the timeout as 'bad password' and prompts again.
+
+If only one device does this while everyone else stays connected, the issue is on that device. If all devices get prompted simultaneously, something about the router changed.
+""",
+                """
+Most often: the password actually changed (you or someone else went into the router admin), the device cached an older version, or signal was weak during the handshake and it timed out.
+
+Fastest fix: forget the network on the device, type the password in again fresh, and make sure you're close to the router when you do.
+"""
+            ],
+            followUps: [
+                "On iOS: Settings → Wi-Fi → tap the (i) next to the network → 'Forget This Network' is cleaner than a straight reconnect.",
+                "If you rotated the password and some IoT gadgets (bulbs, plugs) won't rejoin, you may need to factory-reset them and re-pair. They often can't handle the password change on their own."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "outage-troubleshoot",
+            question: "My internet is down — what do I do?",
+            keywords: ["down", "outage", "broken", "not", "working", "nothing", "loads", "troubleshoot", "emergency"],
+            answers: [
+                """
+Quick triage:
+
+1. **Check multiple devices** — is it really the whole network, or just one gadget?
+2. **Look at the Speed tab topology** — if the "Router" node is green but "Internet" is red, your ISP is the problem, not you.
+3. **Check the modem lights** — most have a labeled "Internet" or "Online" light. If it's blinking or red, the line is down.
+4. **Power-cycle the modem + router** — unplug both for 60 seconds, modem first, router second. Wait 2-3 minutes for everything to come back.
+5. **If still down** — pull out your phone, hop on cellular, and check your ISP's outage page or social media.
+6. **If everyone's fine except you** — the issue is inside your home. Try a wired laptop directly into the modem; if that works, the router is the problem.
+
+A failover cellular hotspot from your phone is the fastest emergency workaround while you wait.
+""",
+                """
+The fastest diagnosis: phone on cellular → check your ISP's status page. That tells you in ten seconds whether it's them or you.
+
+Then if it's you: modem lights are the second-best clue. A red/blinking "Internet" or "Online" light means the line from the ISP never got its handshake back. Cable-pull + 60-second wait + cable-back on the modem fixes the stuck handshake most of the time.
+"""
+            ],
+            followUps: [
+                "downdetector.com is the crowdsourced outage map that often reports ISP problems before the ISP officially acknowledges them.",
+                "Once you know it's the ISP's fault, a quick call can get you pro-rated credit for the downtime — most ISPs will do this if you ask nicely."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "router-lights",
+            question: "What do the lights on my router mean?",
+            keywords: ["lights", "blinking", "led", "indicator", "router", "modem", "red", "amber", "green", "orange", "flashing"],
+            answers: [
+                """
+Every router brand is a little different, but the general language is the same:
+
+• **Solid green / white** — everything's healthy.
+• **Solid amber / orange** — something's working but not at full capacity (limited speed, limited 5 GHz).
+• **Red / no internet light** — the connection out to the ISP is broken.
+• **Blinking steadily** — normal data activity.
+• **Blinking rapidly with no rhythm** — usually during a firmware update; don't unplug.
+• **No lights at all** — power or hardware failure.
+
+If you see a red or missing "Internet" / "WAN" light specifically, that's your ISP or modem, not your Wi-Fi.
+""",
+                """
+The quick rule: green is good, amber is warning, red is broken. Any label near it tells you what (Internet, Wi-Fi, WPS, etc).
+
+For more detail, dig up the manual online — searching "[brand] [model] LED meanings" almost always finds a clear chart.
+"""
+            ],
+            followUps: [
+                "Some routers have an all-off option for nighttime. If yours looks dark but devices are still online, someone enabled that mode.",
+                "A rapidly flashing light that never settles usually means the router can't finish handshaking with the modem. A full power cycle (modem first, router second, 60 seconds between) fixes most of these."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "iot-only-2ghz",
+            question: "My smart device only joins 2.4 GHz — how do I set it up?",
+            keywords: ["smart", "iot", "only", "2.4", "ghz", "join", "pair", "setup", "plug", "bulb", "camera", "doorbell"],
+            answers: [
+                """
+Most cheap smart devices (bulbs, plugs, older cameras) only speak 2.4 GHz to save on antenna costs. On a modern router that broadcasts one name for both bands, that creates a pairing problem because your phone is usually sitting on 5 GHz.
+
+Options in order of least hassle:
+
+• **Put your phone on 2.4 GHz temporarily** during pairing. Some routers publish a hidden "2.4 GHz only" network name you can join briefly.
+• **In the router app, temporarily turn off 5 GHz** during setup. The phone drops to 2.4 GHz automatically, the device pairs, then you turn 5 GHz back on.
+• **Keep a small travel router** broadcasting a 2.4 GHz-only network just for pairings.
+• **Separate the bands permanently** if you pair smart stuff often — many routers let you split "Home_2G" and "Home_5G" as two SSIDs.
+
+Once the IoT device is joined, it doesn't care if you turn 5 GHz back on for the rest of the house.
+""",
+                """
+The classic trick: go into your router app, temporarily disable 5 GHz, pair the smart device (your phone will automatically drop to 2.4 GHz), then re-enable 5 GHz. The IoT gadget stays on 2.4 GHz after that.
+
+Eero and Google Nest handle this silently most of the time — they detect the IoT pairing and fall back. Older routers usually don't.
+"""
+            ],
+            followUps: [
+                "Some Android phones have a developer setting to 'prefer 2.4 GHz' which also solves this. iOS doesn't expose that option.",
+                "Matter and Thread are newer smart-home standards that sidestep all of this — devices join once via Bluetooth and don't depend on Wi-Fi bands at all."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "apartment-wifi",
+            question: "How do I get better Wi-Fi in an apartment?",
+            keywords: ["apartment", "condo", "flat", "small", "building", "thin", "walls", "complex"],
+            answers: [
+                """
+Apartments have a unique Wi-Fi challenge: thirty neighbors broadcasting on the same airwaves at the same time. Your signal is fine — it's the interference that kills you.
+
+Strategies:
+
+• **Prefer 5 GHz for anything that matters.** The 2.4 GHz band is almost always crowded in apartment buildings; 5 GHz has way more channels and shorter range, so your neighbors' signals don't reach you.
+• **Put the router toward the inside of the unit**, not pressed against the shared wall with a neighbor.
+• **Manually pick 2.4 GHz channel 1, 6, or 11** in router settings — those are the only non-overlapping channels and the least fought-over.
+• **A modern Wi-Fi 6 router** handles crowded spectrum dramatically better than older ones thanks to a feature called OFDMA.
+• **Hide smart-home devices on 2.4 GHz** and push everything else to 5 GHz so the crowded band does less for you.
+
+A mesh kit usually isn't worth it in an apartment — a single good router beats extenders in tight spaces where walls aren't the problem.
+""",
+                """
+Apartment Wi-Fi woes are almost never "not enough signal" — they're "too much of everyone else's signal." Your phone and laptop hear twenty networks and have to share the radio time with all of them.
+
+Fixes: push devices to 5 GHz, manually set 2.4 GHz to channel 1, 6, or 11, place the router away from shared walls, and if you live in a city high-rise consider upgrading to Wi-Fi 6 or 6E. That 6 GHz band is pristine right now.
+"""
+            ],
+            followUps: [
+                "Most apartments don't have the Ethernet infrastructure for a proper wired backhaul, which is why mesh ROI is lower here than in a house. A single well-placed router is usually king.",
+                "If your apartment has concrete walls or cinderblock between rooms, placement becomes much more important — signal doesn't pass through those easily."
+            ],
+            category: "Coverage"
+        ),
+        AssistantQA(
+            topic: "basement-garage",
+            question: "How do I get Wi-Fi to my basement, garage, or backyard?",
+            keywords: ["basement", "garage", "backyard", "outside", "shed", "detached", "addition", "adu", "far"],
+            answers: [
+                """
+Wi-Fi has a hard time punching through floors, concrete, and distance. Detached or semi-buried spaces need their own access point — an extender alone rarely works well.
+
+Best-to-OK options:
+
+• **Ethernet run + access point / mesh node** in the target space. Rock solid, no speed loss. A cheap $20 Cat6 cable through an exterior wall works wonders.
+• **MoCA** — uses existing coaxial cable runs (the black TV cable) to deliver Ethernet to distant rooms. Almost as good as wired.
+• **Powerline adapters** — uses your home's electrical wiring. Not as fast as Ethernet but zero installation.
+• **Outdoor-rated mesh node** — some mesh brands (Eero Outdoor, Asus ZenWiFi) sell weatherproof nodes for backyards or garages.
+• **Wi-Fi extender (last resort)** — halves the speed and makes client roaming annoying.
+
+A garage door or a set of concrete basement stairs is a much harder obstacle than most people expect. Don't assume "one more wall" — go test with a speed check before buying anything.
+""",
+                """
+Detached or below-grade spaces are the classic mesh/AP use case. Wi-Fi doesn't punch through dirt or concrete well, so the fix is almost always "put a second radio in the problem spot."
+
+The winning setups I've seen most often:
+
+1. Ethernet through the wall → mesh node in the garage/basement. Best.
+2. MoCA adapter pair if you have coax lines. Very good.
+3. Outdoor-rated mesh node for backyards. Weatherproof is a real requirement.
+"""
+            ],
+            followUps: [
+                "A shed or ADU that's more than ~30 feet from the house and has walls in between is almost always beyond reasonable Wi-Fi range. Ethernet (buried in conduit) or a point-to-point outdoor radio link is the grown-up answer.",
+                "For backyard-only coverage a couple of hours at a time, you may prefer just using cellular on your phone rather than investing in extending the Wi-Fi outside."
+            ],
+            category: "Coverage"
+        ),
+        AssistantQA(
+            topic: "work-from-home-setup",
+            question: "What's the best Wi-Fi setup for working from home?",
+            keywords: ["work", "home", "wfh", "remote", "office", "setup", "desk", "zoom", "teams"],
+            answers: [
+                """
+Work from home lives or dies on video-call stability. Optimize for that:
+
+• **Ethernet to your desk, if at all possible.** One $15 Cat6 cable changes everything — ping drops by 20 ms, jitter disappears, no more "you're frozen." If your router is in a different room, a long cable along a baseboard is worth the ugliness.
+• **If Wi-Fi only, be on 5 GHz** as close to the router as practical. Weak 5 GHz beats strong 2.4 GHz for calls.
+• **Pause cloud backups during meetings** — iCloud, Google Drive, OneDrive can silently upload gigabytes and wreck your upload for the call.
+• **Dedicate one band or SSID to work** if your household gets busy. Some routers let you prioritize specific devices (QoS).
+• **5 Mbps upload minimum** for stable HD video calls. Check yours in the Speed tab.
+• **Ping under 60 ms** feels great on calls; over 100 ms starts to feel laggy in natural conversation.
+
+If calls are critical to your job and Wi-Fi is iffy, a dedicated mesh node in your office is the nicest upgrade you'll ever buy yourself.
+""",
+                """
+The ROI order for work-from-home Wi-Fi:
+
+1. Ethernet to the desktop or laptop dock. 5–30 ms of latency savings, zero jitter, no drops.
+2. If wireless, a mesh node within line of sight of the desk.
+3. Router firmware and hardware that's less than 5 years old.
+4. QoS prioritizing your work computer's MAC address (if your router supports it).
+
+Video calls care about upload and stability, not raw download speed. A cable plan's 500 Mbps down is worthless if the upload keeps stuttering.
+"""
+            ],
+            followUps: [
+                "A cheap USB-to-Ethernet adapter + a long Cat6 run is probably the best $20 investment you can make for work-from-home reliability.",
+                "If you travel, a small travel router that can bridge hotel Wi-Fi to a local network of your own lets all your devices share one hotel login and gives you a consistent experience on the road."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "travel-wifi",
+            question: "What are some tips for Wi-Fi while traveling?",
+            keywords: ["travel", "traveling", "hotel", "airbnb", "rental", "road", "trip", "portable"],
+            answers: [
+                """
+Tips I'd give anyone traveling:
+
+• **Hotel Wi-Fi is almost always saturated and captive-portaled.** Expect slow, expect a login page. A VPN on top helps with both privacy and occasionally with throttling.
+• **Check your phone's hotspot quota** before the trip. Tethering is usually faster than hotel Wi-Fi, but many plans cap you at 5 or 10 GB before throttling.
+• **A travel router** (GL.iNet makes popular ones) lets you log into hotel Wi-Fi once, then share that connection to all your other devices without re-authenticating each.
+• **Airbnb Wi-Fi** varies wildly. Ask the host for the plan speed before booking if you need it for work.
+• **Airport/café Wi-Fi** is fine for browsing but never trust it for banking unless you're on a VPN or HTTPS-only mode.
+• **International data roaming** is expensive. A local SIM or eSIM is usually far cheaper for a week or longer.
+
+Most modern smartphones can also save a trusted network and auto-reconnect; test that at the hotel before you need it to work.
+""",
+                """
+The traveler's cheat codes:
+
+• Travel router — log in once, share the connection to your laptop, iPad, and work phone.
+• Phone hotspot — faster than most hotel Wi-Fi most of the time.
+• VPN for anything sensitive — public Wi-Fi is still sketchy for banking.
+• eSIM or local SIM for international trips; it's usually cheaper than your carrier's roaming.
+"""
+            ],
+            followUps: [
+                "If hotel Wi-Fi makes you re-log-in every 24 hours and breaks all your devices, a $30 travel router with 'clone MAC' support is a genuinely life-changing purchase.",
+                "Many streaming services geo-restrict content when you travel internationally. A VPN back to your home country usually fixes that."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "captive-portal",
+            question: "Hotel or café Wi-Fi won't let me log in — why?",
+            keywords: ["captive", "portal", "hotel", "cafe", "coffee", "airport", "hotspot", "login", "agree", "terms"],
+            answers: [
+                """
+That's a captive portal. The Wi-Fi connects but doesn't give you real internet until you accept some terms page in a browser. The page should pop up automatically when you first join. If it doesn't:
+
+• **Open any non-HTTPS site manually** (e.g. `neverssl.com`) — it forces the portal to redirect.
+• **Try turning off Private Wi-Fi Address** (iOS) for that network — some portals don't handle randomized MACs correctly.
+• **Disable VPNs** temporarily. Many captive portals can't route VPN traffic.
+• **Forget the network and rejoin** — sometimes the portal was already agreed-to earlier, then expired, and your phone caches the dead session.
+• **Turn off cellular briefly** — your phone might be silently using cellular instead of the Wi-Fi for the portal check.
+
+Once you've agreed, the portal usually remembers your device for 24 hours before asking again.
+""",
+                """
+Captive portal = the "please agree to our terms" page at coffee shops, hotels, and airports. Your device sees the Wi-Fi but every app acts broken until you finish the agreement in a browser.
+
+Magic URL to force the portal: `http://neverssl.com` or `http://captive.apple.com`. One of those will redirect to the agreement page, you tap accept, and everything starts working.
+"""
+            ],
+            followUps: [
+                "iOS has a built-in captive portal detector and usually pops the login sheet for you. If it doesn't, your Private Wi-Fi Address setting is the most common culprit — try toggling it off for that network.",
+                "A travel router is the cleanest solution if you use captive portal Wi-Fi often — log in once on the router, and all your devices get seamless internet without re-authenticating."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "qos",
+            question: "What is QoS (Quality of Service) and should I use it?",
+            keywords: ["qos", "quality", "service", "priority", "prioritize", "traffic", "shaping"],
+            answers: [
+                """
+QoS lets your router decide which traffic is more important when the pipe is busy. If someone's uploading a huge file while you're on a Zoom call, QoS can reserve bandwidth for the call so video doesn't stutter.
+
+Two common styles:
+
+• **Device-based QoS** — prioritize specific devices by MAC address. Your work laptop gets first dibs, the smart TV gets leftovers.
+• **Application-based QoS** — the router recognizes patterns (video calls, gaming, streaming) and prioritizes those automatically.
+
+When it helps:
+
+• Busy households with video calls and 4K streaming competing.
+• Gamers sharing bandwidth with bulk downloads.
+• Anyone with a slow plan that gets saturated easily.
+
+When it doesn't help: fast plans with headroom. If your connection rarely saturates, there's nothing to prioritize.
+
+Most modern mesh systems (Eero, Google Nest, Orbi) turn QoS on automatically with sensible defaults.
+""",
+                """
+Think of QoS as carpool-lane rules for your internet. When the highway is wide open, nobody needs them. When everyone's trying to leave at once, they matter.
+
+Simple version: if you have gamers and 4K streamers fighting over a congested plan, enable QoS and set the gaming device as priority. If your connection is fast enough that everyone gets what they want, leave it off.
+"""
+            ],
+            followUps: [
+                "Some routers' QoS is garbage — it actually slows everything down while it's 'shaping' traffic. Test before/after with a speed test to confirm it's helping.",
+                "Gamers often prefer QoS over upgrading their plan — a 100 Mbps plan with good QoS can feel better than a 500 Mbps plan without it during peak hours."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "beamforming-mumimo",
+            question: "What are beamforming and MU-MIMO?",
+            keywords: ["beamforming", "mu-mimo", "mumimo", "technology", "new", "feature", "explain", "antenna"],
+            answers: [
+                """
+Two features you'll see on modern router boxes:
+
+• **Beamforming** — instead of broadcasting Wi-Fi in all directions equally (like a lamp), the router aims the signal toward where your device actually is (like a flashlight). Stronger signal reach, less wasted power, and adjusts automatically as you move.
+• **MU-MIMO** (Multi-User, Multiple-Input, Multiple-Output) — the router can talk to several devices simultaneously instead of taking turns. Huge for busy households with many phones and TVs active at once.
+
+Older routers did everything one device at a time, round-robin. A newer router with MU-MIMO can genuinely hand Netflix data to the TV at the same moment it's sending a video-call upload from the laptop. It makes a busy home network feel much snappier.
+
+Both features are baked into Wi-Fi 5 (MIMO basics), Wi-Fi 6 (upgraded MU-MIMO + OFDMA), and Wi-Fi 7. You don't usually need to "enable" them — if both router and device support it, it just works.
+""",
+                """
+Two of the big "your new router is smarter" features:
+
+• Beamforming — directed signal instead of omnidirectional. Longer reach, better in the specific direction your devices are sitting.
+• MU-MIMO — the router can serve multiple devices at the same time, not round-robin. Feels faster when the house is busy.
+
+Both are automatic in modern routers. The more devices both your router and your clients (phones, laptops) both support them, the more benefit you see.
+"""
+            ],
+            followUps: [
+                "OFDMA (Orthogonal Frequency Division Multiple Access) is Wi-Fi 6's other headline feature. It lets the router slice each channel into smaller sub-channels and serve multiple devices per transmission. Especially helpful for busy IoT-heavy homes.",
+                "For any of these to help, both ends need to support them. A fancy Wi-Fi 6 router talking to a 10-year-old laptop still communicates on the older protocol for that session."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "packet-loss",
+            question: "What is packet loss and why does it matter?",
+            keywords: ["packet", "loss", "dropped", "lost", "drops", "percentage", "percent"],
+            answers: [
+                """
+Every piece of internet data is broken into small chunks called packets. Packet loss is the percentage of those chunks that never reach their destination.
+
+A packet loss of 0% is perfect. 1% starts to feel noticeable in real-time uses (voice, video, games). Over 2-3%, things get visibly wobbly. Over 10%, almost nothing works smoothly.
+
+It's usually more disruptive than raw "slow speed" because:
+
+• Streaming and video calls freeze waiting for missing packets to retransmit.
+• Games rubber-band or teleport because the next state update never arrived.
+• Web pages load with gaps or half-broken images.
+
+Common causes: weak Wi-Fi signal, overloaded router, bad cable between modem and wall, or an ISP-side issue. If a Speed Test shows fine Mbps but streaming feels broken, packet loss is often the hidden culprit.
+""",
+                """
+Packet loss is the invisible killer of real-time apps. Your speed test can look fine — 200 Mbps down, 20 Mbps up — but if 2% of packets are disappearing in transit, calls and games will stutter constantly.
+
+Common sources, in order of likelihood: weak Wi-Fi signal (packets die on the air before reaching the router), overloaded router (drops packets when it can't keep up), and ISP line issues (usually shows up as jitter + packet loss together).
+"""
+            ],
+            followUps: [
+                "Ping tests catch packet loss if you run them long enough. Try `ping -c 100 8.8.8.8` on a Mac or `ping -n 100 8.8.8.8` on Windows — anything over 1% lost packets deserves attention.",
+                "Wired Ethernet basically eliminates Wi-Fi-sourced packet loss. If a device is stationary and gaming/calls are flaky, a wired connection is the fastest troubleshooting step."
+            ],
+            category: "Speed"
+        ),
+        AssistantQA(
+            topic: "old-router-extender",
+            question: "Can I use my old router as a Wi-Fi extender?",
+            keywords: ["old", "router", "extender", "reuse", "repurpose", "second", "ap", "mode"],
+            answers: [
+                """
+Yes, and it's usually a better extender than a cheap plug-in extender because the radios are typically stronger. Two common ways to repurpose an old router:
+
+**Access-Point Mode** (best):
+
+• Plug an Ethernet cable from your main router to the old router.
+• In the old router's admin page, find "Operation Mode" or "Access Point Mode" and switch it on. This disables DHCP and NAT on the old unit, so it just broadcasts Wi-Fi.
+• Give it the same Wi-Fi name and password as your main router so devices roam seamlessly.
+
+**Wireless Bridge / Repeater Mode** (no Ethernet needed):
+
+• Some routers support this natively; many don't.
+• The old router connects to your main Wi-Fi wirelessly and re-broadcasts it.
+• Throughput is usually cut in half because both hops share the same radio, similar to a consumer extender.
+
+Ethernet-fed access-point mode is by far the better option. If you can get a cable to where the old router will live, it's basically free mesh-level coverage.
+""",
+                """
+Absolutely. The cleanest approach: plug it into your main router with Ethernet, turn on its access-point or bridge mode, match the Wi-Fi name and password, and put it in the spot that has the worst coverage. Clients roam between the main router and the old one automatically.
+
+Without Ethernet, some routers support "repeater" mode wirelessly, but the speed penalty is real (typically 50%+). Wired backhaul is the win.
+"""
+            ],
+            followUps: [
+                "If the old router is 5+ years old, it may not support modern Wi-Fi standards. Using it as an AP still helps coverage but caps you at its older generation's speed.",
+                "Third-party firmware like OpenWRT or DD-WRT unlocks access-point mode on many routers that didn't originally ship with it. Not for the faint of heart, but doable."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "fiber-cable-dsl",
+            question: "What's the difference between fiber, cable, and DSL internet?",
+            keywords: ["fiber", "cable", "dsl", "satellite", "5g", "difference", "compare", "which", "types", "type"],
+            answers: [
+                """
+The main home-internet flavors, briefly:
+
+• **Fiber** — light through a glass cable. Fastest (often 1 Gbps+), lowest latency, symmetric (same upload and download). Best if available.
+• **Cable** — uses the coax cable used for TV. Fast download (up to 1 Gbps in good areas), much slower upload (usually 10-50 Mbps). Common in suburban US.
+• **DSL** — uses phone lines. Slow (usually 10-100 Mbps down), and speed drops the further you are from the ISP's junction box. Often the only option in rural areas.
+• **5G Home Internet** — cellular 5G sold as home broadband (T-Mobile, Verizon). Comparable to cable speeds, higher latency, data caps common. Great where wired options are bad.
+• **Satellite (Starlink, HughesNet)** — best option in rural areas. Starlink is genuinely good (100-250 Mbps, 40 ms latency). Older satellite has 600 ms+ latency and is painful for anything real-time.
+
+If fiber is available, grab it. Cable is fine for most households. DSL only if you have to.
+""",
+                """
+Short version:
+
+• Fiber — fastest and most stable. Get it if you can.
+• Cable — most common, usually fine, watch out for asymmetric upload.
+• DSL — old tech, rural only, slow but reliable.
+• 5G Home — newer cellular-based option; good where cable/fiber is bad.
+• Starlink — game-changer for remote rural homes.
+
+All of them feed into your router. Once the internet arrives, the Wi-Fi experience in your home is 100% up to the router and your placement.
+"""
+            ],
+            followUps: [
+                "Fiber's big advantage isn't just raw speed — it's symmetric upload/download, which matters for video calls, streaming to Twitch, and cloud backups.",
+                "If you're shopping ISPs, check bbb.org or local Reddit for real service reliability rather than trusting advertised speeds. Marketing numbers are theoretical maximums."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "wifi-calling",
+            question: "What is Wi-Fi Calling and should I use it?",
+            keywords: ["wifi", "calling", "wi-fi", "call", "vowifi", "volte", "carrier"],
+            answers: [
+                """
+Wi-Fi Calling lets your phone route regular calls and texts over your home Wi-Fi instead of the cellular network. Major US carriers (Verizon, AT&T, T-Mobile) all support it for free.
+
+When it helps:
+
+• **Bad cell reception at home** — basement apartments, deep suburbs, rural dead zones.
+• **Inside a large building** where concrete blocks cellular.
+• **International travel** — calling back to US numbers is free on Wi-Fi even when your phone is physically overseas.
+
+When it doesn't help:
+
+• You have a strong cell signal anyway — Wi-Fi Calling usually picks whichever is better automatically.
+• Your Wi-Fi is the problem — a shaky home network makes calls worse, not better.
+
+Turn it on under Settings → Cellular → Wi-Fi Calling (iOS) or Settings → Network → Calls & SMS (Android). It's safe to leave enabled all the time.
+""",
+                """
+It's what its name suggests: your phone makes calls and sends texts through your Wi-Fi instead of the cell tower. Invisible to the person you're calling.
+
+The killer use case is bad cell reception at home. If you've ever had to walk to the window to finish a phone call, turn on Wi-Fi Calling and that problem disappears the moment you're on Wi-Fi.
+"""
+            ],
+            followUps: [
+                "Wi-Fi Calling hands off smoothly to cellular when you leave the house mid-call. It's not instant — you may hear a brief pause — but it works.",
+                "Carriers require you to register an emergency address for Wi-Fi Calling, because 911 dispatch needs a location when they can't use cell tower triangulation."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "cast-airplay",
+            question: "Why won't my AirPlay / Chromecast / Cast work?",
+            keywords: ["airplay", "cast", "chromecast", "google", "cast", "mirror", "screen", "tv", "stream", "won't"],
+            answers: [
+                """
+AirPlay and Chromecast both rely on the sending device and the receiver being on the same network — and being able to "see" each other. Three common reasons it stops working:
+
+• **Different networks** — your phone is on the 5 GHz SSID, your Chromecast is on 2.4 GHz, and your router has them as separate networks. Solution: put them on the same SSID name (modern routers let you do this).
+• **Guest network** — your TV is on the main network, but you or a visitor is on the guest network. Guest networks are intentionally isolated and block AirPlay/Cast discovery.
+• **"Client Isolation" or "AP Isolation" enabled on the router** — this blocks devices from seeing each other. It's sometimes turned on by default on newer routers for security. Find it and turn it off.
+
+Also worth checking:
+
+• Firewall / IP filtering in the router admin.
+• On iOS, AirDrop and AirPlay share discovery — if AirDrop is set to Contacts Only and you're not in your TV's contacts (you aren't), it can mysteriously misbehave.
+• Both devices need mDNS / Bonjour enabled, which most routers pass through by default.
+""",
+                """
+Almost always: your phone and the TV are on different networks, or "Client Isolation" is enabled on the router. Both break cross-device discovery.
+
+Fastest test: put both devices on the same SSID (same name) and make sure guest networks aren't involved. If it suddenly works, that was the cause.
+"""
+            ],
+            followUps: [
+                "Eero, Google Nest, and Orbi mesh systems do something called 'client steering' that moves devices between bands automatically. That's usually fine but occasionally means the TV and phone temporarily end up on bands that are configured strangely.",
+                "If AirPlay works but is super laggy, that's usually a Wi-Fi congestion issue rather than a discovery issue. 4K video over AirPlay needs ~30 Mbps of clean airtime."
+            ],
+            category: "Streaming"
+        ),
+        AssistantQA(
+            topic: "share-wifi-password",
+            question: "How do I share my Wi-Fi password with a guest?",
+            keywords: ["share", "sharing", "password", "guest", "visitor", "qr", "code", "wife", "quickshare"],
+            answers: [
+                """
+Modern options in order of easy-to-fancy:
+
+• **iOS to iOS** — if your contact has you saved (and vice versa), have them tap your network on their iPhone while your iPhone is nearby and unlocked. A "Share Password" prompt appears automatically. Same works between macOS and iOS.
+• **Android** — Settings → Wi-Fi → tap your network → Share. Your phone generates a QR code; they scan it and they're on.
+• **QR code printout** — router apps from Eero, Google Nest, and TP-Link can generate a QR you can tape to the fridge. Anyone scans it, they're on.
+• **Old-school** — just... tell them the password. Long passwords copy-paste well if you send over iMessage or WhatsApp.
+
+If you share often, strongly consider a **guest network**. It has its own password you can share freely and isolates visitor devices from your own.
+""",
+                """
+Three easy ways:
+
+1. iPhone-to-iPhone auto-share when both contacts know each other. Cleanest.
+2. QR code from your router's app or phone's Wi-Fi settings. Scan it, done.
+3. Guest network with its own easy-to-remember password. Safer for recurring guests.
+
+Sharing the main password with lots of people is fine for security (with modern WPA2/WPA3) but painful when you want to rotate it — every device needs the new password.
+"""
+            ],
+            followUps: [
+                "iOS password-sharing works silently in the background. If someone's holding their phone next to yours and nothing happens, either AirDrop is off on one side or they're not saved in your contacts.",
+                "If you give the guest network a QR sticker on the fridge, visitors can just scan without you being involved — nicest setup for frequent hosts."
+            ],
+            category: "Setup"
+        ),
+        AssistantQA(
+            topic: "weather-wifi",
+            question: "Does weather affect my Wi-Fi?",
+            keywords: ["weather", "rain", "storm", "humidity", "temperature", "affect", "thunderstorm"],
+            answers: [
+                """
+Weather barely touches Wi-Fi *inside* your home — the signal is only traveling a few meters through walls, not miles through atmosphere.
+
+Where weather does come in:
+
+• **Your ISP's outside infrastructure** — heavy rain, wind, and ice can damage or wet coax, copper, or fiber connections to the pole. That shows up as "my internet is slow when it rains."
+• **Satellite internet** — genuinely suffers in heavy weather. Starlink handles it well but not perfectly; older satellite is much worse.
+• **Outdoor Wi-Fi to a backyard** — rain absorbs 2.4 GHz a little. It's a tiny effect, but in a borderline-coverage backyard you might notice.
+• **Lightning surges** — real danger to any networking gear during storms. A good surge protector matters.
+
+If your Wi-Fi feels worse in storms, the cause is almost always at the ISP's infrastructure, not your home network.
+""",
+                """
+Indoor Wi-Fi doesn't care about the weather — the signal is traveling between rooms, not across miles. What you're probably noticing in bad weather is the ISP's line getting wet, damaged, or congested by everyone else at home using the internet.
+
+Satellite and long-range outdoor links genuinely do degrade in rain. Everything else is downstream of ISP issues.
+"""
+            ],
+            followUps: [
+                "Humidity is a bigger effect over long outdoor ranges than most people realize — point-to-point Wi-Fi links between buildings can lose a decibel or two on humid days.",
+                "If storms consistently take your internet out, have your ISP inspect the outside cable run. Cracked insulation lets water in and slowly kills the signal."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "wifi-health",
+            question: "Is Wi-Fi safe? Does it cause health problems?",
+            keywords: ["safe", "health", "dangerous", "cancer", "radiation", "emf", "emr", "kids", "worry"],
+            answers: [
+                """
+Wi-Fi uses non-ionizing radio waves — the same class of energy as AM/FM radio and visible light, orders of magnitude weaker than what's needed to damage DNA or cells. The World Health Organization, the FCC, and the FDA have all reviewed decades of research and consistently found no evidence that typical Wi-Fi exposure harms human health.
+
+For context:
+
+• A router transmits at ~100 milliwatts (less than a quarter of what your phone puts out during a call).
+• Signal strength falls off with distance rapidly, so being 2 meters away means you get a small fraction of the power.
+• Humans have been exposed to radio waves (broadcast, cell, Wi-Fi) for roughly a century now — the long-term epidemiology is reassuring.
+
+The one caveat: devices that sit physically against your body for long periods (phones in pockets, laptops on laps) get regulated under SAR limits. Those limits are set generously conservative, and modern gadgets meet them easily.
+""",
+                """
+The scientific consensus is clear: typical home Wi-Fi exposure doesn't cause health problems. Wi-Fi radio waves are millions of times too weak to break chemical bonds or damage cells.
+
+That said — if it bothers you, keep the router out of your bedroom and at least a couple meters from where you regularly sit. That's more than enough buffer at the power levels involved.
+"""
+            ],
+            followUps: [
+                "The strongest radio exposure most people get isn't from Wi-Fi — it's from their cellular phone when it's searching for a weak tower. If health concerns motivate you, Wi-Fi calling actually *reduces* your phone's RF output.",
+                "If you still want to minimize exposure, turn the router off at night with a smart plug. You won't notice any difference in signal during the day and it uses slightly less electricity too."
+            ],
+            category: "Security"
+        ),
+        AssistantQA(
+            topic: "old-devices-slow-network",
+            question: "Will one old device slow down my whole network?",
+            keywords: ["old", "device", "slow", "whole", "network", "holding", "back", "legacy"],
+            answers: [
+                """
+Mostly a myth, with a grain of truth.
+
+**The myth:** A single old device drops your whole Wi-Fi to its speed.
+
+**The reality:** Your router talks to each device at the fastest speed that device can handle. Your old Wi-Fi 4 laptop gets served at 100 Mbps, your new Wi-Fi 6 phone still gets served at 800 Mbps — in the same moments.
+
+**The grain of truth:** Wi-Fi uses airtime, which is shared. If the old device is *actively* using the radio (streaming video, constantly pinging the router), it holds the channel for longer because its transmissions take more time per byte. That can crowd out faster devices during busy moments.
+
+Practical advice:
+
+• An idle old device (smart plug, old tablet sitting charging) doesn't slow anyone.
+• An old device running constant traffic (4K streaming on an ancient TV) can crowd the channel.
+• The fix isn't to replace the old device — it's to upgrade the *router* to one that handles mixed clients well (Wi-Fi 6 and up, with MU-MIMO and OFDMA).
+""",
+                """
+The "one slow device ruins everyone" myth persists because old routers actually did work that way. Modern routers don't. Each device gets served at the fastest speed it can handle, independently.
+
+Where the myth still holds: if the old device is constantly streaming, its air-time demands can make the channel feel busy for everyone. A Wi-Fi 6 or 7 router with OFDMA handles this much better than older gear.
+"""
+            ],
+            followUps: [
+                "802.11b (the original Wi-Fi from 1999) is the one genuine exception. A router serving a pre-2005 device may actually slow down — most modern routers let you disable 802.11b explicitly in advanced settings.",
+                "If you want to verify, temporarily power off the old device and run a speed test. If your numbers don't change, it wasn't the bottleneck."
+            ],
+            category: "Reliability"
+        ),
+        AssistantQA(
+            topic: "wifi-standards-explained",
+            question: "What does 802.11 ac / ax / be actually mean?",
+            keywords: ["802.11", "ac", "ax", "be", "n", "standard", "standards", "generations", "letters", "wi-fi"],
+            answers: [
+                """
+The IEEE 802.11 standard is the technical name for Wi-Fi. The letters after it identify the generation. Here's the plain-English cheat sheet:
+
+• **802.11b** (1999) — first mainstream Wi-Fi. 11 Mbps. Obsolete.
+• **802.11a / g** (early 2000s) — 54 Mbps. Obsolete.
+• **802.11n** = Wi-Fi 4 — up to ~300 Mbps in practice. Found on a lot of older gadgets.
+• **802.11ac** = Wi-Fi 5 — up to ~1 Gbps, introduced 5 GHz as the main speed band. Still fine for most homes.
+• **802.11ax** = Wi-Fi 6 — much better at handling many devices at once. Wi-Fi 6E adds the 6 GHz band.
+• **802.11be** = Wi-Fi 7 — newest, faster, supports multi-band at once. Limited device support yet.
+
+The Wi-Fi Alliance renamed them to simple numbers because nobody could remember the letters. Both names still appear on boxes.
+""",
+                """
+Translation guide:
+
+• Wi-Fi 4 = 802.11n (older)
+• Wi-Fi 5 = 802.11ac (very common today)
+• Wi-Fi 6 = 802.11ax (current mainstream for new routers)
+• Wi-Fi 6E = 802.11ax + 6 GHz band
+• Wi-Fi 7 = 802.11be (bleeding edge)
+
+Newer generations don't just add speed — they add smarter multi-device handling. Wi-Fi 6's OFDMA is why a busy household network feels so much better on new routers.
+"""
+            ],
+            followUps: [
+                "Wi-Fi generations are backward-compatible. A Wi-Fi 6 router happily talks to a Wi-Fi 4 laptop — just at Wi-Fi 4 speeds for that session.",
+                "The speed jumps between generations are marketing numbers in ideal conditions. Real-world Wi-Fi 6 vs Wi-Fi 5 in most homes is maybe 20-40% faster, not the 'triple the speed' that boxes advertise."
+            ],
+            category: "Setup"
         )
     ]
 
@@ -1695,7 +2599,7 @@ enum WiFiAssistantEngine {
 
     private static func liveOverlay(for topic: String, context: KlausChatContext) -> String? {
         switch topic {
-        case "good-ping", "improve-signal", "what-is-jitter", "gaming-peak", "video-calls":
+        case "good-ping", "improve-signal", "what-is-jitter", "gaming-peak", "video-calls", "packet-loss", "work-from-home-setup":
             if let ms = context.signalLatencyMs {
                 let band = KlausChatContext.band(for: ms)
                 let phrase: String
@@ -1708,11 +2612,11 @@ enum WiFiAssistantEngine {
                 }
                 return "Quick context: \(phrase)."
             }
-        case "isp-mismatch", "speed-test-fluctuation", "where-to-test", "slow-upload":
+        case "isp-mismatch", "speed-test-fluctuation", "where-to-test", "slow-upload", "fiber-cable-dsl":
             if let down = context.lastDownloadMbps, let up = context.lastUploadMbps {
                 return "Quick context: your last Speed Test landed at \(formatMbps(down)) down / \(formatMbps(up)) up."
             }
-        case "rooms-vary", "extender-vs-mesh", "mesh-vs-router", "router-placement":
+        case "rooms-vary", "extender-vs-mesh", "mesh-vs-router", "router-placement", "basement-garage", "apartment-wifi":
             if let grade = context.lastSurveyGrade, let dz = context.lastSurveyDeadZoneCount {
                 if dz > 0 {
                     return "Quick context: your last Survey graded \(grade) with \(dz) dead zone\(dz == 1 ? "" : "s") flagged."
@@ -1720,7 +2624,7 @@ enum WiFiAssistantEngine {
                     return "Quick context: your last Survey graded \(grade) with no dead zones — nice baseline."
                 }
             }
-        case "security", "neighbors", "wifi-security-types", "iot-load":
+        case "security", "neighbors", "wifi-security-types", "iot-load", "what-is-mac-address":
             if let count = context.deviceCount {
                 let trusted = context.trustedDeviceCount ?? 0
                 let unknown = max(0, count - trusted)
@@ -1728,6 +2632,24 @@ enum WiFiAssistantEngine {
                     return "Quick context: your last scan saw \(count) devices, \(unknown) of which aren't marked trusted yet."
                 } else if count > 0 {
                     return "Quick context: your last scan saw \(count) devices and they're all marked trusted."
+                }
+            }
+        case "what-is-ip-address", "what-is-nat":
+            if let lip = context.localIP, let gip = context.gatewayIP {
+                return "Quick context: your device's current IP is \(lip), and your router's gateway IP is \(gip)."
+            } else if let lip = context.localIP {
+                return "Quick context: your device's current IP on this network is \(lip)."
+            }
+        case "connected-no-internet", "outage-troubleshoot":
+            if let gms = context.gatewayLatencyMs, let ims = context.ispLatencyMs {
+                let gHealthy = gms < 50
+                let iHealthy = ims < 150
+                if gHealthy && !iHealthy {
+                    return "Quick context: your router is responsive (\(Int(gms.rounded())) ms) but the path out to the internet is slow or unreachable (\(Int(ims.rounded())) ms to 8.8.8.8) — that points at the ISP or modem, not your Wi-Fi."
+                } else if !gHealthy && !iHealthy {
+                    return "Quick context: both your router RTT (\(Int(gms.rounded())) ms) and ISP RTT (\(Int(ims.rounded())) ms) are elevated — the router is probably overloaded or having trouble staying synced."
+                } else if gHealthy && iHealthy {
+                    return "Quick context: actually, your router and ISP are both responding well right now (router \(Int(gms.rounded())) ms / ISP \(Int(ims.rounded())) ms). If something specific isn't loading, it's probably that site, not your network."
                 }
             }
         default:
@@ -1841,7 +2763,8 @@ Couldn't decode that — my training is strictly Wi-Fi diagnostics. If you give 
         return """
 Here's roughly what I can do:
 
-• Explain Wi-Fi topics — placement, bands, security, gaming, streaming, IoT, modems, mesh, troubleshooting.
+• Explain anything Wi-Fi — from the absolute basics (what is an SSID, IP, DNS, MAC?) to the deep stuff (QoS, beamforming, packet loss, NAT, Wi-Fi generations). I aim for plain English.
+• Troubleshoot real-life problems — printer won't print, "Connected, no internet," laggy gaming, hotel captive portals, slow basement Wi-Fi, AirPlay drops, and similar.
 • Read your live in-app data — current ping, last Speed Test, your most recent Survey, the device list — and tell you what those numbers mean.
 • Suggest fixes that target the *actual* issues I can see, not generic ones.\(livePart)
 Tap any of the suggested questions or just type something — I'll do my best.
