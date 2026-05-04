@@ -1381,6 +1381,143 @@ pages, and the in-app `LegalDocumentView` sheets will be serving
 different bytes — which is exactly the "hosted policy says X,
 in-app says Y" failure mode App Review rejects on.
 
+## Subscription rebuild + version bump for resubmission (May 1, 2026)
+
+After the round-3 fix uploaded as build `1.0 (1)`, two App Store Connect
+issues forced both a product-ID rename **and** a version bump before
+the next archive could go up.
+
+### Product ID rename — `com.wifibuddy.pro.{monthly,yearly}` → `com.wifibuddy.pro.sub.{monthly,yearly}`
+
+The two auto-renewing subscriptions had to be deleted and recreated in
+App Store Connect (the trigger was an ASC config rebuild — the legal +
+tax + group-localization metadata had drifted in a way that wouldn't
+let the existing SKUs stay attached to a new build under review).
+**Apple permanently blocks reuse of a deleted product identifier**, so
+the new SKUs can never carry the original `.monthly` / `.yearly` IDs
+again. Picked `.sub.` as the disambiguating infix (over `.v2`,
+`.proplus`, etc.) because it stays semantically neutral — future
+renames remain available if a third subscription tier ships.
+
+The literal strings live in **two files** that must always agree, plus
+two doc files that mention them historically:
+
+- `SignalStrengthPainter/ProStore.swift` — the `monthlyProductID` /
+  `yearlyProductID` constants at the top of the file. Every consumer
+  (`PaywallView`, `MainTabView`, etc.) refers to them by symbol, so
+  the literal string only needs to change here.
+- `Configuration.storekit` — the `productID` fields under each
+  `subscriptions` entry. Also rotated all four `internalID` UUIDs
+  (subscription + intro-offer for each plan) so the local StoreKit
+  catalog treats them as fresh SKUs and doesn't carry over any
+  cached transaction state from the deleted IDs. Without that, a
+  simulator that purchased the old `.monthly` SKU under a developer
+  Apple ID would see a stale "already subscribed" entitlement bound
+  to the old product UUID and the new product would silently fail to
+  surface in `Transaction.currentEntitlements`.
+- `README.md` — two callouts updated (StoreKit setup section + App
+  Store submission checklist).
+- `MEMORY.md` — five spots updated to the new IDs, with brief
+  history notes recording the May 2026 rename rationale.
+
+**App Store Connect manual steps (every time a SKU rebuild like this
+happens):**
+
+1. Subscriptions → **WiFi Buddy Pro** group → create both new SKUs
+   with the exact IDs `com.wifibuddy.pro.sub.monthly` ($3.99/mo) and
+   `com.wifibuddy.pro.sub.yearly` ($34.99/yr).
+2. On both, add a **Free Trial** introductory offer of duration
+   **3 Days**, eligibility **New Subscribers**, localized for at
+   least the primary App Store country.
+3. Set **Tax Category** on both (e.g., "App Store Software").
+4. Add localized display name + description (must be reviewer-clear:
+   what the user gets, billing period, that it auto-renews, that the
+   trial is free).
+5. **Attach both subscriptions to the build under review** in the
+   App Store tab → version → "In-App Purchases and Subscriptions"
+   section. Subscriptions can be "Approved" yet not attached to a
+   specific version review — and attached-to-the-binary is what the
+   reviewer's sandbox actually trusts. (Same gotcha called out
+   earlier in this doc; restating because it's by far the most
+   common cause of "Buy / Restore returned no products" review
+   failures.)
+
+### Version bump — `1.0 (1)` → `1.0.1 (2)` to reopen the submission train
+
+ASC rejected the post-rename archive with two errors:
+
+- **`90186 — Invalid Pre-Release Train. The train version '1.0' is closed for new build submissions`.**
+  Once a version is approved (or even just submitted to review without
+  being properly withdrawn), App Store Connect locks that version
+  "train" and refuses any further uploads claiming the same
+  `CFBundleShortVersionString`. The only fix is to ship a higher
+  version number; ASC then implicitly opens a new train.
+- **`90062 — CFBundleShortVersionString [1.0] must contain a higher version than that of the previously approved version [1.0]`.**
+  Same root cause from a different validator.
+
+Bumped to `1.0.1` (build `2`) — patch-level because the only change is
+the SKU rename + ASC rebuild, no user-visible features. The convention
+for future bumps codifies as:
+
+- **Resubmission / bug fix / SKU rebuild**: bump patch — `1.0.1 → 1.0.2`.
+- **New feature**: bump minor — `1.0.x → 1.1.0`.
+- **Major redesign / breaking change**: bump major — `1.x → 2.0.0`.
+- **Re-archive of the same version** (e.g., metadata fix without a
+  binary change, or a rejected upload re-uploaded): keep version,
+  bump build only — `1.0.1 (2) → 1.0.1 (3)`. Even a rejected upload
+  burns a build number; it cannot be reused.
+
+### Info.plist literal-vs-substitution drift gotcha
+
+The version had to be bumped in **four spots** to stay consistent:
+
+- `SignalStrengthPainter/Info.plist`:
+  - `CFBundleShortVersionString` `1.0` → `1.0.1`
+  - `CFBundleVersion` `1` → `2`
+- `SignalStrengthPainter.xcodeproj/project.pbxproj` (Debug + Release):
+  - `MARKETING_VERSION` `1.0` → `1.0.1`
+  - `CURRENT_PROJECT_VERSION` `1` → `2`
+
+The reason all four matter despite App Review only quoting Info.plist:
+the project ships with `GENERATE_INFOPLIST_FILE = NO` and a static
+`Info.plist` that uses **literal strings** (`<string>1.0.1</string>`)
+rather than the conventional `$(MARKETING_VERSION)` /
+`$(CURRENT_PROJECT_VERSION)` substitutions. With substitutions the
+build settings are the single source of truth and the plist tracks
+automatically; with literals the plist is the source of truth and the
+build settings are functionally redundant — but Xcode's General tab
+reads the build settings, `agvtool` writes the build settings, and
+TestFlight's "What's New" string is sourced from the build settings
+on some upload paths, so leaving them stale silently causes drift.
+Bumping all four keeps every UI surface (Xcode General tab,
+TestFlight build list, Info.plist, the in-app `appVersion` reader in
+`AboutView`) showing the same number.
+
+**Future improvement (not done here, low risk):** convert the
+`CFBundleShortVersionString` and `CFBundleVersion` plist entries to
+`$(MARKETING_VERSION)` and `$(CURRENT_PROJECT_VERSION)` substitutions
+so future bumps only require editing one place (the Xcode General
+tab, or `agvtool new-marketing-version 1.0.2`). Skipped during the
+resubmission crunch because changing the plist substitution model
+also affects how Xcode merges the per-config build settings, and a
+botched substitution would have re-triggered the `90062` rejection
+under a different code. Worth doing as a standalone cleanup commit
+before the next minor bump.
+
+### Files touched in this round
+
+- `SignalStrengthPainter/ProStore.swift` (product ID constants)
+- `Configuration.storekit` (productIDs + four rotated internal UUIDs)
+- `README.md` (two product-ID mentions)
+- `SignalStrengthPainter/Info.plist` (CFBundleShortVersionString, CFBundleVersion)
+- `SignalStrengthPainter.xcodeproj/project.pbxproj` (MARKETING_VERSION + CURRENT_PROJECT_VERSION × Debug + Release)
+- `MEMORY.md` (this section + five inline product-ID updates)
+
+### Two commits on `main` for this work
+
+- `f658818 — Rename StoreKit product IDs for ASC subscription rebuild`
+- `f82daaf — Bump version to 1.0.1 (build 2) to reopen submission train`
+
 ---
 
 *Generated as a handoff summary for future Cursor chats.*
