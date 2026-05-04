@@ -513,12 +513,12 @@ Static marketing site for WiFi Buddy at `website/`. Built with **Astro 5** + **T
 
 **Motion:** small layer added entirely through `global.css` plus one inlined script in `BaseLayout.astro`. Animated hero glow (`hero-glow-drift` keyframe), `.float-slow` (7 s vertical bob), card hover (3 px lift + signal-blue border), `.nav-link` underline, `.cta-press` button press feedback. **Reveal-on-scroll** — two opt-in attributes (`[data-reveal]` / `[data-reveal-stagger]`) gated on `html.js` set by an inline `<script is:inline>` *before first paint*. Single `IntersectionObserver` (`rootMargin: "0px 0px -8% 0px"`, `threshold: 0.05`). Above-the-fold hero blocks have NO reveal markers (avoids visible flash on slow loads). Defense-in-depth: bootstrapper runs `getBoundingClientRect()` synchronously on every `[data-reveal]` and marks any already-on-screen element `is-visible` immediately. Privacy and Terms pages are intentionally reveal-free so dense legal prose doesn't fade in while being read. `prefers-reduced-motion: reduce` cancels everything.
 
-**Pre-launch TODOs** (also in `website/README.md`):
+**App Store wiring:** `SITE.appStoreUrl` is `https://apps.apple.com/app/wifi-buddy/id6763663209` (storefront-agnostic — Apple redirects to the visitor's local store). `SITE.appStoreId = "6763663209"` is consumed by `BaseLayout.astro`'s `<meta name="apple-itunes-app">` Smart App Banner so Mobile Safari shows "Open in App Store" above the page. Both are also used in the `MobileApplication` JSON-LD `installUrl` / `downloadUrl`.
 
-1. `SITE.appStoreUrl` — replace `idTODO` with the real App Store ID once the listing exists.
-2. `SITE.url` and `astro.config.mjs → site` — set both to the production domain.
-3. `SITE.rating` — fill in real ASC numbers, or set `null` to suppress `aggregateRating` JSON-LD.
-4. Smart App Banner — uncomment the `apple-itunes-app` meta in `BaseLayout.astro` once you have an App Store ID.
+**Remaining pre-launch TODOs** (also in `website/README.md`):
+
+1. `SITE.url` and `astro.config.mjs → site` — set both to the production domain when DNS flips.
+2. `SITE.rating` — keep in sync with real ASC numbers, or set `null` to suppress `aggregateRating` JSON-LD.
 
 **Local dev:**
 

@@ -44,11 +44,11 @@ npm run preview      # preview the production build locally
 
 A few one-time things to update before flipping the DNS:
 
-1. **App Store URL** — `src/lib/site.ts → SITE.appStoreUrl`. Replace `idTODO` with your real App Store listing ID once it's live.
-2. **Domain** — `astro.config.mjs → site` and `src/lib/site.ts → SITE.url`. Both should point at your real production domain.
-3. **Aggregate rating** — `src/lib/site.ts → SITE.rating`. Fill in once App Store Connect has real numbers, or set to `null` to omit the `aggregateRating` JSON-LD until then.
-4. **Smart App Banner** — uncomment the `apple-itunes-app` meta tag in `src/layouts/BaseLayout.astro` and substitute the App Store ID. This makes Mobile Safari show an "Open in App Store" banner above the page.
-5. **Hero rating numbers** in copy — search `4.8` if you don't want to surface a hard-coded rating before reviews land.
+1. **Domain** — `astro.config.mjs → site` and `src/lib/site.ts → SITE.url`. Both should point at your real production domain.
+2. **Aggregate rating** — `src/lib/site.ts → SITE.rating`. Keep in sync with App Store Connect numbers, or set to `null` to omit the `aggregateRating` JSON-LD.
+3. **Hero rating numbers** in copy — search `4.8` if you don't want to surface a hard-coded rating before reviews land.
+
+The App Store ID (`6763663209`) and Smart App Banner are already wired through `SITE.appStoreId` / `SITE.appStoreUrl` and emit on every page.
 
 ## SEO checklist (already done — for reference)
 

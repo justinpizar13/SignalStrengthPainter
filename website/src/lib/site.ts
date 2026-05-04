@@ -8,10 +8,11 @@ export const SITE = {
   description:
     "WiFi Buddy turns your iPhone into a walking Wi-Fi heatmap. Find dead zones, get personalized fixes, and see every device on your network — all in one beautifully simple app.",
   url: "https://wifibuddy.app",
-  // Replace `idTODO` with the real App Store ID once the listing is live.
-  // We use the Smart App Banner-friendly canonical URL so Apple gets
-  // attribution and the install completes inside the App Store.
-  appStoreUrl: "https://apps.apple.com/app/wifi-buddy/idTODO",
+  // Canonical (storefront-agnostic) App Store URL. Omitting the country
+  // segment lets Apple redirect to the visitor's local storefront. The
+  // numeric ID is the permanent App Store ID assigned at first approval.
+  appStoreUrl: "https://apps.apple.com/app/wifi-buddy/id6763663209",
+  appStoreId: "6763663209",
   // Real, monitored mailbox. Must stay in sync with the contact email
   // in PrivacyPolicy.md, TermsOfUse.md, and Support.md — App Review
   // compares hosted-URL text against in-app text.

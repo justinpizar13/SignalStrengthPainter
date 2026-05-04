@@ -128,8 +128,11 @@ const jsonLdArray: Array<Record<string, unknown>> = jsonLd
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
 
-    {/* Apple smart-banner (App Store ID is appended once the real ID lands) */}
-    {/* <meta name="apple-itunes-app" content="app-id=APPSTOREID" /> */}
+    {/* Apple Smart App Banner — shows an "Open in App Store" strip in
+        Mobile Safari for visitors who don't have the app installed. */}
+    <meta name="apple-itunes-app" content={`app-id=${SITE.appStoreId}`} />
+    <link rel="alternate" href={SITE.appStoreUrl} />
+    <meta name="apple-mobile-web-app-title" content={SITE.name} />
 
     {/* Structured data */}
     {jsonLdArray.map((data) => (
