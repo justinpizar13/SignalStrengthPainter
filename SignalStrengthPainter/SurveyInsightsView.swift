@@ -27,6 +27,11 @@ struct SurveyInsightsView: View {
 
     // MARK: - Grade header
 
+    /// Branded as a Klaus deliverable: the chip becomes "KLAUS'S INSIGHTS"
+    /// and a small mascot avatar rides next to the grade circle so the same
+    /// character the user chats with is also the one signing off on the
+    /// post-survey verdict. Engine output (grade, score, summary) is
+    /// unchanged.
     private var gradeHeader: some View {
         VStack(spacing: 12) {
             HStack(alignment: .top, spacing: 14) {
@@ -43,10 +48,16 @@ struct SurveyInsightsView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.blue)
-                        Text("SURVEY INSIGHTS")
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.15))
+                                .frame(width: 22, height: 22)
+                            KlausMascotView(size: 22, mode: .portrait)
+                        }
+                        .frame(width: 22, height: 22)
+                        .clipShape(Circle())
+
+                        Text("KLAUS'S INSIGHTS")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.blue)
                             .tracking(0.6)
@@ -402,26 +413,36 @@ struct SurveyInsightsView: View {
 }
 
 /// Placeholder shown when the survey was too short to draw conclusions.
+/// Voiced as Klaus so the "you didn't give me enough data" message comes
+/// from the same character who signs the full report — keeps the survey
+/// flow coherent even when the engine bails.
 struct SurveyInsightsPlaceholder: View {
     @Environment(\.theme) private var theme
     let sampleCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.blue)
-                Text("Insights need a longer walk")
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                KlausMascotView(size: 40, mode: .portrait)
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Klaus needs more data")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
+                Text(sampleCount == 0
+                     ? "Beep boop — I didn't catch any latency samples. Start a fresh survey and walk for 20–30 seconds so I can read the signal at a few spots."
+                     : "I only got \(sampleCount) sample\(sampleCount == 1 ? "" : "s") — not enough for me to spot dead zones or compare rooms. Try a longer walk, pausing briefly in each area you care about.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(sampleCount == 0
-                 ? "No latency samples were captured. Start a new survey and walk the space for at least 20–30 seconds so we can read the signal at multiple spots."
-                 : "Only \(sampleCount) latency sample\(sampleCount == 1 ? "" : "s") were captured — that's not enough to spot dead zones or compare rooms. Try a longer walk, pausing briefly in each area you care about.")
-                .font(.system(size: 13))
-                .foregroundStyle(theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

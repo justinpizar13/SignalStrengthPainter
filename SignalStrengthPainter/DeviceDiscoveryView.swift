@@ -76,15 +76,29 @@ struct DeviceDiscoveryView: View {
 
     // MARK: - Header
 
+    /// Branded as Klaus's discovery so the same character users chat with
+    /// is also the one combing the network for them. The mascot replaces
+    /// the generic app logo here on purpose — Devices is the most
+    /// detective-feeling tab and it benefits most from a personality.
     private var header: some View {
         VStack(spacing: 6) {
-            AppLogoView(size: 44)
-            Text("Device Discovery")
-                .font(.system(size: 28, weight: .bold))
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 56, height: 56)
+                KlausMascotView(size: 56, mode: .portrait)
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(Circle())
+
+            Text("Klaus's Device Discovery")
+                .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(theme.primaryText)
-            Text("See who's connected to your network")
-                .font(.system(size: 15))
+                .multilineTextAlignment(.center)
+            Text("Klaus is sniffing out everything on your network")
+                .font(.system(size: 14))
                 .foregroundStyle(theme.tertiaryText)
+                .multilineTextAlignment(.center)
         }
     }
 
@@ -490,14 +504,34 @@ struct DeviceDiscoveryView: View {
         let level = securityLevel(total: totalCount, unknown: unknownUntrustedCount)
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: level.icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(level.color)
-                Text("Network Assessment")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(theme.primaryText)
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(level.color.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                        .overlay(Circle().stroke(level.color.opacity(0.35), lineWidth: 1))
+                    KlausMascotView(size: 40, mode: .portrait)
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: level.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(level.color)
+                        Text("KLAUS'S SECURITY REPORT")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(level.color)
+                            .tracking(0.5)
+                    }
+                    Text("What I found on your network")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.primaryText)
+                }
+
                 Spacer()
+
                 Text(level.label)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(level.color)
@@ -552,9 +586,26 @@ struct DeviceDiscoveryView: View {
 
     private var securityTips: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Protect Your Network")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(theme.primaryText)
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 38, height: 38)
+                    KlausMascotView(size: 38, mode: .portrait)
+                }
+                .frame(width: 38, height: 38)
+                .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Klaus's Tips to Lock It Down")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                    Text("Quick wins for a safer network")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.tertiaryText)
+                }
+                Spacer(minLength: 0)
+            }
 
             tipRow(icon: "lock.shield.fill", color: .blue,
                    text: "Change your Wi-Fi password if you see unknown devices")
@@ -563,7 +614,7 @@ struct DeviceDiscoveryView: View {
             tipRow(icon: "eye.slash.fill", color: .purple,
                    text: "Hide your network name (SSID) from broadcasting")
             tipRow(icon: "arrow.triangle.2.circlepath", color: Color(red: 0.25, green: 0.86, blue: 0.43),
-                   text: "Regularly scan to spot new or unauthorized devices")
+                   text: "Run me regularly so I can spot new or unauthorized devices")
             tipRow(icon: "person.badge.minus", color: .red,
                    text: "Use your router's admin page to block unknown devices")
         }
@@ -666,6 +717,9 @@ struct DeviceDiscoveryView: View {
         }
     }
 
+    /// Voiced as Klaus signing off on the verdict. Same thresholds as
+    /// before, just rephrased so the security report reads like the same
+    /// character users meet in the chat sheet.
     private func securityLevel(total: Int, unknown: Int) -> SecurityLevel {
         if unknown == 0 {
             return SecurityLevel(
@@ -673,7 +727,7 @@ struct DeviceDiscoveryView: View {
                 icon: "checkmark.shield.fill",
                 color: Color(red: 0.25, green: 0.86, blue: 0.43)
             ) { total, _ in
-                "All \(total) device\(total == 1 ? "" : "s") on your network appear to be identifiable. Keep scanning regularly to stay on top of any new connections."
+                "Beep boop — I identified all \(total) device\(total == 1 ? "" : "s") on your network. Run me again every now and then so I can spot anything new that hops on."
             }
         } else if unknown <= 2 {
             return SecurityLevel(
@@ -681,7 +735,7 @@ struct DeviceDiscoveryView: View {
                 icon: "exclamationmark.shield.fill",
                 color: Color(red: 0.98, green: 0.78, blue: 0.28)
             ) { _, unknown in
-                "\(unknown) unknown device\(unknown == 1 ? "" : "s") detected. This could be a smart home gadget or something you don't recognize. Tap on unknown devices for details."
+                "I spotted \(unknown) device\(unknown == 1 ? "" : "s") I couldn't pin down. Could be a smart bulb, a thermostat, or something you don't recognize — tap any unknown row and I'll tell you what I do know."
             }
         } else {
             return SecurityLevel(
@@ -689,7 +743,7 @@ struct DeviceDiscoveryView: View {
                 icon: "xmark.shield.fill",
                 color: Color(red: 0.98, green: 0.39, blue: 0.34)
             ) { _, unknown in
-                "\(unknown) unknown devices found on your network. Consider changing your Wi-Fi password and reviewing your router's connected device list."
+                "Yikes — I found \(unknown) devices I can't identify. If none of them ring a bell, I'd change your Wi-Fi password and check your router's admin page for who's connected."
             }
         }
     }
@@ -871,15 +925,21 @@ struct DeviceDetailSheet: View {
     /// device. When the MAC address resolves to a known vendor we point to
     /// that as the primary clue; when it's a randomized MAC we explain
     /// what that means; otherwise we fall back to generic actionable tips
-    /// (unplug test, router admin page). Without this card the user had
-    /// no recourse when a device came up as "Unknown" or a generic class.
+    /// (unplug test, router admin page). Branded as Klaus's tips so the
+    /// per-device guidance reads in the same voice as his security report.
     private var identificationHelpCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.blue)
-                Text("Is this yours?")
+            HStack(alignment: .center, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    KlausMascotView(size: 32, mode: .portrait)
+                }
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+
+                Text("Klaus's Tips: Is This Yours?")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(theme.primaryText)
             }
@@ -914,23 +974,23 @@ struct DeviceDetailSheet: View {
         var tips: [String] = []
 
         if let vendor = device.ouiVendor, !vendor.isEmpty {
-            tips.append("The hardware address (MAC) says this device was made by \(vendor). Do you own a \(vendor) product?")
+            tips.append("The hardware address (MAC) tells me this device was made by \(vendor). Do you own a \(vendor) product?")
         } else if device.hasRandomizedMAC {
-            tips.append("This device uses a Private Wi-Fi Address, so we can't look up its manufacturer. iPhones, Android phones, Macs, and Windows laptops all turn this on by default — it's almost always one of your own devices, not an intruder.")
+            tips.append("This device uses a Private Wi-Fi Address, so I can't look up its manufacturer. iPhones, Android phones, Macs, and Windows laptops all turn this on by default — it's almost always one of your own devices, not an intruder.")
         } else if device.macAddress != nil {
-            tips.append("We found a MAC address but its manufacturer isn't in our database. Search the first six hex digits on the IEEE OUI lookup to identify the maker.")
+            tips.append("I found a MAC address but its manufacturer isn't in my database. Search the first six hex digits on the IEEE OUI lookup to identify the maker.")
         } else {
-            tips.append("We couldn't read this device's MAC address. Try scanning again after the device has been active on the network.")
+            tips.append("I couldn't read this device's MAC address. Try scanning again after the device has been active on the network.")
         }
 
         if !device.openPorts.isEmpty {
             let portList = device.openPorts.prefix(5).map(String.init).joined(separator: ", ")
-            tips.append("Open network ports: \(portList). Known services can hint at what the device is for.")
+            tips.append("Open network ports: \(portList). The services running here can hint at what the device is for.")
         }
 
         tips.append("Try the unplug test: turn off a device you suspect this might be, scan again, and see if it disappears.")
         tips.append("Your router's admin page (usually 192.168.1.1) often lists device names for everything connected.")
-        tips.append("If you still can't identify it and it's not yours, change your Wi-Fi password immediately.")
+        tips.append("If you still can't identify it and it's not yours, change your Wi-Fi password right away.")
 
         return tips
     }

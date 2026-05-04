@@ -982,29 +982,45 @@ struct SurveyProGate: View {
 
 /// Shown below the raw heatmap after a free user's first completed
 /// survey. The heatmap is their "aha"; this card is the "relief" —
-/// upgrading to Pro unlocks the A–F grade, dead-zone clustering and
-/// router-placement hint. Tapping the CTA re-fires the same hard
-/// paywall used on the Start Survey gate.
+/// upgrading to Pro unlocks Klaus's full report (A–F grade, dead-zone
+/// clustering, router-placement hint). Branded as Klaus's report so the
+/// upsell reads as "unlock the rest of Klaus's analysis" rather than a
+/// generic feature wall. Tapping the CTA re-fires the same hard paywall
+/// used on the Start Survey gate.
 struct LockedInsightsCard: View {
     @Environment(\.theme) private var theme
     let onUnlock: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 12, weight: .bold))
-                Text("Pro Insights")
-                    .font(.system(size: 12, weight: .bold))
-            }
-            .foregroundStyle(.blue)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(Color.blue.opacity(0.12)))
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                        .overlay(Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1))
+                    KlausMascotView(size: 40, mode: .portrait)
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
 
-            Text("See the full report")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(theme.primaryText)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.blue)
+                        Text("KLAUS'S FULL REPORT")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.blue)
+                            .tracking(0.6)
+                    }
+                    Text("Beep boop — let me dig deeper")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                }
+
+                Spacer(minLength: 0)
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 lockedRow(icon: "chart.bar.doc.horizontal", text: "A–F coverage grade for your space")
@@ -1016,7 +1032,7 @@ struct LockedInsightsCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "crown.fill")
                         .font(.system(size: 14, weight: .bold))
-                    Text("Unlock Pro Insights")
+                    Text("Unlock Klaus's Insights")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(theme.buttonText)

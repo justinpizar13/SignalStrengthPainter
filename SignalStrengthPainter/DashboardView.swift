@@ -460,16 +460,35 @@ struct DashboardView: View {
 
     // MARK: - Speed Report
 
+    /// Post-test report card. Branded as a Klaus deliverable so the same
+    /// character users meet in the chat sheet is also the one signing off
+    /// on every speed-test result. The mascot avatar + first-person summary
+    /// copy carries his voice across the app, which is what makes him feel
+    /// trustworthy by the time the user opens the chat.
     private var speedReport: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "chart.bar.doc.horizontal")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(overallGradeColor)
-                Text("Your Wi-Fi Report")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(theme.primaryText)
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(overallGradeColor.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                        .overlay(Circle().stroke(overallGradeColor.opacity(0.35), lineWidth: 1))
+                    KlausMascotView(size: 40, mode: .portrait)
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Klaus's Wi-Fi Report")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                    Text("Klaus crunched your numbers")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.tertiaryText)
+                }
+
                 Spacer()
+
                 Text(overallGradeLabel)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(overallGradeColor)
@@ -558,22 +577,25 @@ struct DashboardView: View {
         return Color(red: 0.98, green: 0.39, blue: 0.34)
     }
 
+    /// Klaus narrates the overall verdict in his own voice. Same speed
+    /// thresholds as before — the prose just got a personality so the
+    /// report reads like the same character users will chat with later.
     private var overallSummary: String {
         let dl = speedTest.downloadSpeed
         let ping = speedTest.pingMs
 
         if dl >= 100 && ping < 30 {
-            return "Your connection is blazing fast. You can do virtually anything — stream 4K on multiple devices, game competitively, and run video calls without a hiccup."
+            return "Beep boop — your connection is screaming fast. Stream 4K on every TV, hop into a competitive match, run a video call. I'd be impressed if you could overload this."
         } else if dl >= 50 {
-            return "Solid speeds for most households. 4K streaming, online gaming, and working from home should all run smoothly."
+            return "Looks great from where I'm sitting. 4K streaming, online gaming, working from home — your network handles all of it without breaking a sweat."
         } else if dl >= 25 {
-            return "Decent for everyday use. HD streaming and video calls will work fine, but 4K on multiple devices may buffer."
+            return "Solid for everyday stuff. HD streaming and video calls will be smooth, but I'd watch out if multiple TVs try to pull 4K at the same time."
         } else if dl >= 10 {
-            return "Enough for basics like browsing, email, and SD streaming, but you may notice slowdowns with video calls or larger downloads."
+            return "Enough for browsing, email, and SD streaming. You might catch a hiccup on video calls or big downloads — I'd run a survey to make sure the signal is reaching where you need it."
         } else if dl >= 3 {
-            return "Your connection is on the slower side. Web browsing works, but streaming and video calls may struggle."
+            return "Things feel a bit sluggish over here. Web pages will load, but streaming and video calls are going to fight you. Try moving closer to the router or giving it a power cycle."
         } else {
-            return "Very slow connection. You may have trouble with basic tasks. Consider restarting your router or moving closer to it."
+            return "Yikes — that's painfully slow. Even basic tasks will struggle. I'd unplug the router for 60 seconds, plug it back in, and run me again."
         }
     }
 
