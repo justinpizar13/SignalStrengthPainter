@@ -27,7 +27,7 @@ import UIKit
 ///   router admin interface.
 /// - `ispLatencyMs` is a live TCP ping to `8.8.8.8:53` — exactly the
 ///   probe already used elsewhere in the app, so results line up with
-///   the Signal tab's latency readings.
+///   the latency readings shown elsewhere in the app.
 ///
 /// The monitor refreshes every `refreshInterval` seconds, and also on
 /// demand when the `NetworkInterfaceMonitor` status changes (so

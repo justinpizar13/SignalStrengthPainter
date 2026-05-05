@@ -5,12 +5,11 @@ import Combine
 
 /// A snapshot of everything Klaus knows about the user's current network
 /// state. Producers across the app — `NetworkTopologyMonitor`,
-/// `SpeedTestManager`, `NetworkScanner`, the Signal-tab probe, the Survey
-/// insights view — push the latest values into `KlausContextHub.shared`,
-/// and Klaus reads from there when crafting replies. None of this is
-/// persisted to disk; the snapshot lives in memory and resets per
-/// process, mirroring the rest of the app's privacy posture (no analytics,
-/// no logged history).
+/// `SpeedTestManager`, `NetworkScanner`, the Survey insights view — push
+/// the latest values into `KlausContextHub.shared`, and Klaus reads from
+/// there when crafting replies. None of this is persisted to disk; the
+/// snapshot lives in memory and resets per process, mirroring the rest of
+/// the app's privacy posture (no analytics, no logged history).
 ///
 /// Every field is optional. Klaus's reply templates check for presence
 /// before quoting a number, and gracefully fall back to telling the user
@@ -21,10 +20,6 @@ struct KlausChatContext {
     // Klaus can frame answers correctly on cellular ("you're on
     // Cellular, so the Wi-Fi-specific advice doesn't apply yet").
     var connectionStatus: NetworkInterfaceMonitor.Status = .unknown
-
-    // Signal tab — last LatencyProbe reading.
-    var signalLatencyMs: Double?
-    var signalLatencyAt: Date?
 
     // Topology card — gateway + ISP latency, local network identity.
     var localIP: String?
@@ -64,7 +59,7 @@ struct KlausChatContext {
     var randomizedMacCount: Int?
     var lastScanAt: Date?
 
-    /// Quality bucket for `signalLatencyMs`. Used inside templated
+    /// Quality bucket for `ispLatencyMs`. Used inside templated
     /// replies so the prose can switch tone ("solid", "fine but
     /// noticeable", "rough").
     enum LatencyBand {
@@ -88,8 +83,7 @@ struct KlausChatContext {
     /// Anything to say at all? Used to gate "give me the rundown"
     /// queries — without any populated field, Klaus doesn't pretend.
     var hasAnyLiveData: Bool {
-        signalLatencyMs != nil
-            || ispLatencyMs != nil
+        ispLatencyMs != nil
             || gatewayLatencyMs != nil
             || lastDownloadMbps != nil
             || lastSurveyGrade != nil
@@ -101,11 +95,11 @@ struct KlausChatContext {
 /// network state in via `update`, Klaus's intent engine pulls the
 /// snapshot when composing a reply.
 ///
-/// `@MainActor` because every producer (topology, speed test, scanner,
-/// signal tab) already runs on the main actor, and every consumer
-/// (Klaus chat) is a SwiftUI view. Marking this here keeps the producer
-/// call sites straightforward — no `Task { @MainActor in … }` hops at
-/// hundreds of update points.
+/// `@MainActor` because every producer (topology, speed test, scanner)
+/// already runs on the main actor, and every consumer (Klaus chat) is a
+/// SwiftUI view. Marking this here keeps the producer call sites
+/// straightforward — no `Task { @MainActor in … }` hops at hundreds of
+/// update points.
 @MainActor
 final class KlausContextHub: ObservableObject {
     static let shared = KlausContextHub()
@@ -384,7 +378,7 @@ Rough ping guidelines for online gaming:
 • 100–150 ms — noticeable lag, especially in competitive matches.
 • Over 150 ms — rough. Expect frustration.
 
-The Signal tab measures live latency. If it's always high on Wi-Fi, a wired connection usually shaves 10–30 ms.
+The Speed tab's live topology card measures latency continuously. If it's always high on Wi-Fi, a wired connection usually shaves 10–30 ms.
 """,
                 """
 The honest gaming-ping thresholds: under 50 ms feels great, 50–100 is fine for most games, 100+ starts to hurt. Anything past 150 in a competitive shooter and you'll lose gunfights you should have won.
@@ -3081,7 +3075,7 @@ Pro unlocks:
 • **Smart Insights** — the graded survey report with dead-zone analysis.
 • **Unlimited chat with me** — free users get one question, Pro gets unlimited.
 
-Everything else (Speed Test, live topology, Signal tab, Device discovery, network monitoring) is free.
+Everything else (Speed Test, live topology, Device discovery, network monitoring) is free.
 
 $3.99/month or $34.99/year, 3-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
 """
@@ -3695,7 +3689,7 @@ enum WiFiAssistantEngine {
     private static func liveOverlay(for topic: String, context: KlausChatContext) -> String? {
         switch topic {
         case "good-ping", "improve-signal", "what-is-jitter", "gaming-peak", "video-calls", "packet-loss", "work-from-home-setup":
-            if let ms = context.signalLatencyMs {
+            if let ms = context.ispLatencyMs {
                 let band = KlausChatContext.band(for: ms)
                 let phrase: String
                 switch band {
@@ -3889,7 +3883,7 @@ Tap any of the suggested questions or just type something — I'll do my best.
     // MARK: Live-data replies
 
     static func livePingReply(context: KlausChatContext) -> String {
-        if let ms = context.signalLatencyMs {
+        if let ms = context.ispLatencyMs {
             let intMs = Int(ms.rounded())
             let band = KlausChatContext.band(for: ms)
             switch band {
@@ -3906,12 +3900,12 @@ Tap any of the suggested questions or just type something — I'll do my best.
             }
         }
         if context.connectionStatus == .cellular {
-            return "You're on Cellular right now, so there's no Wi-Fi ping to read. Switch to Wi-Fi and tap **Refresh Signal** in the Signal tab — once I see a number I'll break it down."
+            return "You're on Cellular right now, so there's no Wi-Fi ping to read. Switch to Wi-Fi, then check the live topology card on the **Speed** tab — once I see a number I'll break it down."
         }
         if context.connectionStatus == .offline {
             return "Looks like you're offline at the moment — I can't read a ping until the network is back."
         }
-        return "I haven't seen a fresh ping yet. Hop over to the **Signal** tab and tap **Refresh Signal** — once I have a reading I can tell you exactly what it means."
+        return "I haven't seen a fresh ping yet. Hop over to the **Speed** tab — the live topology card pings continuously, and once I have a reading I can tell you exactly what it means."
     }
 
     static func liveSpeedReply(context: KlausChatContext) -> String {
@@ -4035,8 +4029,8 @@ Tap any of the suggested questions or just type something — I'll do my best.
             return """
 I don't have any live readings to summarize yet. Once you do any of these I'll be able to tell you how things are stacking up:
 
-• Tap **Refresh Signal** in the Signal tab.
-• Run a **Speed Test** in the Speed tab.
+• Open the **Speed** tab — the live topology card pings continuously.
+• Run a **Speed Test** on the Speed tab.
 • Walk a **Survey** in the Survey tab.
 • Run a **Scan** in the Devices tab.
 """
@@ -4060,7 +4054,7 @@ I don't have any live readings to summarize yet. Once you do any of these I'll b
         case .offline: bits.append("you're currently **offline**")
         case .unknown: break
         }
-        if let ms = context.signalLatencyMs {
+        if let ms = context.ispLatencyMs {
             let band = KlausChatContext.band(for: ms)
             let label: String
             switch band {
@@ -4321,7 +4315,6 @@ struct WiFiAssistantView: View {
     /// immediately without a view rebuild.
     @ObservedObject var store: ProStore
     @ObservedObject private var contextHub = KlausContextHub.shared
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
 
     /// Free-tier cap: number of user messages allowed before the Pro
@@ -4387,18 +4380,6 @@ struct WiFiAssistantView: View {
             }
 
             Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.secondaryText)
-                    .frame(width: 32, height: 32)
-                    .background(theme.cardFill)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(theme.cardStroke, lineWidth: 1))
-            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

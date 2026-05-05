@@ -74,7 +74,7 @@ Trust flags and custom names are **scoped per network** — the network ID is de
 ```
 SignalStrengthPainter/
 ├── SignalStrengthPainterApp.swift      App entry; applies theming; hosts MainTabView
-├── MainTabView.swift                    5-tab shell; contains SignalDetailView + AppearanceToggle
+├── MainTabView.swift                    5-tab shell (Speed / Survey / Klaus / Devices / Pro) + AppearanceToggle
 ├── AppTheme.swift                       Centralized light/dark theming
 ├── AppLogoView.swift                    Programmatic Wi-Fi glyph logo (matches app icon)
 ├── DashboardView.swift                  Speed tab: topology, speed test, latency grid

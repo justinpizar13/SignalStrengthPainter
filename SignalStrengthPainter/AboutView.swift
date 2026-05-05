@@ -131,10 +131,10 @@ struct AboutView: View {
                 subtitle: "Walk your space with AR tracking and watch a heatmap paint itself onto a floor plan. When you stop, you get an A–F grade, dead-zone detection, and tailored tips."
             )
             tabRow(
-                icon: "antenna.radiowaves.left.and.right",
+                icon: "bubble.left.and.bubble.right.fill",
                 tint: .green,
-                title: "Signal",
-                subtitle: "Quick check of your current Wi-Fi quality with context-aware tips. Also the door to Klaus, your Wi-Fi chat assistant."
+                title: "Klaus",
+                subtitle: "Chat with Klaus, your built-in Wi-Fi sidekick. Ask anything from \"Why is my 5 GHz slower than 2.4 GHz?\" to \"Should I buy a mesh system?\" — he reads your live in-app numbers and answers in plain English."
             )
             tabRow(
                 icon: "laptopcomputer.and.iphone",
@@ -209,7 +209,7 @@ struct AboutView: View {
                     Text("Ask anything, no tech jargon")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(theme.primaryText)
-                    Text("Open the Signal tab and tap \"Chat with Klaus\". He answers common Wi-Fi questions — from \"Why is my 5 GHz slower than 2.4 GHz?\" to \"Should I buy a mesh system?\"")
+                    Text("Open the Klaus tab and start typing. He answers common Wi-Fi questions — from \"Why is my 5 GHz slower than 2.4 GHz?\" to \"Should I buy a mesh system?\"")
                         .font(.system(size: 13))
                         .foregroundStyle(theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
