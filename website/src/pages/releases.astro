@@ -27,6 +27,38 @@ type Release = {
 
 const releases: Release[] = [
   {
+    version: "1.1",
+    date: "2026-05-05",
+    tagline: "Klaus gets his own tab and starts reading your real network.",
+    groups: [
+      {
+        label: "What's new",
+        accent: "green",
+        items: [
+          "Klaus is now a top-level tab. The Wi-Fi assistant gets first-class billing \u2014 tap any time and ask anything about your home Wi-Fi.",
+          "Klaus reads your live network. Ask \u201cwhat\u2019s my ping?\u201d, \u201chow was my last survey?\u201d, or \u201chow many devices are on my Wi-Fi?\u201d and Klaus weaves your real numbers into the answer. Still 100% offline \u2014 no LLM, no servers, no accounts.",
+          "100-topic knowledge base spanning coverage, dead zones, security, gaming, streaming, work-from-home, travel, moving day, kid bedtime controls, mesh-vs-extender, router buying advice, myth-busting, and \u201cwhat does this tab do?\u201d \u2014 all in plain English.",
+          "Klaus signs every report. Speed-test summaries, survey insights, and the device-discovery security report are now in his voice (\u201cBeep boop \u2014 your connection is\u2026\u201d) so the same character users meet on the Klaus tab is the one signing every analytical output.",
+        ],
+      },
+      {
+        label: "Improvements",
+        accent: "blue",
+        items: [
+          "Redesigned Speed-tab topology card. A single-sentence verdict at the top \u2014 \u201cEverything\u2019s connected\u201d / \u201cA little slow today\u201d / \u201cCan\u2019t reach the internet\u201d \u2014 plus animated packet-flow on the WAN hop and Wi-Fi pulses on the LAN hop. ISP and router each report their own health.",
+          "Getting Started guide is now a tappable, collapsible table of contents \u2014 scan the topic you need instead of scrolling a wall of text.",
+        ],
+      },
+      {
+        label: "Fixes",
+        accent: "yellow",
+        items: [
+          "Suggested-question chips in Klaus chat occasionally routed to the wrong answer because of an over-broad keyword match (e.g. \u201cty\u201d inside \u201csecurity\u201d). Now resolved with word-boundary matching.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0",
     date: "2026-04-29",
     tagline: "The first release. Five tabs, one walking heatmap.",

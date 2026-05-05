@@ -8,13 +8,13 @@ The project started life as a pedometer-based 2D "paint your walk" prototype (se
 
 ## Highlights
 
-- **Five tabs**: Speed, Survey, Signal, Devices, Pro (the Pro tab hides itself once the user is entitled).
+- **Five tabs**: Speed, Survey, Klaus, Devices, Pro (the Pro tab hides itself once the user is entitled).
 - **AR-based survey** with a live heatmap painted onto a selectable floor plan, editable room names, pinch/pan/zoom, tap-to-inspect data points, and best/worst-spot markers.
 - **Post-survey insights report**: A–F grade, coverage breakdown, dead-zone clustering, latency profile, stability warning, router-direction hint, and tailored "what to do next" recommendations — all computed locally.
-- **Live network topology card** on the Speed tab — ISP, router, and device nodes driven by real TCP pings and interface monitoring (no static diagrams).
+- **Live network topology card** on the Speed tab — ISP, router, and device nodes driven by real TCP pings and interface monitoring (no static diagrams), with a plain-English status verdict header.
 - **Cloudflare-backed speed test** with server selection (colo + distance + ISP), trimmed-mean ping/jitter, 8-stream concurrent download and upload, and a contextual Wi-Fi report rating the connection for streaming / gaming / video calls / home office / browsing.
 - **Device discovery** that identifies ~every device on the LAN by name, vendor, type, and open ports, with per-network trust flags and custom nicknames.
-- **Klaus, the WiFi Buddy assistant** — a pixel-art mascot fronting an offline, keyword-matched Q&A knowledge base (no LLM, no network calls).
+- **Klaus, the WiFi Buddy assistant** — a pixel-art mascot with his own dedicated tab. Offline keyword-matched Q&A across 100 topics, woven through with live in-app metrics ("your last Speed Test was…"). No LLM, no network calls, no servers.
 - **Light/dark/system** theming, persisted across launches.
 - **StoreKit 2 paywall** (monthly and yearly subscriptions) with a local `Configuration.storekit` for simulator testing.
 
@@ -37,12 +37,14 @@ The project started life as a pedometer-based 2D "paint your walk" prototype (se
 - **Post-survey insights** (at Stop Survey): an A–F letter-grade header, 2×2 stat grid, stacked coverage bar, latency range strip (Best / Median / Worst 5% / Worst), and ranked insight cards — coverage breakdown, dead-zone count and worst-zone stats, latency profile, stability warning, router-direction hint (via Pearson correlation), and a tailored "what to do next" list. The map keeps rendering the heatmap and adds **Best / Worst spot badges** so users can see which rooms the report is referring to.
 - **Free users** see a paywall upsell for this tab; Pro users get unlimited surveys.
 
-### Signal (connection quality)
+### Klaus (chat with your Wi-Fi sidekick)
 
-- Animated Wi-Fi rings + a latency-based quality card (latest RTT, quality label, "Excellent" / "Good" / "Poor" tint).
-- **Manual refresh** button re-measures on demand.
-- **Context-aware insights**: a positive "Signal is Great" card when latency is excellent, or an actionable "Improve Your Signal" card otherwise.
-- **Chat with Klaus** CTA opens a full-screen assistant sheet. Klaus is a pixel-art mascot fronting an offline Q&A engine — 24 curated answers across Coverage / Reliability / Setup / Streaming / Security / Speed / Gaming, matched by a deterministic keyword scorer. Each reply is preceded by a "thinking" bubble and followed by three related follow-up chips. Free users can ask **one** question per install; Pro users get unlimited chat.
+- **Top-level tab** dedicated to the assistant — `WiFiAssistantView` is the tab body. Klaus is a pixel-art mascot fronting an offline Q&A engine that runs entirely on-device (no LLM, no network calls).
+- **100-topic curated knowledge base** across Coverage / Reliability / Setup / Streaming / Security / Speed / Gaming. Foundational concepts, real-life troubleshooting, buying advice, in-app self-explanation, technical features in plain English, and myth-busting.
+- **Live-data answers**: ask "what's my ping?", "how was my last survey?", or "how many devices are on my Wi-Fi?" and Klaus weaves the actual numbers from `KlausContextHub` (gateway/ISP latency, last Speed Test, last Survey grade, device-scan tallies) into a one-line answer.
+- **Conversational voice**: each reply has multiple variants picked at random per turn, optional Klaus-voice openers/closers, three related follow-up chips, and a "thinking" bubble before every response.
+- **Out-of-scope refusals** politely decline anything off-topic (jokes / weather / "hack the neighbor's Wi-Fi") and pivot back to "secure your own network".
+- The live signal-latency reading lives on the **Speed tab's topology card**, so this surface stays focused on chat. Free users can ask **one** question per install; Pro users get unlimited chat.
 
 ### Devices (who's on my Wi-Fi?)
 
