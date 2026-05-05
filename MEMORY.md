@@ -38,7 +38,8 @@ Accepts a `size` parameter; everything scales proportionally. Used in tab header
 | `SignalStrengthPainterApp.swift` | App entry. Roots `MainTabView`. Applies `.withAppTheme()`. |
 | `AppLogoView.swift` | Reusable branded logo (Wi-Fi arcs + dot). Geometry shared with `scripts/generate_app_icon.py`. |
 | `AppTheme.swift` | `AppearanceMode` enum (system/light/dark), `AppTheme` struct with semantic colors, `EnvironmentKey` injection, `ThemedRootModifier`. Persisted via `@AppStorage("appearanceMode")`. |
-| `MainTabView.swift` | Tab UI (Speed / Survey / Klaus / Devices / Pro). Pro tab hidden when `isProUser`. Hosts `AppearanceToggle` and `GracePeriodBanner` (amber safe-area inset shown when `store.gracePeriodExpiration != nil`). |
+| `MainTabView.swift` | Tab UI (Speed / Survey / Klaus / Devices / Pro). Pro tab hidden when `isProUser`. Hosts `AppearanceToggle`, `GracePeriodBanner` (amber safe-area inset shown when `store.gracePeriodExpiration != nil`), and `UpdateAvailableBanner` (blue safe-area inset shown when `UpdateChecker.shouldShowUpdateBanner` is true). |
+| `UpdateChecker.swift` | `@MainActor` `ObservableObject` that polls `https://itunes.apple.com/lookup?bundleId=…` once a day on app launch. Persists last-seen App Store version + release-notes snippet so the banner renders instantly on subsequent launches; per-version dismissal via `UserDefaults("updateBanner.dismissedVersion")`. "Update" CTA opens a hardcoded `apps.apple.com/app/wifi-buddy/id6763663209` (the lookup response's `trackViewUrl` is intentionally ignored). |
 | `DashboardView.swift` | **Speed tab.** Live ISP→Router→Device topology, multi-stream speed test, post-test Wi-Fi report (Netflix/gaming/calls/office/browsing), service latency grid (Google/Cloudflare/OpenDNS/Gateway), survey quick-action card, hamburger button to `AboutView`. Auto-presents the Getting Started sheet on first launch (`@AppStorage("hasSeenGettingStarted")`). |
 | `NetworkTopologyMonitor.swift` | Live topology state. Publishes `localIP`, inferred `gatewayIP`, `gatewayLatencyMs`, `ispLatencyMs`, derived `LinkHealth` per hop (`.good/.fair/.poor/.offline/.unknown`). Refresh every 6 s + on `NetworkInterfaceMonitor` change. Cellular → LAN hop is `.unknown`, not `.offline`. `deviceLabel` uses `UIDevice.current.localizedModel`. |
 | `SpeedTestManager.swift` | Server selection (Cloudflare colo via `/meta`), latency (10 HTTP pings, trimmed mean + jitter), download + upload (8 concurrent async streams, 4 MB chunks, 12 s cap each). `TransferCounter` for byte tracking. Final speed = total bytes / elapsed time. |
@@ -371,6 +372,12 @@ In-codebase work for App Store submission is complete:
 - Privacy Manifest, Info.plist hardening (encryption / orientation / full-screen / device-capabilities), bundled legal docs all in place.
 - **Bundled legal docs** — `SignalStrengthPainter/PrivacyPolicy.md` and `SignalStrengthPainter/TermsOfUse.md` ship as Copy Bundle Resources, rendered by `LegalDocumentView` (uses `AttributedString(markdown:)` — stdlib, no third-party dep). Privacy Policy lead line is "Your data stays on your device." Terms of Use ingests Apple's standard EULA by reference plus subscription-specific terms.
 - **Why bundled instead of hosted:** No web hosting / DNS / cert rotation. Works offline (paywall isn't stranded on broken Wi-Fi). Versioned with code — when terms change, they ship in the same commit.
+
+### In-app update prompt
+
+`UpdateChecker` runs a `URLSession` GET against Apple's iTunes Lookup endpoint with the bundle ID on every launch (rate-limited to once per 24h via `UserDefaults("updateBanner.lastCheckTimestamp")`). When the returned `version` parses as newer than `CFBundleShortVersionString` (dotted-decimal compare, non-numeric components fail closed so a poisoned response can't trigger a bogus prompt), `MainTabView` renders `UpdateAvailableBanner` — a blue safe-area inset with the new version, the first paragraph of the App Store "What's New" copy capped at 160 chars, and Update / Not now buttons. "Not now" persists the dismissed version so the user isn't re-nagged until the next release.
+
+Network failures are silently swallowed — a missing prompt is strictly better UX than an error nobody asked for. The "Update" CTA opens a hardcoded App Store URL rather than the lookup response's `trackViewUrl`.
 
 ### Public URLs (App Store Connect)
 

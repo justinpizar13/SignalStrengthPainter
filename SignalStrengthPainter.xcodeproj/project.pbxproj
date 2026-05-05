@@ -40,6 +40,7 @@
 		A1B2C3D401234567890124E1 /* PrivacyPolicy.md in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890124E2 /* PrivacyPolicy.md */; };
 		A1B2C3D401234567890124F1 /* TermsOfUse.md in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D401234567890124F2 /* TermsOfUse.md */; };
 		A1B2C3D40123456789012501 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012502 /* LegalDocumentView.swift */; };
+		A1B2C3D40123456789012511 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40123456789012512 /* UpdateChecker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +80,7 @@
 		A1B2C3D401234567890124E2 /* PrivacyPolicy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PrivacyPolicy.md; sourceTree = "<group>"; };
 		A1B2C3D401234567890124F2 /* TermsOfUse.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TermsOfUse.md; sourceTree = "<group>"; };
 		A1B2C3D40123456789012502 /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
+		A1B2C3D40123456789012512 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +135,7 @@
 				A1B2C3D40123456789012482 /* FloorPlanTemplate.swift */,
 				A1B2C3D401234567890124C2 /* AboutView.swift */,
 				A1B2C3D40123456789012502 /* LegalDocumentView.swift */,
+				A1B2C3D40123456789012512 /* UpdateChecker.swift */,
 				A1B2C3D401234567890123E2 /* Assets.xcassets */,
 				A1B2C3D40123456789012350 /* Info.plist */,
 				A1B2C3D401234567890124D2 /* PrivacyInfo.xcprivacy */,
@@ -251,6 +254,7 @@
 				A1B2C3D40123456789012481 /* FloorPlanTemplate.swift in Sources */,
 				A1B2C3D401234567890124C1 /* AboutView.swift in Sources */,
 				A1B2C3D40123456789012501 /* LegalDocumentView.swift in Sources */,
+				A1B2C3D40123456789012511 /* UpdateChecker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
