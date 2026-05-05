@@ -242,37 +242,56 @@ struct DashboardView: View {
     // logo.
 
     private var topologyCard: some View {
-        HStack(spacing: 0) {
-            topologyNode(
-                icon: "globe",
-                iconColor: colorForHealth(topology.wanHealth),
-                label: "ISP",
-                detail: ispDetailText,
-                status: ispStatusBadge
-            )
+        // Two-section card: a plain-English status summary up top so the
+        // user can read the verdict in one glance, then the actual
+        // ISP → Router → Device diagram. The summary is the difference
+        // between this looking like a diagnostic tool and looking like a
+        // generic three-circles graphic.
+        VStack(spacing: 0) {
+            topologyStatusHeader
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
 
-            topologyConnector(health: topology.wanHealth)
+            Rectangle()
+                .fill(theme.divider)
+                .frame(height: 1)
 
-            topologyNode(
-                icon: "wifi.router",
-                iconColor: colorForHealth(topology.lanHealth),
-                label: "Router",
-                detail: topology.gatewayIP ?? "—",
-                status: gatewayStatusBadge
-            )
+            HStack(alignment: .top, spacing: 0) {
+                topologyNode(
+                    icon: "globe.americas.fill",
+                    iconColor: colorForHealth(topology.wanHealth),
+                    label: "ISP",
+                    detail: ispDetailText,
+                    status: ispStatusBadge
+                )
 
-            topologyConnector(health: topology.lanHealth)
+                wanConnector(health: topology.wanHealth)
+                    .padding(.top, connectorTopInset)
 
-            topologyNode(
-                icon: deviceIconName,
-                iconColor: deviceIconColor,
-                label: topology.deviceLabel,
-                detail: deviceDetailText,
-                status: deviceStatusBadge
-            )
+                topologyNode(
+                    icon: "wifi.router.fill",
+                    iconColor: colorForHealth(topology.lanHealth),
+                    label: "Router",
+                    detail: topology.gatewayIP ?? "—",
+                    status: gatewayStatusBadge
+                )
+
+                wirelessConnector(health: topology.lanHealth)
+                    .padding(.top, connectorTopInset)
+
+                topologyNode(
+                    icon: deviceIconName,
+                    iconColor: deviceIconColor,
+                    label: topology.deviceLabel,
+                    detail: deviceDetailText,
+                    status: deviceStatusBadge,
+                    showWiFiBadge: networkMonitor.status == .wifi
+                )
+            }
+            .padding(.vertical, 18)
+            .padding(.horizontal, 8)
         }
-        .padding(.vertical, 20)
-        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(theme.cardFill)
@@ -283,6 +302,119 @@ struct DashboardView: View {
         )
         .animation(.easeInOut(duration: 0.25), value: topology.gatewayLatencyMs)
         .animation(.easeInOut(duration: 0.25), value: topology.ispLatencyMs)
+        .animation(.easeInOut(duration: 0.25), value: topology.lastUpdated)
+    }
+
+    /// Vertical padding applied to each connector so its mid-line sits on
+    /// the same y as the node icon's center. Computed from the node's
+    /// 60-pt halo + icon container and the connector's 36-pt frame so the
+    /// alignment doesn't drift if the node text wraps.
+    private var connectorTopInset: CGFloat { 30 - 18 }
+
+    // MARK: - Topology status summary
+    //
+    // Reads the two `LinkHealth` signals plus the active interface and
+    // produces a single human-readable verdict. The user shouldn't have
+    // to interpret three traffic lights to know whether their network is
+    // OK; the header tells them in one sentence and, when something's
+    // wrong, hints at the next move.
+
+    private var topologyStatusHeader: some View {
+        let info = topologyStatusInfo
+        return HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                // Subtle halo for healthy states; collapses to a flat dot
+                // for offline/poor so red/amber don't look "alive".
+                Circle()
+                    .fill(info.color.opacity(0.22))
+                    .frame(width: 18, height: 18)
+                    .blur(radius: 2)
+                    .opacity(info.shouldPulse ? 1 : 0)
+                Circle()
+                    .fill(info.color)
+                    .frame(width: 9, height: 9)
+            }
+            .frame(width: 18, height: 18)
+            .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(info.title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let subtitle = info.subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            // Tiny "Live" badge — tells the user the diagram is being
+            // continuously measured rather than a one-off snapshot. The
+            // dot pulses while a refresh is in flight.
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(topology.lastUpdated == nil ? theme.tertiaryText : statusGreen)
+                    .frame(width: 5, height: 5)
+                    .opacity(topology.isRefreshing ? 0.4 : 1.0)
+                    .animation(
+                        topology.isRefreshing
+                            ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                            : .default,
+                        value: topology.isRefreshing
+                    )
+                Text("Live")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.tertiaryText)
+                    .tracking(0.4)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(theme.subtle))
+        }
+    }
+
+    private var topologyStatusInfo: (color: Color, title: String, subtitle: String?, shouldPulse: Bool) {
+        // First load: nothing measured yet.
+        if topology.lastUpdated == nil {
+            return (theme.tertiaryText, "Checking your network…", "Probing the router and the public internet.", true)
+        }
+
+        // Offline situations get the strongest treatment so the user
+        // sees them first. Order matters: WAN-down is more serious than
+        // a slow-but-working link, and LAN-down is more actionable.
+        if networkMonitor.status == .offline {
+            return (statusRed, "No connection", "Reconnect to Wi-Fi or cellular to bring this back to life.", false)
+        }
+
+        if networkMonitor.status == .cellular {
+            return (statusAmber, "On cellular", "These readings reflect your phone plan, not your home Wi-Fi.", false)
+        }
+
+        switch (topology.wanHealth, topology.lanHealth) {
+        case (.offline, .offline):
+            return (statusRed, "Network is down", "Both your router and the internet are unreachable. Try restarting your modem.", false)
+        case (.offline, _):
+            return (statusRed, "Can't reach the internet", "Your router is up, but the connection out is failing. Power-cycle your modem.", false)
+        case (_, .offline):
+            return (statusRed, "Router isn't responding", "Move closer or reconnect to your Wi-Fi to bring it back.", false)
+        case (.poor, _), (_, .poor):
+            return (statusRed, "Connection is sluggish", "High latency detected — calls and games will likely stutter.", false)
+        case (.fair, _), (_, .fair):
+            return (statusAmber, "A little slow today", "Streaming should be fine — heavy use may struggle.", false)
+        case (.good, .good):
+            return (statusGreen, "Everything's connected", "Router and internet are responding quickly.", false)
+        case (.good, .unknown):
+            // Wired-only edge case: we can reach the internet but
+            // there's no LAN gateway probe in play. Don't say anything
+            // alarming.
+            return (statusGreen, "Internet is reachable", nil, false)
+        default:
+            return (theme.tertiaryText, "Checking your network…", nil, true)
+        }
     }
 
     // MARK: - Topology copy helpers
@@ -387,22 +519,65 @@ struct DashboardView: View {
         iconColor: Color,
         label: String,
         detail: String,
-        status: (String, Color)? = nil
+        status: (String, Color)? = nil,
+        showWiFiBadge: Bool = false
     ) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 7) {
             ZStack {
+                // Outer halo — soft blurred disc tinted by health color.
+                // Gives every node a faint glow when alive and almost
+                // disappears when offline (red at 0.18 over white reads
+                // as a subtle pink shadow rather than a generic gray
+                // circle).
                 Circle()
-                    .fill(theme.subtle)
+                    .fill(iconColor.opacity(0.18))
+                    .frame(width: 60, height: 60)
+                    .blur(radius: 7)
+
+                // Main node body — diagonal gradient so it doesn't read
+                // as a flat sticker. Stroke matches the icon tint so the
+                // ring acts as a status cue at a glance.
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [iconColor.opacity(0.26), iconColor.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 50, height: 50)
+                    .overlay(
+                        Circle()
+                            .stroke(iconColor.opacity(0.45), lineWidth: 1)
+                    )
+
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 21, weight: .semibold))
                     .foregroundStyle(iconColor)
+
+                // Wi-Fi corner badge — only on the device node, only
+                // when actually on Wi-Fi. Tells the user "this last hop
+                // is wireless" at a glance, which is the part they
+                // usually care about.
+                if showWiFiBadge {
+                    Image(systemName: "wifi")
+                        .font(.system(size: 8, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 16, height: 16)
+                        .background(Circle().fill(iconColor))
+                        .overlay(
+                            Circle().stroke(theme.cardFill, lineWidth: 2)
+                        )
+                        .offset(x: 18, y: -16)
+                }
             }
+            .frame(width: 60, height: 60)
 
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(theme.primaryText)
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             Text(detail)
                 .font(.system(size: 10))
@@ -412,34 +587,61 @@ struct DashboardView: View {
 
             if let status {
                 Text(status.0)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(status.1)
                     .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(status.1.opacity(0.14)))
+                    .overlay(
+                        Capsule().stroke(status.1.opacity(0.22), lineWidth: 0.5)
+                    )
             }
         }
         .frame(maxWidth: .infinity)
     }
 
-    /// Connector between two topology nodes. Color and whether it
-    /// animates are both driven by the link's measured health, so a
-    /// healthy hop shows a subtle flow of packets while a broken hop
-    /// sits as a muted static line.
-    private func topologyConnector(health: NetworkTopologyMonitor.LinkHealth) -> some View {
+    /// WAN connector (ISP → Router). Dashed line + flowing packet dots
+    /// give a "data traveling far" feel and visually distinguish the
+    /// public internet hop from the local Wi-Fi hop. Health color tints
+    /// both layers so the whole link reads green/amber/red at once.
+    private func wanConnector(health: NetworkTopologyMonitor.LinkHealth) -> some View {
         let tint = colorForHealth(health)
-        return Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [tint.opacity(0.55), tint.opacity(0.15)],
-                    startPoint: .leading,
-                    endPoint: .trailing
+        return ZStack {
+            GeometryReader { geo in
+                Path { path in
+                    let y = geo.size.height / 2
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: geo.size.width, y: y))
+                }
+                .stroke(
+                    tint.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [3, 3])
                 )
-            )
-            .frame(height: 2)
-            .overlay(
-                TopologyPacketFlow(color: tint, isActive: health.isCarryingTraffic)
-            )
-            .frame(width: 36)
-            .offset(y: -12)
+            }
+            TopologyPacketFlow(color: tint, isActive: health.isCarryingTraffic)
+        }
+        .frame(width: 50, height: 36)
+    }
+
+    /// LAN connector (Router → Device). Animated Wi-Fi arcs emanate
+    /// from the router side toward the device side — the iconic visual
+    /// every user already associates with wireless coverage. Falls
+    /// silent (static dim arcs) when the link isn't carrying traffic.
+    private func wirelessConnector(health: NetworkTopologyMonitor.LinkHealth) -> some View {
+        let tint = colorForHealth(health)
+        return ZStack {
+            GeometryReader { geo in
+                Path { path in
+                    let y = geo.size.height / 2
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: geo.size.width, y: y))
+                }
+                .stroke(tint.opacity(0.20), lineWidth: 1)
+            }
+            WiFiPulseOverlay(color: tint, isActive: health.isCarryingTraffic)
+        }
+        .frame(width: 50, height: 36)
     }
 
     // MARK: - Section Headers
@@ -1263,11 +1465,11 @@ struct DashboardView: View {
 
 // MARK: - TopologyPacketFlow
 //
-// Small animated overlay drawn on top of each connector in the
-// topology card. When the link is healthy (`isActive == true`) three
-// tiny dots slide left-to-right to visualise packets in flight; when
-// the link is down they sit still at a muted opacity so the card
-// still *looks* connected but clearly isn't communicating.
+// Small animated overlay drawn on top of the WAN connector. When the
+// link is healthy (`isActive == true`) three tiny dots slide
+// left-to-right to visualise packets in flight; when the link is down
+// they sit still at a muted opacity so the card still *looks*
+// connected but clearly isn't communicating.
 //
 // Using `TimelineView` rather than an SF Symbol `phase` animation
 // keeps the flow running smoothly without requiring explicit
@@ -1298,6 +1500,72 @@ private struct TopologyPacketFlow: View {
                                 x: width * offset,
                                 y: geo.size.height / 2
                             )
+                    }
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - WiFiPulseOverlay
+//
+// Animated overlay drawn on the LAN connector — three concentric
+// arcs emanating from the router side outward toward the device.
+// This is the universal Wi-Fi visual language (the same shape the
+// app's own `AppLogoView` uses), so users instantly read it as
+// "wireless link" rather than "generic data flow".
+//
+// Each arc has its own phase offset; as one fades out at the far
+// edge, the next one is just leaving the router. Result is a
+// continuous sonar-style pulse that pauses when the link isn't
+// carrying traffic.
+private struct WiFiPulseOverlay: View {
+    let color: Color
+    let isActive: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { context in
+                Canvas { gc, size in
+                    // 1.6s per sweep — slow enough to read as a calm
+                    // signal rather than a flickering progress bar.
+                    let period: TimeInterval = 1.6
+                    let t = context.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: period) / period
+
+                    let centerY = size.height / 2
+                    // Arcs originate from the router edge (left) and
+                    // sweep across the full connector width.
+                    let originX: CGFloat = 0
+                    let maxRadius = size.width
+
+                    for i in 0..<3 {
+                        let phase = (t + Double(i) / 3.0)
+                            .truncatingRemainder(dividingBy: 1.0)
+                        let radius = maxRadius * phase
+                        guard radius > 1 else { continue }
+
+                        // Fade in from the source so the arc doesn't
+                        // pop into existence, then fade out at the far
+                        // edge.
+                        let fadeIn = min(1.0, phase / 0.15)
+                        let fadeOut = 1.0 - phase
+                        let opacity = fadeIn * fadeOut * (isActive ? 0.95 : 0.25)
+
+                        var path = Path()
+                        path.addArc(
+                            center: CGPoint(x: originX, y: centerY),
+                            radius: radius,
+                            startAngle: .degrees(-26),
+                            endAngle: .degrees(26),
+                            clockwise: false
+                        )
+                        gc.stroke(
+                            path,
+                            with: .color(color.opacity(opacity)),
+                            style: StrokeStyle(lineWidth: 1.6, lineCap: .round)
+                        )
                     }
                 }
             }

@@ -3193,6 +3193,8 @@ enum AssistantIntent {
     case liveTopology          // "what's my router IP", "where's my gateway"
     case liveSummary           // "give me the rundown", "how's my network"
     case followUp              // "tell me more", "what else"
+    case safety                // "how do I hack my neighbor", "crack wifi password"
+    case outOfScope            // "tell me a joke", "what's the weather"
     case qa(AssistantQA)
     case fallback
 }
@@ -3203,6 +3205,11 @@ enum AssistantIntent {
 struct AssistantTurnMemory {
     var lastTopic: String?
     var followUpsServed: Set<String> = []   // per-topic delivered follow-ups
+    /// How many "hi"-style greetings Klaus has handled this session
+    /// (including the seeded session-open greeting). Used so a user
+    /// who says "hi" twice in a row doesn't get two near-identical
+    /// hellos with the same network rundown stapled on.
+    var greetingsSeen: Int = 0
 }
 
 // MARK: - Engine
@@ -3317,10 +3324,66 @@ enum WiFiAssistantEngine {
         "give me the rundown", "give me the summary", "summary", "rundown",
         "how am i doing", "status report", "status check"
     ]
+    /// Phrases that signal the user wants help getting onto a network
+    /// or device they don't own. Anything that matches gets a polite
+    /// refusal + redirect to the legitimate "secure my own network"
+    /// QAs — never falls through to the QA matcher, which would
+    /// otherwise happily dispense WPA2 advice in the wrong context.
+    /// Patterns intentionally lean toward false positives over false
+    /// negatives — better to occasionally over-refuse a borderline
+    /// phrasing than to coach somebody through credential theft.
+    private static let safetyPatterns: [String] = [
+        "hack ", "hack my", "hack a ", "hack the ", "hack into",
+        "hack the wifi", "hack wifi", "hacking wifi", "hacking into",
+        "hack neighbor", "hack my neighbor", "hack my neighbour",
+        "hacking my neighbor", "hacking the neighbor", "wifi hacking",
+        "crack the password", "crack a password", "crack wifi", "crack the wifi",
+        "cracking wifi", "wpa crack", "crack wpa",
+        "steal wifi", "stealing wifi", "steal someone's wifi", "steal my neighbor",
+        "free wifi without paying",
+        "break into ", "breaking into ", "get into someone",
+        "exploit my neighbor", "exploit the router", "exploit wifi",
+        "deauth ", "deauth attack", "evil twin", "wifi pineapple", "rogue ap ",
+        "bypass password", "bypass the password", "bypass wifi password",
+        "bypass router", "bypass the router",
+        "neighbor's wifi", "neighbour's wifi", "neighbors wifi", "neighbours wifi",
+        "use the neighbor's", "use my neighbor's", "use my neighbour's",
+        "log into my neighbor", "log into the neighbor", "log into someone",
+        "spy on ", "snoop on ",
+        "without permission", "without their knowledge", "without them knowing",
+        "kick someone off their", "boot someone off their"
+    ]
+    /// Conversational gambits that are clearly not Wi-Fi — caught after
+    /// smalltalk so "hi" or "thanks" still feel personal, but before
+    /// the QA matcher so "tell me a joke" doesn't accidentally hit a
+    /// keyword and produce something nonsensical. Klaus answers with a
+    /// brief, in-character "not my zone" rather than the generic
+    /// "didn't pick that one up" fallback.
+    private static let outOfScopePatterns: [String] = [
+        "tell me a joke", "tell a joke", "knock knock", "joke please",
+        "what's the weather", "whats the weather", "weather today",
+        "weather forecast", "weather tomorrow",
+        "play music", "play a song", "play me a song",
+        "set a timer", "set an alarm", "set a reminder",
+        "what time is it", "what's the time", "whats the time",
+        "write a poem", "write me a poem", "write a story", "write me a story",
+        "what is 2 + 2", "what's 2 + 2", "whats 2 + 2", "2+2", "2 + 2",
+        "calculate ",
+        "who is the president", "who's the president", "whos the president",
+        "recipe for", "how do i cook", "how to cook",
+        "stock price", "bitcoin price", "ethereum price",
+        "translate ", "in spanish", "in french", "in german"
+    ]
 
     static func classifyIntent(rawInput: String, memory: AssistantTurnMemory) -> AssistantIntent {
         let cleaned = sanitize(rawInput).lowercased()
         guard !cleaned.isEmpty else { return .fallback }
+
+        // Safety always wins. If the user is asking how to attack a
+        // network or device they don't own, intercept before any QA
+        // keyword can accidentally hand back useful security advice in
+        // the wrong context.
+        if matchesAny(cleaned, safetyPatterns) { return .safety }
 
         // Match the most specific intents first. Live queries beat
         // smalltalk so "what's my ping?" doesn't get caught by greeting
@@ -3345,6 +3408,10 @@ enum WiFiAssistantEngine {
         if matchesAny(cleaned, greetingPatterns) || cleaned == "hi" || cleaned == "hey" {
             return .greeting
         }
+
+        // Out-of-scope conversational asks (jokes, weather, math) get a
+        // tailored polite redirect rather than tripping the QA matcher.
+        if matchesAny(cleaned, outOfScopePatterns) { return .outOfScope }
 
         // QA fallback — keyword tokenization + scoring against the
         // knowledge base. Threshold is "at least one keyword overlap".
@@ -3392,7 +3459,23 @@ enum WiFiAssistantEngine {
         switch intent {
         case .greeting:
             return AssistantReply(
-                text: composeGreetingReply(context: context),
+                text: composeGreetingReply(context: context, memory: memory),
+                relatedQuestions: starterQuestions,
+                topic: nil
+            )
+        case .safety:
+            return AssistantReply(
+                text: pick(safetyReplies),
+                relatedQuestions: [
+                    "Is my network secure?",
+                    "Can my neighbors use my Wi-Fi?",
+                    "What's a guest network and should I use one?"
+                ],
+                topic: nil
+            )
+        case .outOfScope:
+            return AssistantReply(
+                text: pick(outOfScopeReplies),
                 relatedQuestions: starterQuestions,
                 topic: nil
             )
@@ -3527,13 +3610,25 @@ enum WiFiAssistantEngine {
             if let down = context.lastDownloadMbps, let up = context.lastUploadMbps {
                 return "Quick context: your last Speed Test landed at \(formatMbps(down)) down / \(formatMbps(up)) up."
             }
-        case "rooms-vary", "extender-vs-mesh", "mesh-vs-router", "router-placement", "basement-garage", "apartment-wifi":
-            if let grade = context.lastSurveyGrade, let dz = context.lastSurveyDeadZoneCount {
-                if dz > 0 {
-                    return "Quick context: your last Survey graded \(grade) with \(dz) dead zone\(dz == 1 ? "" : "s") flagged."
-                } else {
-                    return "Quick context: your last Survey graded \(grade) with no dead zones — nice baseline."
-                }
+        case "rooms-vary", "extender-vs-mesh", "mesh-vs-router", "basement-garage", "apartment-wifi":
+            // Comparison/situational questions where the user's actual
+            // survey result legitimately changes the recommendation.
+            // We only overlay when there's a clear actionable signal —
+            // dumping "graded B with no dead zones" into a generic
+            // question reads as filler, not insight.
+            if let grade = context.lastSurveyGrade,
+               let dz = context.lastSurveyDeadZoneCount,
+               dz > 0 {
+                return "Quick context: your last Survey graded \(grade) with \(dz) dead zone\(dz == 1 ? "" : "s") flagged."
+            }
+        case "router-placement":
+            // The placement answer is generic by design — a checklist
+            // of rules of thumb. Only weave in live data when there's
+            // a real dead-zone count to act on; otherwise the overlay
+            // feels stapled-on and unrelated to "where do I put it?"
+            if let dz = context.lastSurveyDeadZoneCount,
+               dz > 0 {
+                return "Heads up: your last Survey flagged \(dz) dead zone\(dz == 1 ? "" : "s"), so placement is exactly the lever that'll move that needle."
             }
         case "security", "neighbors", "wifi-security-types", "iot-load", "what-is-mac-address":
             if let count = context.deviceCount {
@@ -3575,7 +3670,13 @@ enum WiFiAssistantEngine {
     /// each rolled independently. The roll keeps short answers from
     /// getting fluffed up too much — we keep raw answers ~50% of the
     /// time, prefix only ~25%, suffix only ~15%, both ~10%.
+    ///
+    /// If the body already starts with a "Quick context:" or
+    /// "Heads up:" overlay (added by `liveOverlay`), we skip the
+    /// opener — stacking two prefixes reads as filler.
     private static func dressUp(_ body: String, topic: String) -> String {
+        let startsWithOverlay = body.hasPrefix("Quick context:") || body.hasPrefix("Heads up:")
+
         var prefix: String?
         var suffix: String?
         let roll = Int.random(in: 0..<100)
@@ -3585,6 +3686,8 @@ enum WiFiAssistantEngine {
         case 75..<90: suffix = pick(closers)        // closer only
         default: prefix = pick(openers); suffix = pick(closers)
         }
+
+        if startsWithOverlay { prefix = nil }
 
         var out = body
         if let p = prefix { out = "\(p)\n\n\(out)" }
@@ -3921,7 +4024,16 @@ I don't have any live readings to summarize yet. Once you do any of these I'll b
 
     // MARK: Greetings + starters
 
-    private static func composeGreetingReply(context: KlausChatContext) -> String {
+    /// Composes the greeting reply. The first greeting in a session
+    /// (the seeded one Klaus opens with) gets the full warm welcome
+    /// plus a one-line live-data rundown. Any subsequent "hi"s get a
+    /// shorter conversational acknowledgment so Klaus doesn't dump the
+    /// same network status into every greeting and read like a kiosk.
+    private static func composeGreetingReply(context: KlausChatContext, memory: AssistantTurnMemory) -> String {
+        if memory.greetingsSeen >= 1 {
+            return pick(repeatGreetingReplies)
+        }
+
         let bits = liveSummarySnippets(context: context)
         let head = pick(greetingHeads)
         if bits.isEmpty {
@@ -3935,7 +4047,69 @@ I don't have any live readings to summarize yet. Once you do any of these I'll b
         "Hey there. Antenna up, ready to help.",
         "Hi! Packet-sniffer warmed up.",
         "Hello — Klaus reporting in.",
-        "Hi! What are we troubleshooting?"
+        "Hi! What are we troubleshooting?",
+        "Hey, glad you stopped by. Klaus here, ready to dig in.",
+        "Howdy. Wi-Fi diagnostics on standby.",
+        "Greetings, human. Tiny robot, ready to help."
+    ]
+
+    /// Used when the user says hi after Klaus has already greeted them
+    /// in this session. Shorter and more conversational than the
+    /// session-open greeting so we don't repeat the same kiosk-style
+    /// "I can already see..." rundown on every hello.
+    private static let repeatGreetingReplies: [String] = [
+        "Hey again — what did you want to dig into?",
+        "Beep boop — still here, antenna up. What's on your mind?",
+        "Hi! Yep, still listening. Got a Wi-Fi question for me?",
+        "Hello again. Pick a suggestion or fire one off.",
+        "Twice in one session — I'm flattered. What can I help with?",
+        "Still parked in your phone. What do you want to look at?",
+        "Right back atcha. Where do you want to start?"
+    ]
+
+    // MARK: Safety + out-of-scope replies
+
+    /// Klaus's polite refusals when the user asks for help getting
+    /// onto a network or device they don't own. Each variant declines
+    /// in-character and pivots to the legitimate "secure your own
+    /// network" QAs so the user has somewhere productive to go.
+    private static let safetyReplies: [String] = [
+        """
+Beep boop — that's a hard nope from me. I won't help with getting onto a network or device that isn't yours. Hopping onto someone else's Wi-Fi without permission is illegal pretty much everywhere, and even an offline little robot like me isn't going there.
+
+If you're worried about *your own* network being on the receiving end of that kind of thing, I can absolutely help. Try **"Is my network secure?"** or **"Can my neighbors use my Wi-Fi?"** to start.
+""",
+        """
+I have to sit that one out. Walking somebody onto a network they're not authorized on isn't a Wi-Fi tip — that's computer-misuse-act territory, and it's not something I'm built to coach.
+
+What I *can* do is help you make sure nobody's doing the same to you. Want to check your own setup? Ask **"Is my network secure?"** and I'll dig in.
+""",
+        """
+Not a road I'll go down. Accessing someone else's Wi-Fi or devices without permission is illegal even when the network's wide open, and helping with it isn't in my wheelhouse.
+
+If your real question is "could this happen to *me*?", that's a great one. Ask about your network's security and I'll walk through hardening it.
+"""
+    ]
+
+    /// Polite redirects for clearly non-Wi-Fi conversational gambits
+    /// (jokes, weather, math). Klaus stays in character and points
+    /// the user back at his actual area of expertise.
+    private static let outOfScopeReplies: [String] = [
+        """
+Ha — wish I could, but I'm a one-trick robot. My whole training is Wi-Fi: signal, speed, security, devices, the lot. For anything outside that I'm intentionally useless (kept me small enough to live entirely offline on your phone).
+
+Got a Wi-Fi question I can dig into instead?
+""",
+        """
+That's outside my zone, friend. I'm strictly Wi-Fi — I can troubleshoot a dead zone, decode a weird device on your network, or explain why your speed test feels off, but I can't do general assistant stuff.
+
+Tap a suggestion if you want to head back to my actual area of expertise.
+""",
+        """
+Beep boop — request denied, but politely. I don't have a chat model behind me, just a tightly focused Wi-Fi knowledge base and the ability to read your in-app metrics. Anything not Wi-Fi-shaped slips right past me.
+
+Tell me what's going on with your network and I'll be much more useful.
+"""
     ]
 
     static let starterQuestions: [String] = [
@@ -4478,6 +4652,13 @@ struct WiFiAssistantView: View {
                 // were last on.
             }
 
+            // Track repeat greetings so the next "hi" gets a shorter,
+            // more conversational acknowledgment instead of replaying
+            // the full session-open welcome and live-data rundown.
+            if case .greeting = intent {
+                memory.greetingsSeen += 1
+            }
+
             let newMessage = AssistantMessage(
                 role: .assistant,
                 text: reply.text,
@@ -4510,6 +4691,10 @@ struct WiFiAssistantView: View {
                 topic: greeting.topic
             )
         )
+        // Count the seeded session-open greeting so a subsequent user
+        // "hi" goes through the shorter repeat-greeting branch instead
+        // of replaying the same welcome.
+        memory.greetingsSeen += 1
     }
 }
 
