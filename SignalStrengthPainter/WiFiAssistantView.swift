@@ -1084,7 +1084,7 @@ Latency is the trade-off. 5G ping floors are higher and more variable than wired
         AssistantQA(
             topic: "isp-throttling",
             question: "Is my ISP throttling me?",
-            keywords: ["throttle", "throttling", "shaping", "deprioritize", "slow", "after", "data", "cap"],
+            keywords: ["throttle", "throttling", "throttled", "shaping", "deprioritize", "slow", "after", "data", "cap", "isp"],
             answers: [
                 """
 A few signs that point to throttling vs a normal slowdown:
@@ -3288,10 +3288,16 @@ enum WiFiAssistantEngine {
         "you're awesome", "youre awesome", "you're great", "youre great", "you rock", "good bot",
         "bad bot", "love you", "you're cool", "youre cool"
     ]
+    // Follow-up patterns deliberately exclude bare conjunctions like
+    // "and" / "or" — they appear inside dozens of legitimate QA
+    // question titles ("What is jitter and why does it matter?",
+    // "What's a guest network and should I use one?") and would
+    // otherwise route a tapped chip to a follow-up of the previous
+    // topic instead of the topic the user actually asked about.
     private static let followUpPatterns: [String] = [
         "tell me more", "more info", "any more", "anything else", "what else",
         "expand on", "go deeper", "elaborate", "more detail", "more details", "say more",
-        "another one", "give me more", "and"
+        "another one", "give me more", "keep going", "go on"
     ]
     private static let livePingPatterns: [String] = [
         "what's my ping", "whats my ping", "what is my ping", "my ping",
@@ -3299,8 +3305,16 @@ enum WiFiAssistantEngine {
         "current ping", "current latency", "how's my latency", "hows my latency",
         "how is my signal", "how's my signal", "hows my signal"
     ]
+    // Note on live-data patterns: keep them specific enough that the
+    // pattern only fires when the user is actually asking about a
+    // live reading. Bare phrases like "my speed" / "my isp" /
+    // "my devices" used to be in this list, but they collided with
+    // legitimate QA questions ("Why are my speed test results
+    // different every time?" / "Is my ISP throttling me?" / "Why do
+    // my devices keep forgetting the Wi-Fi password?") and routed
+    // them to live-data replies that ignored the actual question.
     private static let liveSpeedPatterns: [String] = [
-        "what's my speed", "whats my speed", "what is my speed", "my speed",
+        "what's my speed", "whats my speed", "what is my speed",
         "how fast", "what speed", "download speed", "upload speed",
         "my mbps", "what mbps", "current speed"
     ]
@@ -3310,12 +3324,12 @@ enum WiFiAssistantEngine {
         "how is my coverage", "hows my coverage", "how's my coverage"
     ]
     private static let liveDevicesPatterns: [String] = [
-        "how many devices", "what devices", "list devices", "my devices",
+        "how many devices", "what devices", "list devices",
         "what's on my network", "whats on my network", "what is on my network"
     ]
     private static let liveTopologyPatterns: [String] = [
         "my router ip", "router address", "gateway ip", "what's my gateway", "whats my gateway",
-        "my ip address", "what's my ip", "whats my ip", "what is my ip", "my isp",
+        "my ip address", "what's my ip", "whats my ip", "what is my ip",
         "what isp", "what's my isp", "whats my isp"
     ]
     private static let liveSummaryPatterns: [String] = [
@@ -3385,6 +3399,17 @@ enum WiFiAssistantEngine {
         // the wrong context.
         if matchesAny(cleaned, safetyPatterns) { return .safety }
 
+        // Chip-tap fast path: when the input matches a known QA's
+        // question verbatim (after word-boundary normalization), route
+        // straight to that QA. Curated suggestion chips are the
+        // dominant input source for free-tier users and tying QAs by
+        // keyword score (e.g. "What does WiFi Buddy do?" vs.
+        // "What is Wi-Fi, actually?") used to send chip taps to the
+        // wrong topic. Matching by question text is unambiguous.
+        if let qa = matchingQAByQuestionText(cleaned) {
+            return .qa(qa)
+        }
+
         // Match the most specific intents first. Live queries beat
         // smalltalk so "what's my ping?" doesn't get caught by greeting
         // matchers; smalltalk beats QA so "hi" doesn't match a keyword.
@@ -3419,21 +3444,97 @@ enum WiFiAssistantEngine {
         return .fallback
     }
 
+    /// Word-boundary-safe substring check for intent classification.
+    ///
+    /// A naive `text.contains(pattern)` here used to mis-classify
+    /// chip-tapped questions because patterns are short and the input
+    /// is free-form. For example, the thanks pattern `"ty "` matched
+    /// inside `"security "` and routed `"Why does my security camera
+    /// or doorbell keep going offline?"` to `.thanks` instead of the
+    /// `smart-camera-offline` QA. The fix normalizes both sides into
+    /// a space-padded, single-spaced word stream so a pattern like
+    /// `"ty"` only fires when "ty" stands on its own — never inside
+    /// `"security"`, `"loyalty"`, `"empty"`, etc. Multi-word patterns
+    /// such as `"how do i use"` continue to match cleanly because
+    /// runs of whitespace and punctuation collapse to a single space.
     private static func matchesAny(_ text: String, _ patterns: [String]) -> Bool {
-        for pattern in patterns where text.contains(pattern) { return true }
+        let normalizedText = normalizeForMatching(text)
+        for pattern in patterns {
+            let normalizedPattern = normalizeForMatching(pattern)
+            if normalizedText.contains(normalizedPattern) { return true }
+        }
         return false
     }
 
+    /// Lowercases and collapses any run of non-alphanumeric characters
+    /// (apostrophes preserved so contractions like `what's` survive)
+    /// into a single space, padding with leading and trailing spaces
+    /// so callers can rely on word-boundary substring matching.
+    private static func normalizeForMatching(_ s: String) -> String {
+        var result = " "
+        var lastWasSpace = true
+        for ch in s.lowercased() {
+            if ch.isLetter || ch.isNumber || ch == "'" {
+                result.append(ch)
+                lastWasSpace = false
+            } else if !lastWasSpace {
+                result.append(" ")
+                lastWasSpace = true
+            }
+        }
+        if !result.hasSuffix(" ") {
+            result.append(" ")
+        }
+        return result
+    }
+
+    /// Return the QA whose `question` text exactly matches the user's
+    /// input after word-boundary normalization. Used as a fast path
+    /// for tapped suggestion chips, where the input string is the
+    /// curated question verbatim.
+    private static func matchingQAByQuestionText(_ cleanedLowercase: String) -> AssistantQA? {
+        let normalizedInput = normalizeForMatching(cleanedLowercase)
+        for entry in WiFiAssistantKnowledge.entries {
+            if normalizeForMatching(entry.question) == normalizedInput {
+                return entry
+            }
+        }
+        return nil
+    }
+
+    /// Score each QA by counting how many of its `keywords` appear as
+    /// whole-word matches in the user's input. Uses the same
+    /// space-padded normalization as `matchesAny` so hyphenated
+    /// keywords like `"wi-fi"` / `"long-term"` / `"802.11"` line up
+    /// with the equivalent forms users actually type ("Wi-Fi",
+    /// "long term", "802.11"), and so a keyword like `"ip"` matches
+    /// the standalone word "IP" without accidentally matching inside
+    /// "script" or "trip".
+    ///
+    /// Stop-word keywords (`"what"`, `"how"`, `"the"`, etc.) and
+    /// single-character keywords are skipped at scoring time — they
+    /// over-match against virtually every question and were dead
+    /// weight under the previous `Set.contains` matcher anyway.
     private static func bestQA(for text: String) -> AssistantQA? {
-        let tokens = tokenize(text)
-        guard !tokens.isEmpty else { return nil }
+        let normalizedInput = normalizeForMatching(text)
+        guard normalizedInput.trimmingCharacters(in: .whitespaces).isEmpty == false else {
+            return nil
+        }
 
         var bestScore = 0
         var best: AssistantQA?
         for entry in WiFiAssistantKnowledge.entries {
             var score = 0
-            for keyword in entry.keywords where tokens.contains(keyword) {
-                score += 1
+            for keyword in entry.keywords {
+                let lowered = keyword.lowercased()
+                if lowered.count < 2 { continue }
+                if stopwords.contains(lowered) { continue }
+                let normalizedKeyword = normalizeForMatching(keyword)
+                let trimmedKeyword = normalizedKeyword.trimmingCharacters(in: .whitespaces)
+                if trimmedKeyword.isEmpty { continue }
+                if normalizedInput.contains(normalizedKeyword) {
+                    score += 1
+                }
             }
             if score > bestScore {
                 bestScore = score
