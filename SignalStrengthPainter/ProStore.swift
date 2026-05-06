@@ -25,17 +25,41 @@ final class ProStore: ObservableObject {
     // mark them `nonisolated` to let nonisolated contexts (e.g. SwiftUI
     // previews, Sendable closures, `@ViewBuilder` bodies) reference them
     // without having to hop to the main actor first.
-    nonisolated static let monthlyProductID = "com.wifibuddy.pro.sub.monthly"
-    nonisolated static let yearlyProductID = "com.wifibuddy.pro.sub.yearly"
-    nonisolated static let allProductIDs: Set<String> = [monthlyProductID, yearlyProductID]
+    nonisolated static let annualProductID = "com.wifibuddy.pro.sub.annual"
 
-    /// Persisted flag that stops us from re-scheduling the T+48h trial
+    /// IDs we actively *offer* for purchase. The paywall + product
+    /// catalog only ever reads this set. Single-plan since 1.11 —
+    /// previous Monthly + Yearly SKUs were collapsed into one annual
+    /// plan at $9.99/year. Legacy IDs are not loaded for purchase but
+    /// are still honored for entitlement (see `entitlementRecognizedProductIDs`).
+    nonisolated static let allProductIDs: Set<String> = [annualProductID]
+
+    /// Pre-1.11 product IDs. Existing subscribers on these legacy SKUs
+    /// must keep their Pro entitlement until their term ends — Apple
+    /// honors the original price/term until the user cancels or it
+    /// expires. We DON'T load these into `Product.products(for:)` (so
+    /// they never appear on the paywall), but we DO accept them inside
+    /// `Transaction.currentEntitlements` so an existing subscriber
+    /// upgrading to the 1.11 binary doesn't suddenly lose access.
+    /// When the last legacy subscriber expires, this set can be emptied
+    /// — but there's no harm in leaving it indefinitely.
+    nonisolated static let legacyProductIDs: Set<String> = [
+        "com.wifibuddy.pro.sub.monthly",
+        "com.wifibuddy.pro.sub.yearly"
+    ]
+
+    /// Union of currently-offered + legacy IDs. This is the set we
+    /// match against when walking `Transaction.currentEntitlements`.
+    nonisolated static let entitlementRecognizedProductIDs: Set<String> =
+        allProductIDs.union(legacyProductIDs)
+
+    /// Persisted flag that stops us from re-scheduling the trial-end
     /// reminder every time the app relaunches and walks the entitlements.
     /// Keyed per transaction so an introductory-offer upgrade/downgrade
     /// between products still fires a reminder for the new trial.
     private static let scheduledTrialReminderKey = "trial.reminder.scheduledForTxnID"
 
-    /// Local notification identifier used for the trial day-2 reminder.
+    /// Local notification identifier used for the trial-end reminder.
     /// Single, fixed ID so re-scheduling replaces any previous pending
     /// reminder (e.g., after a cancellation + re-enrollment).
     private static let trialReminderNotificationID = "wifibuddy.trial.day2.reminder"
@@ -70,8 +94,8 @@ final class ProStore: ObservableObject {
     @Published private(set) var gracePeriodExpiration: Date?
 
     /// Which of our product IDs the user is eligible to redeem the
-    /// introductory "3 days free" offer on. Apple forbids showing
-    /// "free trial" copy to users who've already consumed it on that
+    /// introductory free-trial offer on. Apple forbids showing "free
+    /// trial" copy to users who've already consumed it on that
     /// subscription group, so the paywall reads this set before
     /// advertising the offer.
     @Published private(set) var introOfferEligibleProductIDs: Set<String> = []
@@ -109,18 +133,14 @@ final class ProStore: ObservableObject {
 
     /// Fetch `Product` objects from the App Store so we can show localized
     /// pricing on the paywall. Failure here is non-fatal — we fall back to
-    /// the hard-coded "$3.99 / $34.99" copy in `PaywallView`.
+    /// the hard-coded "$9.99/year" copy in `PaywallView`.
     func loadProducts() async {
         isLoadingProducts = true
         defer { isLoadingProducts = false }
 
         do {
             let loaded = try await Product.products(for: Self.allProductIDs)
-            // Show Monthly first, Yearly second, regardless of what the
-            // store returns — the paywall layout assumes that order.
-            self.products = loaded.sorted { lhs, _ in
-                lhs.id == Self.monthlyProductID
-            }
+            self.products = loaded
 
             await refreshIntroOfferEligibility()
 
@@ -160,7 +180,7 @@ final class ProStore: ObservableObject {
     }
 
     /// Whether the currently signed-in Apple ID can still redeem the
-    /// introductory "3 days free" offer on `productID`. Apple scopes
+    /// introductory free-trial offer on `productID`. Apple scopes
     /// intro-offer eligibility to the subscription group (not the
     /// individual product), and `Product.SubscriptionInfo.isEligibleForIntroOffer`
     /// is the authoritative source — callers MUST NOT advertise a trial
@@ -173,8 +193,8 @@ final class ProStore: ObservableObject {
     /// Returns `true` when the product identified by `productID` declares
     /// an introductory offer whose payment mode is a free trial. Used to
     /// disambiguate which `.introductory` transactions in
-    /// `Transaction.currentEntitlements` represent our "3 days free"
-    /// flow versus any future paid intro offer we might add.
+    /// `Transaction.currentEntitlements` represent our free-trial flow
+    /// versus any future paid intro offer we might add.
     ///
     /// Reading the payment mode off the `Product` (instead of the
     /// `Transaction`) keeps the check working on iOS 17.0 where the
@@ -328,7 +348,12 @@ final class ProStore: ObservableObject {
             // absent, never grant access.
             guard case .verified(let transaction) = result else { continue }
 
-            guard Self.allProductIDs.contains(transaction.productID) else { continue }
+            // Recognize *both* the currently-offered annual SKU and the
+            // pre-1.11 legacy IDs (monthly + old yearly). Existing
+            // subscribers must keep Pro until their term ends — Apple
+            // doesn't refund them just because we collapsed the catalog
+            // server-side. See `legacyProductIDs` for rationale.
+            guard Self.entitlementRecognizedProductIDs.contains(transaction.productID) else { continue }
             guard transaction.revocationDate == nil else { continue }
             // `isUpgraded` is set on the old transaction when the user moves
             // up a tier inside the same subscription group — skip it to
@@ -347,12 +372,12 @@ final class ProStore: ObservableObject {
             // Trial detection: StoreKit 2 marks the transaction's
             // `offerType` as `.introductory` while the user is inside an
             // introductory offer. Our StoreKit config (see
-            // `Configuration.storekit`) only declares *free-trial*
-            // intro offers on both subscription products, so an
-            // active `.introductory` transaction here is unambiguously
-            // a 3-day free trial. If a paid intro offer (pay-as-you-go
-            // or pay-up-front) is ever added, cross-reference the
-            // matching `Product.subscription?.introductoryOffer?.paymentMode`
+            // `Configuration.storekit`) only declares a *free-trial*
+            // intro offer on the annual subscription, so an active
+            // `.introductory` transaction here is unambiguously a free
+            // trial. If a paid intro offer (pay-as-you-go or pay-up-front)
+            // is ever added, cross-reference the matching
+            // `Product.subscription?.introductoryOffer?.paymentMode`
             // before treating the transaction as a trial.
             //
             // iOS 17.2 added a richer `Transaction.offer` struct with
@@ -382,7 +407,7 @@ final class ProStore: ObservableObject {
         await refreshIntroOfferEligibility()
 
         if trialActive, let trialEndDate, let txnID = activeTrialTransactionID {
-            await scheduleTrialDayTwoReminderIfNeeded(
+            await scheduleTrialEndReminderIfNeeded(
                 transactionID: txnID,
                 trialExpiration: trialEndDate
             )
@@ -409,10 +434,10 @@ final class ProStore: ObservableObject {
     }
 
     /// Ask StoreKit whether the current Apple ID is still eligible for the
-    /// intro offer on each product we sell. The check is per subscription
-    /// group, not per product — so both Monthly and Yearly in our group
-    /// share eligibility — but StoreKit exposes it on the product's
-    /// `subscription.isEligibleForIntroOffer` so we query both and cache.
+    /// intro offer on the product we sell. Per-subscription-group, so a
+    /// returning subscriber who already burned the trial on the legacy
+    /// monthly/yearly SKUs won't be eligible on the new annual SKU
+    /// either — exactly the behavior we want.
     private func refreshIntroOfferEligibility() async {
         var eligible: Set<String> = []
         for product in products {
@@ -461,15 +486,15 @@ final class ProStore: ObservableObject {
         self.gracePeriodExpiration = earliestGraceExpiration
     }
 
-    /// Schedules a single local notification at the 48-hour mark of the
-    /// active trial reminding the user when the charge will hit and how
-    /// to cancel. Apple requires clear disclosure for intro offers, and
-    /// this reminder measurably reduces refund requests by eliminating
-    /// "I forgot I had a trial" churn. We only schedule once per trial
-    /// transaction (`transactionID` key) and skip if less than 48h
-    /// remain — re-scheduling at launch otherwise fires the
-    /// notification in the past.
-    private func scheduleTrialDayTwoReminderIfNeeded(
+    /// Schedules a single local notification 24 hours before the
+    /// active trial expires, reminding the user when the charge will
+    /// hit and how to cancel. Apple requires clear disclosure for
+    /// intro offers, and this reminder measurably reduces refund
+    /// requests by eliminating "I forgot I had a trial" churn. We
+    /// only schedule once per trial transaction (`transactionID` key)
+    /// and skip if less than ~24h remain — re-scheduling at launch
+    /// otherwise fires the notification in the past.
+    private func scheduleTrialEndReminderIfNeeded(
         transactionID: UInt64,
         trialExpiration: Date
     ) async {
@@ -487,10 +512,9 @@ final class ProStore: ObservableObject {
         }
         guard granted else { return }
 
-        // Fire 24 hours before expiration (so at "T+48h" of a 3-day
-        // trial). If we're already past that point, skip — sending a
-        // "your trial ends tomorrow" notification the same day it
-        // ends annoys users without adding value.
+        // Fire 24 hours before expiration. If we're already past that
+        // point, skip — sending a "your trial ends tomorrow" notification
+        // the same day it ends annoys users without adding value.
         let fireDate = trialExpiration.addingTimeInterval(-24 * 60 * 60)
         let interval = fireDate.timeIntervalSinceNow
         guard interval > 60 else { return }

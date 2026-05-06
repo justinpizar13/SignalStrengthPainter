@@ -24,8 +24,8 @@ export const SITE = {
     count: 124,
   } as { value: number; count: number } | null,
   pricing: {
-    monthly: "$3.99",
-    yearly: "$34.99",
+    annual: "$9.99",
+    trialDays: 2,
   },
   twitter: "@wifibuddyapp",
 } as const;

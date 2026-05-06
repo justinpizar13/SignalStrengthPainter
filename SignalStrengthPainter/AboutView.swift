@@ -146,7 +146,7 @@ struct AboutView: View {
                 icon: "crown.fill",
                 tint: .orange,
                 title: "Pro",
-                subtitle: "Unlock unlimited Survey runs and unlimited Klaus chat. Try it free for 3 days."
+                subtitle: "Unlock unlimited Survey runs and unlimited Klaus chat. Try it free for 2 days."
             )
         }
     }
@@ -233,7 +233,7 @@ struct AboutView: View {
             proFeatureRow(icon: "bubble.left.fill", text: "Unlimited Klaus AI chat")
             proFeatureRow(icon: "sparkles", text: "Support indie development so we can keep adding features")
             bodyText(
-                "Plans start at $3.99/month or $34.99/year, and every new plan starts with a 3-day free trial. Cancel anytime in Settings — trials auto-renew if not cancelled."
+                "WiFi Buddy Pro is $9.99/year, and every new subscription starts with a 2-day free trial. Cancel anytime in Settings — trials auto-renew if not cancelled."
             )
         }
     }

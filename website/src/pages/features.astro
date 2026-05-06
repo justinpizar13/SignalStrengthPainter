@@ -2,6 +2,7 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Section from "@/components/Section.astro";
 import AppStoreButton from "@/components/AppStoreButton.astro";
+import { SITE } from "@/lib/site";
 
 const title = "Features — How WiFi Buddy works";
 const description =
@@ -197,9 +198,9 @@ const description =
         Try it on your own home.
       </h2>
       <p class="text-[--color-fg-muted]">
-        Free Speed, Signal &amp; Devices tabs. WiFi Buddy Pro from
-        <strong class="text-[--color-fg]">$3.99/mo</strong> with a
-        3-day free trial.
+        Free Speed, Signal &amp; Devices tabs. WiFi Buddy Pro is
+        <strong class="text-[--color-fg]">{SITE.pricing.annual}/year</strong> with a
+        {SITE.pricing.trialDays}-day free trial.
       </p>
       <AppStoreButton size="lg" class="cta-press" />
     </div>

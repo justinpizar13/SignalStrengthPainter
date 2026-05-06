@@ -8,11 +8,6 @@ struct PaywallView: View {
     @ObservedObject var store: ProStore
     @Binding var isPresented: Bool
     @Environment(\.theme) private var theme
-    /// Default to Yearly — this is the trial-led funnel, and utility-app
-    /// benchmarks show trial-to-annual converts at ~12x the LTV of
-    /// trial-to-monthly. Start the user on the plan we actually want
-    /// them to pick.
-    @State private var selectedPlan: Plan = .yearly
     @State private var currentPage = 0
     @State private var showRestoreError: Bool = false
     /// Drives the bundled legal-document sheet (Privacy Policy / Terms
@@ -24,34 +19,34 @@ struct PaywallView: View {
 
     private let pageCount = 3
 
-    enum Plan {
-        case monthly, yearly
+    /// The single subscription product ID. Single-plan paywall since
+    /// 1.11 — the previous Monthly + Yearly toggle was collapsed into
+    /// one annual plan to simplify the funnel.
+    private var productID: String { ProStore.annualProductID }
 
-        var productID: String {
-            switch self {
-            case .monthly: return ProStore.monthlyProductID
-            case .yearly: return ProStore.yearlyProductID
-            }
-        }
+    /// Hard-coded fallback used before StoreKit returns real products,
+    /// or if the product fetch fails (e.g. App Store unreachable). Must
+    /// stay in sync with the price configured in App Store Connect.
+    private static let fallbackAnnualPrice = "$9.99"
+
+    /// Length in days of the introductory free trial declared on the
+    /// annual subscription in `Configuration.storekit` and App Store
+    /// Connect. Surfaced in CTA copy + the trial timeline + the legal
+    /// disclosure block. If you change the trial period in either
+    /// store config, change it here in the same commit.
+    private static let trialDays = 2
+
+    /// True when the user is still eligible to redeem the free trial.
+    /// StoreKit reports this per subscription group, so a returning
+    /// subscriber who already burned the trial on a legacy
+    /// monthly/yearly SKU will correctly see "no trial available".
+    private var trialAvailable: Bool {
+        store.isEligibleForIntroOffer(productID: productID)
     }
 
-    /// Hard-coded fallbacks used before StoreKit returns real products, or
-    /// if the product fetch fails (e.g. App Store unreachable). These must
-    /// stay in sync with the prices configured in App Store Connect.
-    private static let fallbackMonthlyPrice = "$3.99"
-    private static let fallbackYearlyPrice = "$34.99"
-    /// Strikethrough "was" price shown next to the live Yearly price to
-    /// anchor the Yearly plan as a deal. Pure marketing copy — never
-    /// configured as a real SKU in `Configuration.storekit` or App Store
-    /// Connect.
-    private static let fallbackYearlyCrossOut = "$39.99"
-
-    /// True when the user is still eligible to redeem the 3-day free
-    /// trial on the currently selected plan. StoreKit reports this per
-    /// subscription group, so selecting Monthly vs Yearly after a past
-    /// trial on either product will correctly show "no trial available".
-    private var trialAvailableForSelection: Bool {
-        store.isEligibleForIntroOffer(productID: selectedPlan.productID)
+    /// Live (or fallback) price string for the annual plan.
+    private var annualDisplayPrice: String {
+        store.product(for: productID)?.displayPrice ?? Self.fallbackAnnualPrice
     }
 
     var body: some View {
@@ -67,9 +62,9 @@ struct PaywallView: View {
                         pageDots
                         titleSection
                         featureIcon
-                        pricingCards
+                        pricingCard
                         buyButton
-                        if trialAvailableForSelection {
+                        if trialAvailable {
                             trialTimeline
                         }
                         disclosureLine
@@ -488,132 +483,65 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - Pricing cards
+    // MARK: - Pricing card
 
-    private var pricingCards: some View {
-        VStack(spacing: 12) {
-            pricingOption(
-                plan: .monthly,
-                title: "Monthly",
-                subtitle: monthlyCardSubtitle,
-                price: store.product(for: ProStore.monthlyProductID)?.displayPrice
-                    ?? Self.fallbackMonthlyPrice,
-                badge: store.isEligibleForIntroOffer(productID: ProStore.monthlyProductID)
-                    ? "3 Days Free"
-                    : nil,
-                crossedOutPrice: nil
-            )
+    /// Single, non-interactive pricing tile. Single-plan since 1.11 —
+    /// no radio selection, no monthly/yearly toggle, no strikethrough
+    /// "was" price. Reads the live `displayPrice` so localized
+    /// currencies (€, £, ¥) render correctly when the user is in a
+    /// non-USD storefront, and falls back to the hard-coded $9.99 if
+    /// the product catalog hasn't loaded yet.
+    private var pricingCard: some View {
+        let badgeText = trialAvailable ? "\(Self.trialDays) Days Free" : nil
+        let subtitle = trialAvailable
+            ? "Then \(annualDisplayPrice)/year. Cancel anytime."
+            : "Billed once a year. Cancel anytime."
 
-            pricingOption(
-                plan: .yearly,
-                title: "Yearly",
-                subtitle: yearlyCardSubtitle,
-                price: store.product(for: ProStore.yearlyProductID)?.displayPrice
-                    ?? Self.fallbackYearlyPrice,
-                badge: store.isEligibleForIntroOffer(productID: ProStore.yearlyProductID)
-                    ? "3 Days Free"
-                    : "Best Deal",
-                crossedOutPrice: Self.fallbackYearlyCrossOut
-            )
+        return HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("WiFi Buddy Pro")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                if let badgeText {
+                    Text(badgeText)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                }
+
+                Text(annualDisplayPrice)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+
+                Text("per year")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.tertiaryText)
+            }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(theme.subtle)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.blue, lineWidth: 2)
+        )
         .padding(.top, 8)
-    }
-
-    private var monthlyCardSubtitle: String {
-        if store.isEligibleForIntroOffer(productID: ProStore.monthlyProductID) {
-            let price = store.product(for: ProStore.monthlyProductID)?.displayPrice
-                ?? Self.fallbackMonthlyPrice
-            return "3 days free, then \(price)/month"
-        }
-        return "Billed monthly. Cancel anytime."
-    }
-
-    private var yearlyCardSubtitle: String {
-        if store.isEligibleForIntroOffer(productID: ProStore.yearlyProductID) {
-            let price = store.product(for: ProStore.yearlyProductID)?.displayPrice
-                ?? Self.fallbackYearlyPrice
-            return "3 days free, then \(price)/year"
-        }
-        return "Billed once a year"
-    }
-
-    private func pricingOption(
-        plan: Plan,
-        title: String,
-        subtitle: String,
-        price: String,
-        badge: String?,
-        crossedOutPrice: String?
-    ) -> some View {
-        let isSelected = selectedPlan == plan
-
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selectedPlan = plan
-            }
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .stroke(isSelected ? Color.blue : theme.tertiaryText, lineWidth: 2)
-                        .frame(width: 24, height: 24)
-
-                    if isSelected {
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 14, height: 14)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(theme.primaryText)
-
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundStyle(theme.tertiaryText)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    if let badge {
-                        Text(badge)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.red)
-                            .clipShape(Capsule())
-                    }
-
-                    HStack(spacing: 6) {
-                        if let crossedOutPrice {
-                            Text(crossedOutPrice)
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(theme.tertiaryText)
-                                .strikethrough(true, color: theme.tertiaryText)
-                        }
-
-                        Text(price)
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(theme.primaryText)
-                    }
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(isSelected ? theme.subtle : theme.cardFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? Color.blue : theme.cardStroke, lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Buy button
@@ -642,37 +570,30 @@ struct PaywallView: View {
         .padding(.top, 8)
     }
 
-    /// CTA copy flips between "Start 3-Day Free Trial" (whichever plan
-    /// is selected, when eligible) and the plain "Subscribe" path. We
-    /// never show trial copy when StoreKit reports the user is no
-    /// longer eligible — doing so would set up a refund because the
-    /// purchase goes through at full price.
-    ///
-    /// Both Monthly and Yearly ship with a 3-day free trial intro
-    /// offer (see `Configuration.storekit` and the App Store Connect
-    /// subscription configuration). Surfacing the trial regardless of
-    /// the selected plan keeps the paywall consistent with the system
-    /// purchase sheet — App Review specifically rejected an earlier
-    /// build (April 2026) for "free trial did not reflect during the
-    /// purchase flow" when reviewers selected Monthly and the paywall
-    /// said "Subscribe" instead of disclosing the trial.
+    /// CTA copy flips between "Start N-Day Free Trial" (when the user
+    /// is eligible for the intro offer) and the plain "Subscribe"
+    /// path. We never show trial copy when StoreKit reports the user
+    /// is no longer eligible — doing so would set up a refund because
+    /// the purchase goes through at full price. App Review (round 2,
+    /// April 2026) specifically rejected the prior build for surfacing
+    /// "Subscribe" while StoreKit still ran a free-trial flow; the
+    /// inverse is equally bad.
     private var buyButtonLabel: String {
         if store.purchaseInFlight { return "Processing..." }
-        if trialAvailableForSelection {
-            return "Start 3-Day Free Trial"
+        if trialAvailable {
+            return "Start \(Self.trialDays)-Day Free Trial"
         }
         return "Subscribe"
     }
 
-    /// Three-row trial timeline shown under the CTA whenever the
-    /// currently selected plan is intro-offer eligible. Transparent
-    /// disclosure about the charge date consistently lifts trial start
-    /// rate AND reduces "I forgot I signed up" refund requests. The
-    /// charge-date copy reflects the selected plan's actual price and
-    /// period so monthly trials don't silently say "/year".
+    /// Three-row trial timeline shown under the CTA whenever the user
+    /// is intro-offer eligible. Transparent disclosure of the charge
+    /// date lifts trial-start rate AND reduces "I forgot I signed up"
+    /// refund requests. The N-day trial parameter mirrors
+    /// `Configuration.storekit` so changing the trial length in one
+    /// place updates the timeline copy automatically.
     private var trialTimeline: some View {
-        let price = selectedPlanDisplayPrice
-        let period = selectedPlan == .yearly ? "year" : "month"
+        let chargeDay = Self.trialDays + 1
         return VStack(alignment: .leading, spacing: 10) {
             trialTimelineRow(
                 index: 1,
@@ -681,13 +602,13 @@ struct PaywallView: View {
             )
             trialTimelineRow(
                 index: 2,
-                title: "Day 2",
+                title: "Day \(Self.trialDays)",
                 detail: "We'll send a reminder before your trial ends."
             )
             trialTimelineRow(
                 index: 3,
-                title: "Day 3",
-                detail: "Trial ends. You'll be charged \(price)/\(period) unless you cancel."
+                title: "Day \(chargeDay)",
+                detail: "Trial ends. You'll be charged \(annualDisplayPrice)/year unless you cancel."
             )
         }
         .padding(14)
@@ -700,20 +621,6 @@ struct PaywallView: View {
                         .stroke(Color.blue.opacity(0.25), lineWidth: 1)
                 )
         )
-    }
-
-    /// Live (or fallback) price for whichever plan is selected. Used
-    /// by the trial timeline + the disclosure copy so the displayed
-    /// price always tracks the user's current selection.
-    private var selectedPlanDisplayPrice: String {
-        switch selectedPlan {
-        case .monthly:
-            return store.product(for: ProStore.monthlyProductID)?.displayPrice
-                ?? Self.fallbackMonthlyPrice
-        case .yearly:
-            return store.product(for: ProStore.yearlyProductID)?.displayPrice
-                ?? Self.fallbackYearlyPrice
-        }
     }
 
     private func trialTimelineRow(
@@ -754,14 +661,12 @@ struct PaywallView: View {
     /// available and fall back to the hard-coded values so this block
     /// is never blank during product-load failures.
     private var disclosureLine: some View {
-        let selectedPrice = selectedPlanDisplayPrice
-        let period = selectedPlan == .yearly ? "year" : "month"
-        let trialLine = trialAvailableForSelection
-            ? "After your 3-day free trial, your Apple ID will be charged \(selectedPrice)/\(period). "
+        let trialLine = trialAvailable
+            ? "After your \(Self.trialDays)-day free trial, your Apple ID will be charged \(annualDisplayPrice)/year. "
             : ""
 
         return VStack(spacing: 6) {
-            Text("WiFi Buddy Pro — \(selectedPrice)/\(period). \(trialLine)Payment will be charged to your Apple ID at confirmation of purchase. Subscription auto-renews for the same price and period unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in Settings → Apple ID → Subscriptions. Any unused portion of a free trial is forfeited when a subscription is purchased.")
+            Text("WiFi Buddy Pro — \(annualDisplayPrice)/year. \(trialLine)Payment will be charged to your Apple ID at confirmation of purchase. Subscription auto-renews for the same price and period unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in Settings → Apple ID → Subscriptions. Any unused portion of a free trial is forfeited when a subscription is purchased.")
                 .font(.system(size: 11))
                 .foregroundStyle(theme.tertiaryText)
                 .multilineTextAlignment(.center)
@@ -785,7 +690,7 @@ struct PaywallView: View {
     }
 
     private func startPurchase() async {
-        guard let product = store.product(for: selectedPlan.productID) else {
+        guard let product = store.product(for: productID) else {
             // Product metadata hasn't loaded (or the ID is wrong) — retry
             // the fetch and surface whatever error `loadProducts()` set.
             // We preserve that error (e.g. "launch from Xcode so
@@ -793,7 +698,7 @@ struct PaywallView: View {
             // it with a generic "try again" — otherwise the real reason
             // is invisible on device.
             await store.loadProducts()
-            if store.product(for: selectedPlan.productID) == nil {
+            if store.product(for: productID) == nil {
                 if store.lastError == nil {
                     store.lastError = "Couldn't load that subscription. Please try again."
                 }

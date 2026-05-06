@@ -3066,7 +3066,7 @@ WiFi Buddy Pro unlocks three things:
 
 Everything else — Speed Test, live topology, Signal latency check, full Device discovery — is free, forever.
 
-Pricing: Monthly $3.99 or Yearly $34.99 (saves about 27%). Both come with a **3-day free trial** if you're a new user. Cancel anytime in Settings → Apple ID → Subscriptions.
+Pricing: **$9.99/year** with a **2-day free trial** if you're a new user. Cancel anytime in Settings → Apple ID → Subscriptions.
 """,
                 """
 Pro unlocks:
@@ -3077,7 +3077,7 @@ Pro unlocks:
 
 Everything else (Speed Test, live topology, Device discovery, network monitoring) is free.
 
-$3.99/month or $34.99/year, 3-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
+$9.99/year with a 2-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
 """
             ],
             followUps: [
@@ -4398,7 +4398,22 @@ struct WiFiAssistantView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
+                // Tap on empty space inside the scroll content dismisses
+                // the keyboard. The chip Buttons own their own gesture
+                // recognizers so they still receive taps; this only fires
+                // for taps that miss everything else. Without this, users
+                // who finished typing have no way to put the keyboard
+                // away other than backgrounding the app.
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    inputFocused = false
+                }
             }
+            // Drag-down on the message list dismisses the keyboard,
+            // matching iMessage / WhatsApp muscle memory. Drag-to-pan
+            // doesn't apply here (no canvas), so interactive dismissal
+            // is unambiguous.
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: messages) { _, _ in
                 if let last = messages.last {
                     withAnimation(.easeOut(duration: 0.25)) {
@@ -4653,6 +4668,12 @@ struct WiFiAssistantView: View {
         let text = trimmedInput
         guard !text.isEmpty else { return }
         inputText = ""
+        // Drop focus so the keyboard slides away while Klaus is
+        // "thinking". Replies are typically multi-paragraph and the
+        // keyboard otherwise covers the lower half of the bubble. Users
+        // can re-focus by tapping the input bar when they want to ask
+        // another question.
+        inputFocused = false
         submit(text)
     }
 

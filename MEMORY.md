@@ -43,8 +43,8 @@ Accepts a `size` parameter; everything scales proportionally. Used in tab header
 | `DashboardView.swift` | **Speed tab.** Live ISP→Router→Device topology, multi-stream speed test, post-test Wi-Fi report (Netflix/gaming/calls/office/browsing), service latency grid (Google/Cloudflare/OpenDNS/Gateway), survey quick-action card, hamburger button to `AboutView`. Auto-presents the Getting Started sheet on first launch (`@AppStorage("hasSeenGettingStarted")`). |
 | `NetworkTopologyMonitor.swift` | Live topology state. Publishes `localIP`, inferred `gatewayIP`, `gatewayLatencyMs`, `ispLatencyMs`, derived `LinkHealth` per hop (`.good/.fair/.poor/.offline/.unknown`). Refresh every 6 s + on `NetworkInterfaceMonitor` change. Cellular → LAN hop is `.unknown`, not `.offline`. `deviceLabel` uses `UIDevice.current.localizedModel`. |
 | `SpeedTestManager.swift` | Server selection (Cloudflare colo via `/meta`), latency (10 HTTP pings, trimmed mean + jitter), download + upload (8 concurrent async streams, 4 MB chunks, 12 s cap each). `TransferCounter` for byte tracking. Final speed = total bytes / elapsed time. |
-| `PaywallView.swift` | Pro upsell. 3-page swipeable feature tour (AR Survey / Smart Insights / Klaus AI), pricing cards (Monthly $3.99 / Yearly $34.99 with `~~$39.99~~` strikethrough), "Buy Now" / "Start 3-Day Free Trial" CTA, trial timeline disclosure when eligible. Default selection is Yearly. Privacy Policy + Terms of Use links open `LegalDocumentView`. |
-| `ProStore.swift` | StoreKit 2 manager (`@MainActor` `ObservableObject`). Loads products, runs purchases, restores. Detached `Transaction.updates` listener. **Entitlement only from `Transaction.currentEntitlements` — never persisted.** Publishes `hasActiveTrial`, `trialExpiration`, `gracePeriodExpiration`, `introOfferEligibleProductIDs`. Schedules T+48h trial reminder via `UNUserNotificationCenter`. Detects empty-products case (descriptive `lastError`). `purchaseErrorMessage(for:)` switches on `Product.PurchaseError` / `StoreKitError` so failure alerts name the actual error. |
+| `PaywallView.swift` | Pro upsell. 3-page swipeable feature tour (AR Survey / Smart Insights / Klaus AI), single non-interactive pricing tile ($9.99/year), "Subscribe" / "Start 2-Day Free Trial" CTA, trial timeline disclosure when eligible. Privacy Policy + Terms of Use links open `LegalDocumentView`. |
+| `ProStore.swift` | StoreKit 2 manager (`@MainActor` `ObservableObject`). Loads products, runs purchases, restores. Detached `Transaction.updates` listener. **Entitlement only from `Transaction.currentEntitlements` — never persisted.** Publishes `hasActiveTrial`, `trialExpiration`, `gracePeriodExpiration`, `introOfferEligibleProductIDs`. Schedules a trial-end reminder (24h before expiry) via `UNUserNotificationCenter`. Recognizes legacy monthly/yearly product IDs in `entitlementRecognizedProductIDs` so pre-1.11 subscribers keep Pro. Detects empty-products case (descriptive `lastError`). `purchaseErrorMessage(for:)` switches on `Product.PurchaseError` / `StoreKitError` so failure alerts name the actual error. |
 | `ARTrackingManager.swift` | `ARWorldTrackingConfiguration`. Publishes world-space camera displacement from a session anchor, floor-projected heading, tracking status. |
 | `SignalMapViewModel.swift` | AR position → map coordinates, latency sampling, trail of `TrailPoint`s, calibration stages, landmark re-anchor, map rotation. |
 | `SignalCanvasView.swift` | `Canvas`-based renderer for floor plan, heat blobs, blue path, surveyor symbol, best/worst markers. Pinch-to-zoom + drag-to-pan + zoom buttons + tap-to-inspect (`PointInfoCard`). |
@@ -152,15 +152,16 @@ Why deterministic and not LLM: same walk → same report; debuggable; no cloud c
 
 - `PaywallView` is shown as the Pro tab for free users (and as a sheet from Survey + Klaus gates).
 - Top of the paywall is a 3-page swipeable `TabView` whose pages map 1:1 to gated features (AR Wi-Fi Survey / Smart Insights / Klaus AI). Page dots are tappable + animated. Bound to `@State currentPage`. Per-page copy is intentionally specific.
-- **Pricing:** Monthly **$3.99**, Yearly **$34.99** (with `~~$39.99~~` strikethrough + red "Best Deal" badge). Live `displayPrice` from StoreKit replaces the fallback strings when `Product` metadata loads.
+- **Pricing:** Single annual plan at **$9.99/year**. Single non-interactive pricing tile — no monthly/yearly toggle, no strikethrough "was" price, no "Best Deal" badge. Live `displayPrice` from StoreKit replaces the fallback string when `Product` metadata loads.
 
-  Live prices are duplicated across **three** spots that must agree: `PaywallView.fallbackMonthlyPrice` / `fallbackYearlyPrice`, the `displayPrice` example in `ProStore.loadProducts()`'s doc comment, and the `displayPrice` in `Configuration.storekit`. App Store Connect is the fourth source of truth for production. The strikethrough anchor (`fallbackYearlyCrossOut`) is **only** in `PaywallView` — not in StoreKit, not in ASC.
+  The live price is duplicated across **three** spots that must agree: `PaywallView.fallbackAnnualPrice`, the `displayPrice` in `Configuration.storekit`, and App Store Connect. The trial length lives in `PaywallView.trialDays` and `Configuration.storekit`'s `subscriptionPeriod` (`P2D`) — keep them in lockstep.
 
-- **3-day free trial:** Both Monthly and Yearly carry an `introductoryOffer` of type `freeTrial` in `Configuration.storekit`. Eligibility is checked via `Product.SubscriptionInfo.isEligibleForIntroOffer(for:)` so returning subscribers don't see trial copy they can't use. CTA flips to **"Start 3-Day Free Trial"** when `trialAvailableForSelection` is true (regardless of which plan is selected — earlier code only fired the trial UI on Yearly, which was the round-2 App Review rejection). Trial timeline + cancel-anytime disclosure is shown.
-- **Trial day-2 reminder:** `ProStore.scheduleTrialDayTwoReminderIfNeeded(...)` fires a one-shot `UNUserNotificationCenter` notification at `trialExpiration - 24h`. Identifier prefix `wifibuddy.trial.day2.`, keyed by transaction ID for idempotency. `clearTrialReminder()` fires on transition out of trial.
+- **2-day free trial:** Annual plan carries an `introductoryOffer` of type `freeTrial` (`P2D`) in `Configuration.storekit`. Eligibility is checked via `Product.SubscriptionInfo.isEligibleForIntroOffer(for:)` so returning subscribers — including anyone who burned the trial on a legacy monthly/yearly SKU — don't see trial copy they can't use. CTA flips to **"Start 2-Day Free Trial"** when `trialAvailable` is true. Trial timeline + cancel-anytime disclosure is shown.
+- **Trial-end reminder:** `ProStore.scheduleTrialEndReminderIfNeeded(...)` fires a one-shot `UNUserNotificationCenter` notification at `trialExpiration - 24h` — i.e., 24 hours before the trial converts to a paid subscription. Identifier `wifibuddy.trial.day2.reminder` (kept for backward compatibility despite the day-N renaming), keyed by transaction ID for idempotency. `clearTrialReminder()` fires on transition out of trial.
 - **Grace period:** `ProStore.refreshGracePeriodStatus(...)` reads `Product.SubscriptionInfo.RenewalInfo.gracePeriodExpirationDate`. During the billing-retry window `isProUser` **stays true** and `MainTabView` renders a `GracePeriodBanner` safe-area inset. Matches Apple's own UX — never rip features away mid-renewal.
 - **StoreKit 2 integration (`ProStore.swift`):**
-  - Product IDs: `com.wifibuddy.pro.sub.monthly` and `com.wifibuddy.pro.sub.yearly` (constants at top of file). The `.sub.` infix is permanent — Apple blocks reuse of deleted product IDs, and the original `.monthly` / `.yearly` IDs were deleted during an ASC subscription rebuild.
+  - Currently-offered product ID: `com.wifibuddy.pro.sub.annual` (`annualProductID` constant). The `.sub.` infix is permanent — Apple blocks reuse of deleted product IDs.
+  - **Legacy IDs honored for entitlement:** `com.wifibuddy.pro.sub.monthly` and `com.wifibuddy.pro.sub.yearly` live in `legacyProductIDs`. They are not loaded into `Product.products(for:)` (so they never show on the paywall), but `entitlementRecognizedProductIDs = allProductIDs ∪ legacyProductIDs` is what we match against in `Transaction.currentEntitlements`. Pre-1.11 subscribers keep Pro until their term ends — Apple honors original price/term until cancellation/expiry.
   - Entitlement only from `Transaction.currentEntitlements` (JWS-signed, validated on-device). A jailbroken `@AppStorage("isProUser")` flip cannot grant Pro.
   - Detached `Transaction.updates` listener handles Ask-to-Buy / family-sharing / refund events.
   - `restore()` calls `AppStore.sync()` and re-derives entitlements.
@@ -414,7 +415,7 @@ When the contact email or "Last updated" date changes, update **all four** legal
 ASC dashboard tasks for first submission:
 
 1. Create app record using `com.wifibuddy.app`.
-2. Configure both subscriptions in one group with the prices + 3-day free trial that `TermsOfUse.md` commits to (Monthly $3.99 / Yearly $34.99).
+2. Configure the annual subscription in the WiFi Buddy Pro group with the price + 2-day free trial that `TermsOfUse.md` commits to ($9.99/year). Legacy monthly + yearly SKUs stay listed in ASC for existing-subscriber entitlement (the app honors them via `legacyProductIDs`) but are no longer offered for new purchase.
 3. Upload screenshots at 6.7" / 6.5" / 5.5" iPhone. **No iPad screenshots required** (iPhone-only target).
 4. App Privacy questionnaire — answer "Data Not Collected" everywhere (must match `PrivacyInfo.xcprivacy`).
 5. App Review Notes: *"Survey tab uses ARKit; please test on a physical device. Paywall with Privacy Policy + Terms links is on the Pro tab; Klaus chat has its own dedicated tab."*
@@ -425,42 +426,41 @@ The build went through three rejection rounds before the first approval. The dur
 
 ### Free trial UI must match StoreKit reality
 
-Round-2 rejection (2.1(b)): `PaywallView` only surfaced trial copy when Yearly was selected, but `Configuration.storekit` declared the same intro offer on Monthly. Reviewer selecting Monthly saw a "Subscribe" CTA but the system StoreKit sheet would have started a free trial anyway → UI/IAP mismatch.
-
-**Fix:** `buyButtonLabel` returns `"Start 3-Day Free Trial"` whenever `trialAvailableForSelection` is true, regardless of plan. The `selectedPlan == .yearly` guard was removed across `trialTimeline`, `disclosureLine`, `monthlyCardSubtitle`, etc. `selectedPlanDisplayPrice` helper centralizes the "live `displayPrice` with hardcoded fallback" logic for whichever plan is currently selected, so timeline + disclosure stay in lockstep on price/period changes.
+App Review rejection 2.1(b) (round 2 of the original 1.0 submission): the paywall said "Subscribe" but the system StoreKit sheet would have started a free trial. Durable rule: whenever a product carries an introductory free-trial offer in `Configuration.storekit` / ASC, the CTA must surface trial copy when the user is eligible. The single-plan paywall in 1.11 collapses this to one check (`trialAvailable`) — no per-plan branching to drift out of sync.
 
 ### Surface real StoreKit failures
 
-Round-3 rejection (2.1(b)): "An error appears when we tap on 'Start 3-Day Free Trial'." Pre-round-3, the catch in `ProStore.purchase(_:)` collapsed every failure mode (productUnavailable, purchaseNotAllowed, ineligibleForOffer, invalidOfferIdentifier, missing offer parameters, network, system, storefront, etc.) into a single `"Purchase failed. Please try again."` alert.
+App Review rejection 2.1(b) (round 3 of the original 1.0 submission): "An error appears when we tap on 'Start Free Trial'." Pre-fix, the catch in `ProStore.purchase(_:)` collapsed every failure mode (productUnavailable, purchaseNotAllowed, ineligibleForOffer, invalidOfferIdentifier, missing offer parameters, network, system, storefront, etc.) into a single `"Purchase failed. Please try again."` alert.
 
 **Fix:** `purchaseErrorMessage(for:)` switches on `Product.PurchaseError` and `StoreKitError`, falls through to a typed `"\(type(of: error)): \(localizedDescription)"` capture for unknown subclasses. Same idea applied to `loadProducts()`'s catch. The diagnostic suffix sits in parentheses after the recovery hint — acceptable in shipping copy because users have already tapped Buy by then, and the win on review screenshots and support emails far outweighs the readability cost.
 
 ### Subscriptions must be attached to the build under review
 
-The most common cause of "Buy / Restore returned no products" review failures: a subscription can be "Approved" in App Store Connect yet **not attached to a specific version review**. Reviewer's sandbox only trusts attached-to-the-binary. After every SKU rebuild, manually go to App Store Connect → My Apps → version → "In-App Purchases and Subscriptions" and attach both subscriptions.
+The most common cause of "Buy / Restore returned no products" review failures: a subscription can be "Approved" in App Store Connect yet **not attached to a specific version review**. Reviewer's sandbox only trusts attached-to-the-binary. After every SKU rebuild, manually go to App Store Connect → My Apps → version → "In-App Purchases and Subscriptions" and attach the active subscription (and any legacy ones still being honored).
 
 Other ASC items to verify before resubmitting (in order of likelihood):
 
-1. Both IAPs attached to the version (above).
-2. Tax Category set on both subscriptions.
+1. Active IAP attached to the version (above).
+2. Tax Category set on the subscription.
 3. Subscription Group has at least one localization.
-4. Each subscription has Display Name + Description for at least US English.
-5. Introductory Offer status — the offer can be "Ready to Submit" independent of the parent subscription. Confirm both intro offers say "Ready to Submit" *and* are listed under the version's IAP section.
+4. Subscription has Display Name + Description for at least US English.
+5. Introductory Offer status — the offer can be "Ready to Submit" independent of the parent subscription. Confirm the intro offer says "Ready to Submit" *and* is listed under the version's IAP section.
 6. Pricing/availability for the reviewer's storefront (typically US).
-7. Subscription Review Information — Apple requires a screenshot per subscription product.
+7. Subscription Review Information — Apple requires a screenshot of the subscription's purchase flow.
 8. Apple Developer Program License Agreement up to date (separate from Paid Apps Agreement).
 
 ### Deleted product IDs are permanent
 
-After an ASC subscription rebuild (legal/tax/group-localization metadata drift forced the SKUs to be deleted and recreated), **Apple permanently blocks reuse of deleted product identifiers**. This is why the IDs carry the `.sub.` infix:
+**Apple permanently blocks reuse of deleted product identifiers.** SKU history (each rotation produced a new permanent ID; old IDs are forever burnt):
 
-- Before: `com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly` (deleted).
-- After: `com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly` (permanent).
+- Original: `com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly` (deleted during ASC rebuild).
+- Then: `com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly` (deleted yearly when collapsing to single-plan; monthly retained in ASC for legacy subscribers).
+- Now: `com.wifibuddy.pro.sub.annual` (active SKU, $9.99/year, 2-day trial).
 
 When rotating SKUs, the literal strings live in **two files** that must agree (plus README + this doc):
 
-- `SignalStrengthPainter/ProStore.swift` — `monthlyProductID` / `yearlyProductID` constants.
-- `Configuration.storekit` — `productID` fields under each `subscriptions` entry. Also rotate all four `internalID` UUIDs (subscription + intro-offer per plan) so the local catalog treats them as fresh SKUs and doesn't carry over cached transaction state.
+- `SignalStrengthPainter/ProStore.swift` — `annualProductID` constant (active) + `legacyProductIDs` set (entitlement-only).
+- `Configuration.storekit` — `productID` fields under each `subscriptions` entry. Also rotate the `internalID` UUIDs (subscription + intro-offer) so the local catalog treats them as fresh SKUs and doesn't carry over cached transaction state.
 
 ### Version trains close after submission
 
@@ -492,7 +492,7 @@ Why all four matter despite App Review only quoting Info.plist: Xcode's General 
 1. Build TestFlight build with the latest changes.
 2. On a **real iPhone** (Sandbox testers only work on physical devices), Settings → App Store → Sandbox Account → fresh tester (create in ASC → Users and Access → Sandbox Testers).
 3. Detach `Configuration.storekit` first or use the TestFlight build (TestFlight ignores the storekit config) so the purchase actually goes through ASC products, not the local file.
-4. Tap "Start 3-Day Free Trial" on both Monthly and Yearly. Confirm system sheet shows "Try It Free" with trial terms; confirming flips `isProUser` and `Transaction.currentEntitlements` reflects the trial.
+4. Tap "Start 2-Day Free Trial". Confirm system sheet shows "Try It Free" with trial terms; confirming flips `isProUser` and `Transaction.currentEntitlements` reflects the trial. Also test the legacy-subscriber path: a Sandbox account with an active pre-1.11 monthly/yearly transaction should land on the app already Pro, with the paywall hidden behind the entitlement check.
 5. **Also test on iPad** — Apple has reviewed on iPad Air running the iPhone-only build in iPhone-compatibility mode.
 
 ## Marketing website (`website/`)
@@ -555,14 +555,14 @@ Reference for not re-introducing patterns that the warning sweep already cleared
 
 - `OUIDatabase.entries` is built from a `rawEntries: [(String, String)]` tuple array via `Dictionary(rawEntries, uniquingKeysWith: { first, _ in first })` so duplicate OUIs (one MAC prefix appearing under multiple vendors) don't trigger duplicate-key warnings. Adding more entries is safe; duplicates silently defer to whoever was listed first.
 - `SignalMapViewModel.startPingLoop` — `Timer.scheduledTimer` and `LatencyProbe`'s completion callback are nonisolated. Both are wrapped in `Task { @MainActor [weak self] in … }` to satisfy the concurrency checker.
-- `ProStore.monthlyProductID` / `yearlyProductID` / `allProductIDs` are `nonisolated static let` so SwiftUI views and `@ViewBuilder` bodies can reference them without a main-actor hop.
+- `ProStore.annualProductID` / `allProductIDs` / `legacyProductIDs` / `entitlementRecognizedProductIDs` are `nonisolated static let` so SwiftUI views and `@ViewBuilder` bodies can reference them without a main-actor hop.
 - `DashboardView` uses the two-parameter `.onChange(of:perform:)` form (`{ _, newPhase in }`) — single-parameter form was deprecated in iOS 17.
 - `NetworkScanner.probeLivenessRefused` and `probePort` use a `private final class AtomicBool: @unchecked Sendable` one-shot latch around an `NSLock`. The inner `finish` helpers are marked `@Sendable` because they're called from two different thread contexts (NWConnection state handler + `probeQueue.asyncAfter` timeout).
 - `SWIFT_STRICT_CONCURRENCY` is still `minimal`. Bumping to `complete` / `targeted` would surface more Timer/DispatchQueue closure patterns (`SignalMapViewModel`, `NetworkTopologyMonitor` Combine `sink`s) that need similar `Task { @MainActor in … }` wrappers.
 
 ## Possible follow-ups (not done)
 
-- **Win-back offer** (iOS 18+ `winBackOffer`) + **weekly $4.99/wk plan** — both in the monetization plan but not implemented. Win-back needs a cancelled-user detection path via `SubscriptionStatus` observation. Weekly plan should sit behind A/B before commitment.
+- **Win-back offer** (iOS 18+ `winBackOffer`) — needs a cancelled-user detection path via `SubscriptionStatus` observation. Could re-engage lapsed subscribers with a discounted annual offer.
 - Replace sample floor plans with **user-provided image** + scale/rotation calibration.
 - **Auto-follow surveyor** toggle — pan/zoom are in place, but the view doesn't yet auto-scroll to keep the surveyor centered while walking.
 - Tighter **multi-segment** landmark rotation (beyond first segment) if drift remains.

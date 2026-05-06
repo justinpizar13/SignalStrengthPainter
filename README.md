@@ -16,7 +16,7 @@ The project started life as a pedometer-based 2D "paint your walk" prototype (se
 - **Device discovery** that identifies ~every device on the LAN by name, vendor, type, and open ports, with per-network trust flags and custom nicknames.
 - **Klaus, the WiFi Buddy assistant** — a pixel-art mascot with his own dedicated tab. Offline keyword-matched Q&A across 100 topics, woven through with live in-app metrics ("your last Speed Test was…"). No LLM, no network calls, no servers.
 - **Light/dark/system** theming, persisted across launches.
-- **StoreKit 2 paywall** (monthly and yearly subscriptions) with a local `Configuration.storekit` for simulator testing.
+- **StoreKit 2 paywall** (single annual subscription) with a local `Configuration.storekit` for simulator testing.
 
 ## The five tabs
 
@@ -66,7 +66,7 @@ Trust flags and custom names are **scoped per network** — the network ID is de
 ### Pro (paywall)
 
 - StoreKit 2 integration via `ProStore.swift`.
-- **Monthly $3.99** and **Yearly $34.99** (with a `~~$39.99~~` strikethrough and "Best Deal" badge), plus a 3-day free trial on the yearly plan when the user is still eligible. Prices hydrate from `Product.products(for:)` when available.
+- **Annual $9.99** with a 2-day free trial when the user is still eligible. Single plan, no monthly/yearly toggle. Price hydrates from `Product.products(for:)` when available.
 - Paywall includes the full Apple-required subscription disclosure (auto-renewal, 24-hour cancellation window, Apple ID billing) plus tappable **Privacy Policy** and **Terms of Use** links that open `LegalDocumentView` over the bundled Markdown docs.
 - Buy / Restore are wired end-to-end. Entitlement is derived from `Transaction.currentEntitlements` (never persisted), with a long-lived `Transaction.updates` listener for Ask-to-Buy / refunds.
 - Local simulator testing via `Configuration.storekit` (referenced by the shared scheme; no per-developer setup needed).
@@ -134,7 +134,7 @@ MEMORY.md                                Session memory / detailed architecture 
 
 - The shared scheme already references `Configuration.storekit` under **Run → Options → StoreKit Configuration**, so Buy / Restore work in the Simulator without an Apple ID.
 - On a **physical device** launched from Xcode, StoreKit also uses the local config. If you detach the device and relaunch from the home screen, `Product.products(for:)` returns empty (the storekit config is scheme-scoped, not bundled in the app). Test purchases on-device either by staying attached to Xcode, by using the Simulator, or by configuring real products in App Store Connect and signing in with a Sandbox tester.
-- Product IDs (`com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly`) are declared in two places — `ProStore.swift` and `Configuration.storekit`. Keep them in sync when renaming.
+- The active product ID (`com.wifibuddy.pro.sub.annual`) is declared in two places — `ProStore.swift` and `Configuration.storekit`. Keep them in sync when renaming. Pre-1.11 IDs (`com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly`) live in `ProStore.legacyProductIDs` so existing subscribers keep their entitlement until their term ends.
 
 ### Running the Survey without a device
 
@@ -168,7 +168,7 @@ When preparing a new build for App Store Connect, double-check:
 - `Info.plist` has the four usage-description strings plus `ITSAppUsesNonExemptEncryption`, the orientation arrays, `UIRequiresFullScreen`, and `UIRequiredDeviceCapabilities`.
 - `PrivacyInfo.xcprivacy` is present in the target's **Copy Bundle Resources** phase (the project wires it in automatically).
 - `PrivacyPolicy.md` and `TermsOfUse.md` are in **Copy Bundle Resources**.
-- StoreKit product IDs (`com.wifibuddy.pro.sub.monthly`, `com.wifibuddy.pro.sub.yearly`) exist in App Store Connect with matching pricing tiers, and a 3-day free trial is configured on the yearly SKU if that funnel is enabled.
+- StoreKit product ID `com.wifibuddy.pro.sub.annual` exists in App Store Connect at $9.99/year with a 2-day free trial configured.
 - App Review Notes include: "Survey tab uses ARKit; please run on a physical device to exercise world tracking. Paywall disclosures and Privacy/Terms links are on the Pro tab."
 
 ## Further reading

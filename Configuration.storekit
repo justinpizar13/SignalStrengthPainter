@@ -80,58 +80,27 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "3.99",
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "060B6927-5472-4586-BA15-6494058BC324",
+          "internalID" : "A1B5F6E2-1B0A-4F4E-9C7D-7E2F8A3D4C90",
           "introductoryOffer" : {
             "displayPrice" : "0.00",
-            "internalID" : "4095C44D-E1D2-4984-9D92-E5EC83B26AEF",
+            "internalID" : "C7D9E2F1-3A5B-4F6E-8B7A-9D1E2F3A4B5C",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
+            "subscriptionPeriod" : "P2D"
           },
           "localizations" : [
             {
-              "description" : "Unlimited site surveys, dead-zone insights, and device identification.",
-              "displayName" : "WiFi Buddy Pro Monthly",
+              "description" : "Unlimited site surveys, dead-zone insights, and device identification. Billed once a year.",
+              "displayName" : "WiFi Buddy Pro",
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.wifibuddy.pro.sub.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "WiFi Buddy Pro Monthly",
-          "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
-          "type" : "RecurringSubscription"
-        },
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "34.99",
-          "familyShareable" : false,
-          "groupNumber" : 2,
-          "internalID" : "BDB8333F-3603-4417-AA39-84FBDF7AE28C",
-          "introductoryOffer" : {
-            "displayPrice" : "0.00",
-            "internalID" : "9F4AAAF0-AB70-42EF-B404-EB6FBC670C02",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
-          },
-          "localizations" : [
-            {
-              "description" : "Unlimited site surveys, dead-zone insights, and device identification. Billed yearly — best value.",
-              "displayName" : "WiFi Buddy Pro Yearly",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "com.wifibuddy.pro.sub.yearly",
+          "productID" : "com.wifibuddy.pro.sub.annual",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "WiFi Buddy Pro Yearly",
+          "referenceName" : "WiFi Buddy Pro Annual",
           "subscriptionGroupID" : "22222222-2222-4222-8222-222222222222",
           "type" : "RecurringSubscription"
         }

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: April 24, 2026_
+_Last updated: May 6, 2026_
 
 WiFi Buddy ("we", "our", "the app") is designed to help you understand
 and improve the Wi-Fi network you already have. We built the app with
@@ -70,7 +70,7 @@ transaction data — no server call from us is involved.
 
 If you permit them, the app schedules **local** notifications for:
 
-- Trial day-2 charge reminder
+- Free-trial charge reminder (24 hours before the trial ends)
 - Re-survey reminders (30 / 90 / 180 days after a completed survey)
 - New-device alerts on networks you've marked as trusted
 
