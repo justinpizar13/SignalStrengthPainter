@@ -66,7 +66,7 @@ Trust flags and custom names are **scoped per network** — the network ID is de
 ### Pro (paywall)
 
 - StoreKit 2 integration via `ProStore.swift`.
-- **Annual $9.99** with a 2-day free trial when the user is still eligible. Single plan, no monthly/yearly toggle. Price hydrates from `Product.products(for:)` when available.
+- **Annual $9.99** with a 3-day free trial when the user is still eligible. Single plan, no monthly/yearly toggle. Price hydrates from `Product.products(for:)` when available.
 - Paywall includes the full Apple-required subscription disclosure (auto-renewal, 24-hour cancellation window, Apple ID billing) plus tappable **Privacy Policy** and **Terms of Use** links that open `LegalDocumentView` over the bundled Markdown docs.
 - Buy / Restore are wired end-to-end. Entitlement is derived from `Transaction.currentEntitlements` (never persisted), with a long-lived `Transaction.updates` listener for Ask-to-Buy / refunds.
 - Local simulator testing via `Configuration.storekit` (referenced by the shared scheme; no per-developer setup needed).
@@ -168,7 +168,7 @@ When preparing a new build for App Store Connect, double-check:
 - `Info.plist` has the four usage-description strings plus `ITSAppUsesNonExemptEncryption`, the orientation arrays, `UIRequiresFullScreen`, and `UIRequiredDeviceCapabilities`.
 - `PrivacyInfo.xcprivacy` is present in the target's **Copy Bundle Resources** phase (the project wires it in automatically).
 - `PrivacyPolicy.md` and `TermsOfUse.md` are in **Copy Bundle Resources**.
-- StoreKit product ID `com.wifibuddy.pro.sub.annual` exists in App Store Connect at $9.99/year with a 2-day free trial configured.
+- StoreKit product ID `com.wifibuddy.pro.sub.annual` exists in App Store Connect at $9.99/year with a 3-day free trial configured.
 - App Review Notes include: "Survey tab uses ARKit; please run on a physical device to exercise world tracking. Paywall disclosures and Privacy/Terms links are on the Pro tab."
 
 ## Further reading

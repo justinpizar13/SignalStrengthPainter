@@ -21,7 +21,7 @@ WiFi Buddy Pro is a single auto-renewing annual subscription:
 
 - **Annual**: USD $9.99 / year
 
-Each new subscription starts with a **2-day free trial** if you are
+Each new subscription starts with a **3-day free trial** if you are
 eligible (first-time Pro subscribers only).
 
 **Billing terms** (required disclosures for auto-renewing

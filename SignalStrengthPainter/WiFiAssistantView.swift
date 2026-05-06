@@ -3066,7 +3066,7 @@ WiFi Buddy Pro unlocks three things:
 
 Everything else — Speed Test, live topology, Signal latency check, full Device discovery — is free, forever.
 
-Pricing: **$9.99/year** with a **2-day free trial** if you're a new user. Cancel anytime in Settings → Apple ID → Subscriptions.
+Pricing: **$9.99/year** with a **3-day free trial** if you're a new user. Cancel anytime in Settings → Apple ID → Subscriptions.
 """,
                 """
 Pro unlocks:
@@ -3077,7 +3077,7 @@ Pro unlocks:
 
 Everything else (Speed Test, live topology, Device discovery, network monitoring) is free.
 
-$9.99/year with a 2-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
+$9.99/year with a 3-day free trial for new users. Apple handles all the billing — you can cancel any time in your iOS Settings.
 """
             ],
             followUps: [

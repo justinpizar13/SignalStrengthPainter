@@ -89,7 +89,7 @@
             "internalID" : "C7D9E2F1-3A5B-4F6E-8B7A-9D1E2F3A4B5C",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P2D"
+            "subscriptionPeriod" : "P3D"
           },
           "localizations" : [
             {

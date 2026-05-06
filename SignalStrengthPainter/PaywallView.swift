@@ -34,7 +34,7 @@ struct PaywallView: View {
     /// Connect. Surfaced in CTA copy + the trial timeline + the legal
     /// disclosure block. If you change the trial period in either
     /// store config, change it here in the same commit.
-    private static let trialDays = 2
+    private static let trialDays = 3
 
     /// True when the user is still eligible to redeem the free trial.
     /// StoreKit reports this per subscription group, so a returning

@@ -43,7 +43,7 @@ Accepts a `size` parameter; everything scales proportionally. Used in tab header
 | `DashboardView.swift` | **Speed tab.** Live ISP→Router→Device topology, multi-stream speed test, post-test Wi-Fi report (Netflix/gaming/calls/office/browsing), service latency grid (Google/Cloudflare/OpenDNS/Gateway), survey quick-action card, hamburger button to `AboutView`. Auto-presents the Getting Started sheet on first launch (`@AppStorage("hasSeenGettingStarted")`). |
 | `NetworkTopologyMonitor.swift` | Live topology state. Publishes `localIP`, inferred `gatewayIP`, `gatewayLatencyMs`, `ispLatencyMs`, derived `LinkHealth` per hop (`.good/.fair/.poor/.offline/.unknown`). Refresh every 6 s + on `NetworkInterfaceMonitor` change. Cellular → LAN hop is `.unknown`, not `.offline`. `deviceLabel` uses `UIDevice.current.localizedModel`. |
 | `SpeedTestManager.swift` | Server selection (Cloudflare colo via `/meta`), latency (10 HTTP pings, trimmed mean + jitter), download + upload (8 concurrent async streams, 4 MB chunks, 12 s cap each). `TransferCounter` for byte tracking. Final speed = total bytes / elapsed time. |
-| `PaywallView.swift` | Pro upsell. 3-page swipeable feature tour (AR Survey / Smart Insights / Klaus AI), single non-interactive pricing tile ($9.99/year), "Subscribe" / "Start 2-Day Free Trial" CTA, trial timeline disclosure when eligible. Privacy Policy + Terms of Use links open `LegalDocumentView`. |
+| `PaywallView.swift` | Pro upsell. 3-page swipeable feature tour (AR Survey / Smart Insights / Klaus AI), single non-interactive pricing tile ($9.99/year), "Subscribe" / "Start 3-Day Free Trial" CTA, trial timeline disclosure when eligible. Privacy Policy + Terms of Use links open `LegalDocumentView`. |
 | `ProStore.swift` | StoreKit 2 manager (`@MainActor` `ObservableObject`). Loads products, runs purchases, restores. Detached `Transaction.updates` listener. **Entitlement only from `Transaction.currentEntitlements` — never persisted.** Publishes `hasActiveTrial`, `trialExpiration`, `gracePeriodExpiration`, `introOfferEligibleProductIDs`. Schedules a trial-end reminder (24h before expiry) via `UNUserNotificationCenter`. Recognizes legacy monthly/yearly product IDs in `entitlementRecognizedProductIDs` so pre-1.11 subscribers keep Pro. Detects empty-products case (descriptive `lastError`). `purchaseErrorMessage(for:)` switches on `Product.PurchaseError` / `StoreKitError` so failure alerts name the actual error. |
 | `ARTrackingManager.swift` | `ARWorldTrackingConfiguration`. Publishes world-space camera displacement from a session anchor, floor-projected heading, tracking status. |
 | `SignalMapViewModel.swift` | AR position → map coordinates, latency sampling, trail of `TrailPoint`s, calibration stages, landmark re-anchor, map rotation. |
@@ -154,9 +154,9 @@ Why deterministic and not LLM: same walk → same report; debuggable; no cloud c
 - Top of the paywall is a 3-page swipeable `TabView` whose pages map 1:1 to gated features (AR Wi-Fi Survey / Smart Insights / Klaus AI). Page dots are tappable + animated. Bound to `@State currentPage`. Per-page copy is intentionally specific.
 - **Pricing:** Single annual plan at **$9.99/year**. Single non-interactive pricing tile — no monthly/yearly toggle, no strikethrough "was" price, no "Best Deal" badge. Live `displayPrice` from StoreKit replaces the fallback string when `Product` metadata loads.
 
-  The live price is duplicated across **three** spots that must agree: `PaywallView.fallbackAnnualPrice`, the `displayPrice` in `Configuration.storekit`, and App Store Connect. The trial length lives in `PaywallView.trialDays` and `Configuration.storekit`'s `subscriptionPeriod` (`P2D`) — keep them in lockstep.
+  The live price is duplicated across **three** spots that must agree: `PaywallView.fallbackAnnualPrice`, the `displayPrice` in `Configuration.storekit`, and App Store Connect. The trial length lives in `PaywallView.trialDays` and `Configuration.storekit`'s `subscriptionPeriod` (`P3D`) — keep them in lockstep. App Store Connect enforces a **3-day minimum** for free-trial introductory offers, so anything shorter will fail submission.
 
-- **2-day free trial:** Annual plan carries an `introductoryOffer` of type `freeTrial` (`P2D`) in `Configuration.storekit`. Eligibility is checked via `Product.SubscriptionInfo.isEligibleForIntroOffer(for:)` so returning subscribers — including anyone who burned the trial on a legacy monthly/yearly SKU — don't see trial copy they can't use. CTA flips to **"Start 2-Day Free Trial"** when `trialAvailable` is true. Trial timeline + cancel-anytime disclosure is shown.
+- **3-day free trial:** Annual plan carries an `introductoryOffer` of type `freeTrial` (`P3D`) in `Configuration.storekit`. Eligibility is checked via `Product.SubscriptionInfo.isEligibleForIntroOffer(for:)` so returning subscribers — including anyone who burned the trial on a legacy monthly/yearly SKU — don't see trial copy they can't use. CTA flips to **"Start 3-Day Free Trial"** when `trialAvailable` is true. Trial timeline + cancel-anytime disclosure is shown.
 - **Trial-end reminder:** `ProStore.scheduleTrialEndReminderIfNeeded(...)` fires a one-shot `UNUserNotificationCenter` notification at `trialExpiration - 24h` — i.e., 24 hours before the trial converts to a paid subscription. Identifier `wifibuddy.trial.day2.reminder` (kept for backward compatibility despite the day-N renaming), keyed by transaction ID for idempotency. `clearTrialReminder()` fires on transition out of trial.
 - **Grace period:** `ProStore.refreshGracePeriodStatus(...)` reads `Product.SubscriptionInfo.RenewalInfo.gracePeriodExpirationDate`. During the billing-retry window `isProUser` **stays true** and `MainTabView` renders a `GracePeriodBanner` safe-area inset. Matches Apple's own UX — never rip features away mid-renewal.
 - **StoreKit 2 integration (`ProStore.swift`):**
@@ -415,7 +415,7 @@ When the contact email or "Last updated" date changes, update **all four** legal
 ASC dashboard tasks for first submission:
 
 1. Create app record using `com.wifibuddy.app`.
-2. Configure the annual subscription in the WiFi Buddy Pro group with the price + 2-day free trial that `TermsOfUse.md` commits to ($9.99/year). Legacy monthly + yearly SKUs stay listed in ASC for existing-subscriber entitlement (the app honors them via `legacyProductIDs`) but are no longer offered for new purchase.
+2. Configure the annual subscription in the WiFi Buddy Pro group with the price + 3-day free trial that `TermsOfUse.md` commits to ($9.99/year). Legacy monthly + yearly SKUs stay listed in ASC for existing-subscriber entitlement (the app honors them via `legacyProductIDs`) but are no longer offered for new purchase.
 3. Upload screenshots at 6.7" / 6.5" / 5.5" iPhone. **No iPad screenshots required** (iPhone-only target).
 4. App Privacy questionnaire — answer "Data Not Collected" everywhere (must match `PrivacyInfo.xcprivacy`).
 5. App Review Notes: *"Survey tab uses ARKit; please test on a physical device. Paywall with Privacy Policy + Terms links is on the Pro tab; Klaus chat has its own dedicated tab."*
@@ -455,7 +455,7 @@ Other ASC items to verify before resubmitting (in order of likelihood):
 
 - Original: `com.wifibuddy.pro.monthly` / `com.wifibuddy.pro.yearly` (deleted during ASC rebuild).
 - Then: `com.wifibuddy.pro.sub.monthly` / `com.wifibuddy.pro.sub.yearly` (deleted yearly when collapsing to single-plan; monthly retained in ASC for legacy subscribers).
-- Now: `com.wifibuddy.pro.sub.annual` (active SKU, $9.99/year, 2-day trial).
+- Now: `com.wifibuddy.pro.sub.annual` (active SKU, $9.99/year, 3-day trial).
 
 When rotating SKUs, the literal strings live in **two files** that must agree (plus README + this doc):
 
@@ -492,7 +492,7 @@ Why all four matter despite App Review only quoting Info.plist: Xcode's General 
 1. Build TestFlight build with the latest changes.
 2. On a **real iPhone** (Sandbox testers only work on physical devices), Settings → App Store → Sandbox Account → fresh tester (create in ASC → Users and Access → Sandbox Testers).
 3. Detach `Configuration.storekit` first or use the TestFlight build (TestFlight ignores the storekit config) so the purchase actually goes through ASC products, not the local file.
-4. Tap "Start 2-Day Free Trial". Confirm system sheet shows "Try It Free" with trial terms; confirming flips `isProUser` and `Transaction.currentEntitlements` reflects the trial. Also test the legacy-subscriber path: a Sandbox account with an active pre-1.11 monthly/yearly transaction should land on the app already Pro, with the paywall hidden behind the entitlement check.
+4. Tap "Start 3-Day Free Trial". Confirm system sheet shows "Try It Free" with trial terms; confirming flips `isProUser` and `Transaction.currentEntitlements` reflects the trial. Also test the legacy-subscriber path: a Sandbox account with an active pre-1.11 monthly/yearly transaction should land on the app already Pro, with the paywall hidden behind the entitlement check.
 5. **Also test on iPad** — Apple has reviewed on iPad Air running the iPhone-only build in iPhone-compatibility mode.
 
 ## Marketing website (`website/`)
