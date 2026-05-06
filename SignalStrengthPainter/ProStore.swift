@@ -37,19 +37,26 @@ final class ProStore: ObservableObject {
     /// Pre-1.11 product IDs. Existing subscribers on these legacy SKUs
     /// must keep their Pro entitlement until their term ends — Apple
     /// honors the original price/term until the user cancels or it
-    /// expires. We DON'T load these into `Product.products(for:)` (so
-    /// they never appear on the paywall), but we DO accept them inside
-    /// `Transaction.currentEntitlements` so an existing subscriber
-    /// upgrading to the 1.11 binary doesn't suddenly lose access.
-    /// When the last legacy subscriber expires, this set can be emptied
-    /// — but there's no harm in leaving it indefinitely.
+    /// expires. We load these into `Product.products(for:)` so that
+    /// `refreshGracePeriodStatus` can query their subscription status
+    /// (a legacy subscriber whose card declines would otherwise lose
+    /// Pro during the billing-retry window because the grace check
+    /// iterates `products`). The paywall reads
+    /// `product(for: annualProductID)` only, so loading legacy product
+    /// metadata does NOT surface old plans for purchase. We DO accept
+    /// them inside `Transaction.currentEntitlements` so an existing
+    /// subscriber upgrading to the 1.11 binary doesn't suddenly lose
+    /// access. When the last legacy subscriber expires, this set can
+    /// be emptied — but there's no harm in leaving it indefinitely.
     nonisolated static let legacyProductIDs: Set<String> = [
         "com.wifibuddy.pro.sub.monthly",
         "com.wifibuddy.pro.sub.yearly"
     ]
 
-    /// Union of currently-offered + legacy IDs. This is the set we
-    /// match against when walking `Transaction.currentEntitlements`.
+    /// Union of currently-offered + legacy IDs. We use this set both
+    /// for the `Product.products(for:)` fetch (so legacy SKUs have
+    /// loaded `subscription.status` available for grace-period checks)
+    /// AND for matching against `Transaction.currentEntitlements`.
     nonisolated static let entitlementRecognizedProductIDs: Set<String> =
         allProductIDs.union(legacyProductIDs)
 
@@ -139,7 +146,14 @@ final class ProStore: ObservableObject {
         defer { isLoadingProducts = false }
 
         do {
-            let loaded = try await Product.products(for: Self.allProductIDs)
+            // Fetch metadata for the currently-offered SKU AND any legacy
+            // SKUs still held by pre-1.11 subscribers. The paywall only
+            // reads `product(for: annualProductID)` so legacy SKUs never
+            // surface for purchase — they're loaded purely so
+            // `refreshGracePeriodStatus` can query each subscription's
+            // status and keep legacy subscribers entitled during a
+            // billing-retry / grace-period window.
+            let loaded = try await Product.products(for: Self.entitlementRecognizedProductIDs)
             self.products = loaded
 
             await refreshIntroOfferEligibility()
@@ -147,17 +161,18 @@ final class ProStore: ObservableObject {
             // `Product.products(for:)` does NOT throw when the store simply
             // has nothing to return for our IDs — most commonly because the
             // app isn't attached to Xcode's StoreKit config file on device,
-            // or the IDs aren't in App Store Connect / Sandbox yet. Detect
-            // that here so the UI can say something useful instead of the
-            // generic "try again" message.
-            if loaded.isEmpty {
+            // or the IDs aren't in App Store Connect / Sandbox yet. We
+            // specifically check that the *annual* product loaded (not just
+            // that *something* loaded) so a misconfigured ASC where only a
+            // legacy SKU is attached still surfaces a useful error instead
+            // of silently breaking the buy button.
+            if loaded.first(where: { $0.id == Self.annualProductID }) == nil {
                 #if DEBUG
                 lastError = """
-                    No WiFi Buddy Pro products were returned by StoreKit. \
+                    WiFi Buddy Pro's annual subscription wasn't returned by StoreKit. \
                     On a physical device, launch the app from Xcode (⌘R) so \
                     Configuration.storekit is attached — or configure a \
-                    Sandbox tester. Product IDs expected: \
-                    \(Self.allProductIDs.sorted().joined(separator: ", "))
+                    Sandbox tester. Product ID expected: \(Self.annualProductID).
                     """
                 #else
                 lastError = "WiFi Buddy Pro isn't available right now. Please try again later."
